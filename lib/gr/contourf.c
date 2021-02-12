@@ -16,9 +16,9 @@
 #endif
 
 #ifdef _MSC_VER
-#define _inf -logf(0.0)
+#define _inf (-logf(0.0))
 #else
-#define _inf -INF
+#define _inf (-INF)
 #endif
 
 #define DEFAULT_CONTOUR_LINES 16 /* default number of contour lines */
@@ -31,9 +31,9 @@
 #define SADDLE1 (1 << 4)
 #define SADDLE2 (1 << 5)
 
-typedef struct _list
+typedef struct
 {
-  struct _list *list;
+  unsigned char *list;
   size_t size;
   size_t _capacity;
   size_t _element_size;
@@ -59,7 +59,7 @@ static void list_append(_list_t *list, const void *data)
       assert(list->list);
       list->_capacity *= 2;
     }
-  memcpy(list->list + list->size * list->_element_size, data, list->_element_size);
+  memcpy(list->list + list->size * list->_element_size, (const unsigned char *)data, list->_element_size);
   list->size++;
 }
 
@@ -69,7 +69,7 @@ static void *list_get(const _list_t *list, size_t ind)
     {
       return NULL;
     }
-  return list->list + list->_element_size * ind;
+  return (void *)(list->list + list->_element_size * ind);
 }
 
 static void list_destroy(_list_t *list)
