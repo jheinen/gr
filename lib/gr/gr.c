@@ -1968,9 +1968,13 @@ void gr_cellarray(double xmin, double xmax, double ymin, double ymax, int dimx, 
  * \param[in] nrow number of rows displayed
  * \param[in] color color index array
  *
- * The values for `x` and `y` are in world coordinates. `x` must contain `dimx`+1 elements
- * and `y` must contain `dimy`+1 elements. The elements i and i+1 are respectively the edges
- * of the i-th cell in X and Y direction.
+ * The values for `x` and `y` are in world coordinates.
+ *
+ * If `dimx` and `dimy` are positive `x` must contain `dimx`+1 elements and `y` must contain `dimy`+1 elements. The
+ * elements i and i+1 are respectively the edges of the i-th cell in X and Y direction.
+ *
+ * If `dimx` and `dimy` are negative `x` must contain `-dimx` elements and `y` must contain `-dimy` elements. The
+ * i-th element is the center of the i-th cell.
  *
  * To draw all cells of the color index array use:
  *
@@ -1983,9 +1987,22 @@ void gr_cellarray(double xmin, double xmax, double ymin, double ymax, int dimx, 
 void gr_nonuniformcellarray(double *x, double *y, int dimx, int dimy, int scol, int srow, int ncol, int nrow,
                             int *color)
 {
-  int img_data_x, img_data_y, color_x_ind, color_y_ind, color_ind, size = 2000;
+  int img_data_x, img_data_y, color_x_ind, color_y_ind, color_ind, edges_x = 1, edges_y = 1, size = 2000;
   int *img_data;
-  double x_pos, y_pos, x_size, y_size;
+  double x_pos, y_pos, x_size, y_size, *x_orig = NULL, *y_orig = NULL;
+
+  if (dimx < 0)
+    {
+      dimx = -dimx;
+      edges_x = 0;
+      x_orig = x;
+    }
+  if (dimy < 0)
+    {
+      dimy = -dimy;
+      edges_y = 0;
+      y_orig = y;
+    }
 
   if (scol < 1 || srow < 1 || scol + ncol - 1 > dimx || srow + nrow - 1 > dimy)
     {
@@ -2000,10 +2017,40 @@ void gr_nonuniformcellarray(double *x, double *y, int dimx, int dimy, int scol, 
   nrow += srow;
   ncol += scol;
 
+  if (!edges_x)
+    {
+      x = (double *)gks_malloc(sizeof(double) * (ncol + 1));
+      x[scol] = x_orig[scol];
+      for (color_x_ind = scol + 1; color_x_ind < ncol; color_x_ind++)
+        {
+          x[color_x_ind] = 0.5 * (x_orig[color_x_ind] + x_orig[color_x_ind - 1]);
+        }
+      x[ncol] = x_orig[ncol - 1];
+    }
+
+  if (!edges_y)
+    {
+      y = (double *)gks_malloc(sizeof(double) * (nrow + 1));
+      y[srow] = y_orig[srow];
+      for (color_y_ind = srow + 1; color_y_ind < nrow; color_y_ind++)
+        {
+          y[color_y_ind] = 0.5 * (y_orig[color_y_ind] + y_orig[color_y_ind - 1]);
+        }
+      y[nrow] = y_orig[nrow - 1];
+    }
+
   for (color_x_ind = scol; color_x_ind < ncol; color_x_ind++)
     {
       if (x[color_x_ind] > x[color_x_ind + 1])
         {
+          if (!edges_x)
+            {
+              gks_free(x);
+            }
+          if (!edges_y)
+            {
+              gks_free(y);
+            }
           fprintf(stderr, "x points not sorted in ascending order\n");
           return;
         }
@@ -2013,6 +2060,14 @@ void gr_nonuniformcellarray(double *x, double *y, int dimx, int dimy, int scol, 
     {
       if (y[color_y_ind] > y[color_y_ind + 1])
         {
+          if (!edges_x)
+            {
+              gks_free(x);
+            }
+          if (!edges_y)
+            {
+              gks_free(y);
+            }
           fprintf(stderr, "y points not sorted in ascending order\n");
           return;
         }
@@ -2053,6 +2108,14 @@ void gr_nonuniformcellarray(double *x, double *y, int dimx, int dimy, int scol, 
 
   gr_drawimage(x[scol], x[ncol], y[nrow], y[srow], size, size, img_data, 0);
   free(img_data);
+  if (!edges_x)
+    {
+      gks_free(x);
+    }
+  if (!edges_y)
+    {
+      gks_free(y);
+    }
 }
 
 /*!
@@ -2254,8 +2317,11 @@ void gr_polarcellarray(double x_org, double y_org, double phimin, double phimax,
  * The mapping of the polar coordinates and the drawing is performed simialr to `gr_polarcellarray`
  * with the difference that the individual cell sizes are specified allowing nonuniform sized cells.
  *
- * `phi` must contain `dimphi`+1 elements and `r` must contain `dimr`+1 elements. The elements
- * i and i+1 are respectively the edges of the i-th cell.
+ * If `dimphi` and `dimr` are positive `phi` must contain `dimphi`+1 elements and `r` must contain `dimr`+1 elements and
+ * the elements i and i+1 are respectively the edges of the i-th cell.
+ *
+ * If `dimphi` and `dimr` are negative `phi` must contain `-dimphi` elements and `r` must contain `-dimr` elements and
+ * the i-th element is the center of the i-th cell.
  *
  * `scol` and `srow` can be used to specify a (1-based) starting column and row
  * in the `color`, `phi` and `r` array. `dimr` and `dimphi` specify the actual dimension of the
@@ -2265,10 +2331,22 @@ void gr_polarcellarray(double x_org, double y_org, double phimin, double phimax,
 void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double *r, int dimphi, int dimr, int scol,
                                  int srow, int ncol, int nrow, int *color)
 {
-  int x, y, color_ind, r_ind, phi_ind, phi_reverse, r_reverse, start, end, size = 2000;
+  int x, y, color_ind, r_ind, phi_ind, phi_reverse, r_reverse, start, end, edges_phi = 1, edges_r = 1, size = 2000;
   int *img_data;
   double cur_r, cur_phi, tmp, phimin, phimax, rmin, rmax, center = size / 2.;
   double *r_sorted, *phi_sorted;
+  if (dimphi < 0)
+    {
+      edges_phi = 0;
+      dimphi = -dimphi;
+      ncol--;
+    }
+  if (dimr < 0)
+    {
+      edges_r = 0;
+      dimr = -dimr;
+      nrow--;
+    }
 
   if (!(scol >= 1 && srow >= 1 && scol + ncol - 1 <= dimphi && srow + nrow - 1 <= dimr))
     {
@@ -2302,17 +2380,37 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
       rmin = rmax;
       rmax = tmp;
     }
-  r_sorted = (double *)gks_malloc(sizeof(double) * (nrow - srow + 2));
-
+  if (!edges_r)
+    {
+      r_sorted = (double *)gks_malloc(sizeof(double) * (nrow - srow + 3));
+    }
+  else
+    {
+      r_sorted = (double *)gks_malloc(sizeof(double) * (nrow - srow + 2));
+    }
   for (y = 0; y < nrow - srow + 2; y++)
     {
       if (r_reverse)
         {
-          r_sorted[y] = r[nrow - y];
+          if (!edges_r && y)
+            {
+              r_sorted[y] = 0.5 * (r[nrow - y] + r[nrow - y + 1]);
+            }
+          else
+            {
+              r_sorted[y] = r[nrow - y];
+            }
         }
       else
         {
-          r_sorted[y] = r[srow - 1 + y];
+          if (!edges_r && y)
+            {
+              r_sorted[y] = 0.5 * (r[srow - 1 + y] + r[srow - 2 + y]);
+            }
+          else
+            {
+              r_sorted[y] = r[srow - 1 + y];
+            }
         }
       if (y && r_sorted[y] < r_sorted[y - 1])
         {
@@ -2321,6 +2419,18 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
           return;
         }
     }
+  if (!edges_r)
+    {
+      if (r_reverse)
+        {
+          r_sorted[nrow - srow + 2] = r[srow - 1];
+        }
+      else
+        {
+          r_sorted[nrow - srow + 2] = r[nrow];
+        }
+      nrow++;
+    }
 
   if ((phi_reverse = phimin > phimax))
     {
@@ -2328,17 +2438,37 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
       phimin = phimax;
       phimax = tmp;
     }
-  phi_sorted = (double *)gks_malloc(sizeof(double) * (ncol - scol + 2));
-
+  if (!edges_phi)
+    {
+      phi_sorted = (double *)gks_malloc(sizeof(double) * (ncol - scol + 3));
+    }
+  else
+    {
+      phi_sorted = (double *)gks_malloc(sizeof(double) * (ncol - scol + 2));
+    }
   for (x = 0; x < ncol - scol + 2; x++)
     {
       if (phi_reverse)
         {
-          phi_sorted[x] = phi[ncol - x];
+          if (!edges_phi && x)
+            {
+              phi_sorted[x] = 0.5 * (phi[ncol - x] + phi[ncol - x + 1]);
+            }
+          else
+            {
+              phi_sorted[x] = phi[ncol - x];
+            }
         }
       else
         {
-          phi_sorted[x] = phi[scol - 1 + x];
+          if (!edges_phi && x)
+            {
+              phi_sorted[x] = 0.5 * (phi[scol - 1 + x] + phi[scol - 2 + x]);
+            }
+          else
+            {
+              phi_sorted[x] = phi[scol - 1 + x];
+            }
         }
       phi_sorted[x] = phi_sorted[x] - phimax + 360;
       if (x && phi_sorted[x] < phi_sorted[x - 1])
@@ -2349,6 +2479,19 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
           return;
         }
     }
+  if (!edges_phi)
+    {
+      if (phi_reverse)
+        {
+          phi_sorted[ncol - scol + 2] = phi[scol - 1] - phimax + 360;
+        }
+      else
+        {
+          phi_sorted[ncol - scol + 2] = phi[ncol] - phimax + 360;
+        }
+      ncol++;
+    }
+
   phimin = fmod(phimin, 360);
   phimax = fmod(phimax, 360);
 
@@ -2369,11 +2512,11 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
 
           if (phi_reverse)
             {
-              cur_phi = fmod(phimax - fmod(atan2(py, px) * 180 / M_PI + 360, 360) + phimin + 360 - phimax, 360);
+              cur_phi = fmod(-fmod(atan2(py, px) * 180 / M_PI + 360, 360) + phimin + 2 * 360, 360);
             }
           else
             {
-              cur_phi = fmod(fmod(atan2(py, px) * 180 / M_PI + 360, 360) + 360 - phimax, 360);
+              cur_phi = fmod(fmod(atan2(py, px) * 180 / M_PI + 360, 360) + 2 * 360 - phimax, 360);
             }
 
           start = 0;
