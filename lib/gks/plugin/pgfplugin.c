@@ -111,7 +111,7 @@ typedef struct ws_state_list_t
   int cx[MAX_TNR], cy[MAX_TNR], cwidth[MAX_TNR], cheight[MAX_TNR];
   int clip_index, path_index, path_counter;
   double rect[MAX_TNR][2][2];
-  int scoped, png_counter, pattern_counter, usesymbols;
+  int scoped, png_counter, usesymbols;
   int dashes[10];
   int tex_file;
 } ws_state_list;
@@ -441,10 +441,19 @@ static void fill_routine(int n, double *px, double *py, int tnr)
   fl_inter = gkss->asf[10] ? gkss->ints : predef_ints[gkss->findex - 1];
   if (fl_inter == GKS_K_INTSTYLE_PATTERN || fl_inter == GKS_K_INTSTYLE_HATCH)
     {
+      fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
+      if (fl_inter == GKS_K_INTSTYLE_HATCH)
+        {
+          fl_style += HATCH_STYLE;
+        }
+      if (fl_style >= PATTERNS)
+        {
+          fl_style = 1;
+        }
       pgf_printf(p->stream,
                  "\\fill[pattern=mypattern%d, pattern color=mycolor, "
                  "thickness=%dpt] (%f,%f)",
-                 p->pattern_counter, p->linewidth, ix, iy);
+                 fl_style, p->linewidth, ix, iy);
     }
   else if (fl_inter == GKS_K_INTSTYLE_SOLID)
     {
@@ -493,11 +502,11 @@ static void fill_routine(int n, double *px, double *py, int tnr)
       gks_inq_pattern_array(fl_style, pattern);
       size = pattern[0];
       pgf_printf(p->patternstream,
-                 "\\pgfdeclarepatternformonly[\\thickness]"
+                 "\\providepgfdeclarepatternformonly[\\thickness]"
                  "{mypattern%d}\n{\\pgfpointorigin}{\\pgfpointxy{8}{%d}}"
                  "{\\pgfpointxy{8}{%d}}\n{\n"
                  "\\pgfsetlinewidth{\\thickness}\n",
-                 p->pattern_counter, size, size);
+                 fl_style, size, size);
       for (j = 1; j < size + 1; j++)
         {
           for (i = 0; i < 8; i++)
@@ -514,7 +523,6 @@ static void fill_routine(int n, double *px, double *py, int tnr)
         }
       pgf_printf(p->patternstream, "\\pgfusepath{fill}\n}\n");
     }
-  p->pattern_counter++;
 }
 
 static void fillarea(int n, double *px, double *py)
@@ -893,6 +901,15 @@ static void open_page(void)
                    "thickness/.code={\\thickness=#1},\n"
                    "thickness=1pt\n}\n");
       gks_write_file(fd, buf, strlen(buf));
+      sprintf(buf, "\\makeatletter\n"
+                   "\\@ifundefined{providepgfdeclarepatternformonly}{\n"
+                   "\\newcommand{\\providepgfdeclarepatternformonly}[6][]{"
+                   "\\pgfutil@ifundefined{pgf@pattern@name@#2}{"
+                   "\\pgfdeclarepatternformonly[#1]{#2}{#3}{#4}{#5}{#6}"
+                   "}{}}\n"
+                   "}{}\n"
+                   "\\makeatother\n");
+      gks_write_file(fd, buf, strlen(buf));
     }
   else
     {
@@ -1220,7 +1237,6 @@ void gks_pgfplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double
       p->offset = 0;
 
       p->png_counter = 0;
-      p->pattern_counter = 0;
 
       set_xform();
       init_norm_xform();
