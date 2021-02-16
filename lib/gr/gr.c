@@ -1973,8 +1973,8 @@ void gr_cellarray(double xmin, double xmax, double ymin, double ymax, int dimx, 
  * If `dimx` and `dimy` are positive `x` must contain `dimx`+1 elements and `y` must contain `dimy`+1 elements. The
  * elements i and i+1 are respectively the edges of the i-th cell in X and Y direction.
  *
- * If `dimx` and `dimy` are negative `x` must contain `-dimx` elements and `y` must contain `-dimy` elements. The
- * i-th element is the center of the i-th cell.
+ * If `dimx` and `dimy` are negative `x` must contain `-dimx` elements and `y` must contain `-dimy` elements. The i-th
+ * element is the center of the i-th cell, and the first and last elements will also be the edges of the outer cells.
  *
  * To draw all cells of the color index array use:
  *
@@ -2004,7 +2004,8 @@ void gr_nonuniformcellarray(double *x, double *y, int dimx, int dimy, int scol, 
       y_orig = y;
     }
 
-  if (scol < 1 || srow < 1 || scol + ncol - 1 > dimx || srow + nrow - 1 > dimy)
+  if (scol < 1 || srow < 1 || scol + ncol - 1 > dimx || srow + nrow - 1 > dimy || (!edges_x && ncol < 2) ||
+      (!edges_y && nrow < 2))
     {
       fprintf(stderr, "Dimensions of color index array are invalid.\n");
       return;
@@ -2321,7 +2322,8 @@ void gr_polarcellarray(double x_org, double y_org, double phimin, double phimax,
  * the elements i and i+1 are respectively the edges of the i-th cell.
  *
  * If `dimphi` and `dimr` are negative `phi` must contain `-dimphi` elements and `r` must contain `-dimr` elements and
- * the i-th element is the center of the i-th cell.
+ * the i-th element is the center of the i-th cell, and the first and last elements will also be the edges of the outer
+ * cells.
  *
  * `scol` and `srow` can be used to specify a (1-based) starting column and row
  * in the `color`, `phi` and `r` array. `dimr` and `dimphi` specify the actual dimension of the
@@ -2348,7 +2350,8 @@ void gr_nonuniformpolarcellarray(double x_org, double y_org, double *phi, double
       nrow--;
     }
 
-  if (!(scol >= 1 && srow >= 1 && scol + ncol - 1 <= dimphi && srow + nrow - 1 <= dimr))
+  if (scol < 1 || srow < 1 || scol + ncol - 1 > dimphi || srow + nrow - 1 > dimr || (!edges_phi && ncol < 1) ||
+      (!edges_r && nrow < 1))
     {
       fprintf(stderr, "Dimensions of color index array are invalid.\n");
       return;
