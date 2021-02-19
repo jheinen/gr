@@ -595,9 +595,9 @@ static void set_clipping(Bool state)
   int i, j;
   XRectangle rt;
 
-  if (state && gksl->clip == GKS_K_CLIP)
+  if (state && (gksl->clip_tnr != 0 || gksl->clip == GKS_K_CLIP))
     {
-      memmove(clrt, gksl->viewport[gksl->cntnr], 4 * sizeof(double));
+      memmove(clrt, gksl->viewport[gksl->clip_tnr != 0 ? gksl->clip_tnr : gksl->cntnr], 4 * sizeof(double));
       seg_xform(&clrt[0], &clrt[2]);
       seg_xform(&clrt[1], &clrt[3]);
       i = clrt[0] < clrt[1] ? 0 : 1;

@@ -668,6 +668,9 @@ DLLEXPORT void gks_inq_border_color_index(int *errind, int *coli);
 DLLEXPORT void gks_set_border_width(double bwidth);
 DLLEXPORT void gks_inq_border_width(int *errind, double *bwidth);
 
+DLLEXPORT void gks_select_clip_xform(int tnr);
+DLLEXPORT void gks_inq_clip_xform(int *errind, int *tnr);
+
 DLLEXPORT void gks_set_resample_method(unsigned int flag);
 DLLEXPORT void gks_inq_resample_method(unsigned int *flag);
 

@@ -110,6 +110,7 @@ extern "C" {
 #define CONFIGURE_WS 205
 #define SET_BORDER_WIDTH 206
 #define SET_BORDER_COLOR_INDEX 207
+#define SELECT_CLIP_XFORM 208
 
 #define BEGIN_SELECTION 250
 #define END_SELECTION 251
@@ -160,6 +161,7 @@ typedef struct
   unsigned int resample_method;
   double bwidth;
   int bcoli;
+  int clip_tnr;
   char *(*callback)(const char *);
 } gks_state_list_t;
 

@@ -173,6 +173,8 @@ void gr_setborderwidth(double);
 void gr_inqborderwidth(double *);
 void gr_setbordercolorind(int);
 void gr_inqbordercolorind(int *);
+void gr_selectclipxform(int);
+void gr_inqclipxform(int *);
 void gr_setprojectiontype(int);
 void gr_inqprojectiontype(int *);
 void gr_setperspectiveprojection(double, double, double);

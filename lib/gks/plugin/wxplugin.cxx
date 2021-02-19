@@ -211,8 +211,8 @@ static void set_clip_rect(int tnr)
 #else
   p->pixmap->DestroyClippingRegion();
 #endif
-  if (gkss->clip == GKS_K_CLIP)
-    p->pixmap->SetClippingRegion(p->rect[tnr]);
+  if (gkss->clip_tnr != 0 || gkss->clip == GKS_K_CLIP)
+    p->pixmap->SetClippingRegion(p->rect[gkss->clip_tnr != 0 ? gkss->clip_tnr : tnr]);
   else
     p->pixmap->SetClippingRegion(p->rect[0]);
 }

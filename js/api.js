@@ -147,6 +147,8 @@ function GR(canvas_id) {
     this.inqborderwidth = gr_inqborderwidth;
     this.setbordercolorind = gr_setbordercolorind;
     this.inqbordercolorind = gr_inqbordercolorind;
+    this.selectclipxform = gr_selectclipxform;
+    this.inqclipxform = gr_inqclipxform;
 
     // set canvas and context
     Module.set_canvas(canvas_id);
@@ -1356,6 +1358,17 @@ gr_inqbordercolorind = function() {
     gr_inqbordercolorind_c(_coli);
     result = Module.HEAP32.subarray(_coli / 4, _coli / 4 + 1)[0];
     freearray(_coli);
+    return result;
+};
+
+gr_selectclipxform = Module.cwrap('gr_selectclipxform', '', ['number', ]);
+
+gr_inqclipxform_c = Module.cwrap('gr_inqclipxform', '', ['number', ]);
+gr_inqclipxform = function() {
+    var _tnr = Module._malloc(4);
+    gr_inqclipxform_c(_tnr);
+    result = Module.HEAP32.subarray(_tnr / 4, _tnr / 4 + 1)[0];
+    freearray(_tnr);
     return result;
 };
 

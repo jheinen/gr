@@ -184,6 +184,8 @@ DLLEXPORT void gr_setborderwidth(double);
 DLLEXPORT void gr_inqborderwidth(double *);
 DLLEXPORT void gr_setbordercolorind(int);
 DLLEXPORT void gr_inqbordercolorind(int *);
+DLLEXPORT void gr_selectclipxform(int);
+DLLEXPORT void gr_inqclipxform(int *);
 DLLEXPORT void gr_setprojectiontype(int);
 DLLEXPORT void gr_inqprojectiontype(int *);
 DLLEXPORT void gr_setperspectiveprojection(double, double, double);

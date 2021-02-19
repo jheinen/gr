@@ -1271,7 +1271,9 @@ static void set_clip_path(int tnr)
   double cxl, cxr, cyb, cyt;
   int i, found = 0, index;
 
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0)
+    vp = gkss->viewport[gkss->clip_tnr];
+  else if (gkss->clip == GKS_K_CLIP)
     vp = gkss->viewport[tnr];
   else
     vp = gkss->viewport[0];

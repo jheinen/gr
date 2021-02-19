@@ -188,7 +188,9 @@ static void set_clip_rect(int tnr)
 {
   int *clrt;
 
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0)
+    clrt = p->rect[gkss->clip_tnr];
+  else if (gkss->clip == GKS_K_CLIP)
     clrt = p->rect[tnr];
   else
     clrt = p->rect[0];

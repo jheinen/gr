@@ -781,7 +781,7 @@ static void update(void)
     }
 }
 
-static void set_clipping(double *clrt)
+static void set_clip(double *clrt)
 {
   int i, j;
   int ix1, ix2, iy1, iy2;
@@ -1129,7 +1129,7 @@ static void ps_init(int *pages)
   set_markersize(-1.0);
   packb("0 ma");
   set_font(-1);
-  set_clipping(p->window);
+  set_clip(p->window);
   packb("%%EndPageSetup");
   update();
 }
@@ -1260,8 +1260,7 @@ static void cell_array(double xmin, double xmax, double ymin, double ymax, int d
 {
   char buffer[100];
   unsigned char *buf, *bufP;
-  int clsw;
-  double clrt[4], x1, x2, y1, y2;
+  double x1, x2, y1, y2;
   int w, h, x, y;
 
   int i, j, ci, len, swap = 0;
@@ -1285,10 +1284,7 @@ static void cell_array(double xmin, double xmax, double ymin, double ymax, int d
 
   packb("gsave");
 
-  clsw = gkss->clip;
-  for (i = 0; i < 4; i++) clrt[i] = gkss->viewport[clsw == GKS_K_CLIP ? tnr : 0][i];
-
-  set_clipping(clrt);
+  set_clip(gkss->viewport[gkss->clip == GKS_K_CLIP ? tnr : 0]);
 
   packb("/RawData currentfile /ASCII85Decode filter def");
   packb("/Data RawData << >> /LZWDecode filter def");
@@ -1408,17 +1404,13 @@ static void text_routine(double *x, double *y, int nchars, char *chars)
 
 static void fill_routine(int n, double *px, double *py, int tnr)
 {
-  int clsw;
-  double clrt[4], x, y;
+  double x, y;
   char buffer[50];
   int i, jx, jy, rx, ry, nan_found = 0;
 
   packb("gsave");
 
-  clsw = gkss->clip;
-  for (i = 0; i < 4; i++) clrt[i] = gkss->viewport[clsw == GKS_K_CLIP ? tnr : 0][i];
-
-  set_clipping(clrt);
+  set_clip(gkss->viewport[gkss->clip == GKS_K_CLIP ? tnr : 0]);
 
   WC_to_NDC(px[0], py[0], tnr, x, y);
   NDC_to_DC(x, y, p->ix, p->iy);
@@ -1791,7 +1783,16 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
           if (ltype != GKS_K_LINETYPE_SOLID) set_linetype(ltype, width);
           set_linewidth(width);
           set_color(color, p->wtype);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           line_routine(ia[0], r1, r2, ltype, tnr);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
+            }
           if (ltype != GKS_K_LINETYPE_SOLID) set_linetype(GKS_K_LINETYPE_SOLID, 1.0);
           p->empty = 0;
         }
@@ -1818,7 +1819,16 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
           set_linewidth(1.0);
           color = gkss->asf[5] ? gkss->pmcoli : 1;
           set_foreground(color, p->wtype);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           gks_emul_polymarker(ia[0], r1, r2, marker_routine);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
+            }
           p->empty = 0;
         }
       break;
@@ -1842,6 +1852,11 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
             set_linewidth(1.0);
           color = gkss->asf[9] ? gkss->txcoli : 1;
           set_color(color, p->wtype);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           nchars = strlen(chars);
           if (prec == GKS_K_TEXT_PRECISION_STRING)
             {
@@ -1853,6 +1868,10 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
           else
             {
               gks_emul_text(r1[0], r2[0], nchars, chars, line_routine, fill_routine);
+            }
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
             }
           p->empty = 0;
         }
@@ -1873,6 +1892,11 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
           color = gkss->asf[12] ? gkss->facoli : 1;
           set_color(color, p->wtype);
           set_linewidth(1.0);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           if (style == GKS_K_INTSTYLE_SOLID)
             fill_routine(ia[0], r1, r2, tnr);
           else if (style == GKS_K_INTSTYLE_PATTERN)
@@ -1884,6 +1908,10 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
             {
               yres = 1.0 / 4650.0;
               gks_emul_fillarea(ia[0], r1, r2, tnr, line_routine, yres);
+            }
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
             }
           p->empty = 0;
         }
@@ -1902,7 +1930,16 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
               p->init = 1;
             }
           gks_set_dev_xform(gkss, p->window, p->viewpt);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           cell_array(r1[0], r1[1], r2[0], r2[1], dx, dy, dimx, ia, p->wtype, true_color);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
+            }
           p->empty = 0;
         }
       break;
@@ -1917,7 +1954,16 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
               p->init = 1;
             }
           gks_set_dev_xform(gkss, p->window, p->viewpt);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("gsave");
+              set_clip(gkss->viewport[gkss->clip_tnr]);
+            }
           gdp(ia[0], r1, r2, ia[1], ia[2], ia + 3);
+          if (gkss->clip_tnr != 0)
+            {
+              packb("grestore");
+            }
           p->empty = 0;
         }
       break;
@@ -1945,7 +1991,7 @@ void gks_drv_ps(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r
       p->window[3] = r2[1];
       set_xform(p->window, p->viewpt);
       init_norm_xform();
-      if (p->init) set_clipping(p->window);
+      if (p->init) set_clip(p->window);
       break;
 
       /* set workstation viewport */

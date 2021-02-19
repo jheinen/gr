@@ -232,6 +232,7 @@ void gks_dl_write_item(gks_display_list_t *d, int fctid, int dx, int dy, int dim
     case 53:  /* set clipping indicator */
     case 108: /* set resample method */
     case 207: /* set border color index */
+    case 208: /* select clipping transformation */
 
       len = 3 * sizeof(int);
       if (d->nbytes + len > d->size) reallocate(d, len);

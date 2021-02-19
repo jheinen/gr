@@ -152,6 +152,7 @@ typedef struct
   int scale_options;
   double bwidth;
   int bcoli;
+  int clip_tnr;
 } state_list;
 
 typedef struct
@@ -10746,6 +10747,7 @@ void gr_savestate(void)
 
       gks_inq_border_width(&errind, &s->bwidth);
       gks_inq_border_color_index(&errind, &s->bcoli);
+      gks_inq_clip_xform(&errind, &s->clip_tnr);
     }
   else
     fprintf(stderr, "attempt to save state beyond implementation limit\n");
@@ -10790,6 +10792,7 @@ void gr_restorestate(void)
 
       gks_set_border_width(s->bwidth);
       gks_set_border_color_index(s->bcoli);
+      gks_select_clip_xform(s->clip_tnr);
     }
   else
     fprintf(stderr, "attempt to restore unsaved state\n");
@@ -10842,6 +10845,7 @@ void gr_selectcontext(int context)
 
           ctx->bwidth = 1;
           ctx->bcoli = 1;
+          ctx->clip_tnr = 0;
         }
       else
         {
@@ -10874,6 +10878,7 @@ void gr_selectcontext(int context)
 
       gks_set_border_width(ctx->bwidth);
       gks_set_border_color_index(ctx->bcoli);
+      gks_select_clip_xform(ctx->clip_tnr);
     }
   else
     {
@@ -12013,6 +12018,25 @@ void gr_inqbordercolorind(int *coli)
   check_autoinit;
 
   gks_inq_border_color_index(&errind, coli);
+}
+
+void gr_selectclipxform(int tnr)
+{
+  check_autoinit;
+
+  gks_select_clip_xform(tnr);
+  if (ctx) ctx->clip_tnr = tnr;
+
+  if (flag_graphics) gr_writestream("<selectclipxform tnr=\"%d\"/>\n", tnr);
+}
+
+void gr_inqclipxform(int *tnr)
+{
+  int errind;
+
+  check_autoinit;
+
+  gks_inq_clip_xform(&errind, tnr);
 }
 
 /*!

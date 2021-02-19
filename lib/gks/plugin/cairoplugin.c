@@ -757,8 +757,12 @@ static void set_clip_rect(int tnr)
 {
   cairo_reset_clip(p->cr);
 
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0 || gkss->clip == GKS_K_CLIP)
     {
+      if (gkss->clip_tnr != 0)
+        {
+          tnr = gkss->clip_tnr;
+        }
       cairo_rectangle(p->cr, p->rect[tnr][0][0], p->rect[tnr][0][1], p->rect[tnr][1][0] - p->rect[tnr][0][0],
                       p->rect[tnr][1][1] - p->rect[tnr][0][1]);
       cairo_clip(p->cr);

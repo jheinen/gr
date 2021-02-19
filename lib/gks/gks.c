@@ -495,6 +495,7 @@ void gks_init_gks(void)
       s->clip = GKS_K_CLIP;
 
       /* GKS extended attributes */
+      s->input_encoding = 0;
       s->txslant = 0;
       s->shoff[0] = 0;
       s->shoff[1] = 0;
@@ -502,8 +503,7 @@ void gks_init_gks(void)
       s->alpha = 1;
       s->bwidth = 1;
       s->bcoli = 0;
-
-      s->input_encoding = 0;
+      s->clip_tnr = 0;
 
       s->callback = NULL;
     }
@@ -4202,6 +4202,33 @@ void gks_inq_border_color_index(int *errind, int *coli)
 {
   *errind = GKS_K_NO_ERROR;
   *coli = s->bcoli;
+}
+
+void gks_select_clip_xform(int tnr)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      if (tnr >= 0 && tnr < MAX_TNR)
+        {
+          s->clip_tnr = i_arr[0] = tnr;
+
+          /* call the device driver link routine */
+          gks_ddlk(SELECT_CLIP_XFORM, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
+      else
+        /* transformation number is invalid */
+        gks_report_error(SELECT_CLIP_XFORM, 50);
+    }
+  else
+    /* GKS not in proper state. GKS must be in one of the states
+       GKOP, WSOP, WSAC or SGOP */
+    gks_report_error(SELECT_CLIP_XFORM, 8);
+}
+
+void gks_inq_clip_xform(int *errind, int *tnr)
+{
+  *errind = GKS_K_NO_ERROR;
+  *tnr = s->clip_tnr;
 }
 
 void *gks_state(void)

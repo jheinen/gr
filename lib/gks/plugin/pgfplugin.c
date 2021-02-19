@@ -850,8 +850,12 @@ static void set_clip_rect(int tnr)
       p->scoped = 0;
     }
 
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0 || gkss->clip == GKS_K_CLIP)
     {
+      if (gkss->clip_tnr != 0)
+        {
+          tnr = gkss->clip_tnr;
+        }
       if (p->scoped) pgf_printf(p->stream, "\\end{scope}\n");
       pgf_printf(p->stream,
                  "\\begin{scope}\n"

@@ -1203,8 +1203,12 @@ static void set_clip_path(int tnr)
   int x, y, width, height;
 
   wmf_selectclipregion();
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0 || gkss->clip == GKS_K_CLIP)
     {
+      if (gkss->clip_tnr != 0)
+        {
+          tnr = gkss->clip_tnr;
+        }
       x = p->cxl[tnr];
       y = p->cyt[tnr];
       width = p->cxr[tnr] - p->cxl[tnr];
