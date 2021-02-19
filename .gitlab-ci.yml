@@ -803,6 +803,36 @@ windows-64bit-cmake-cross:
     paths:
       - artifacts-windows-64bit-cmake/
 
+windows-64bit-cmake-msvc:
+  stage: build
+  image: windows:10-gr-build
+  tags:
+    - libvirt
+  only:
+    - branches@Scientific-IT-Systems/gr
+    - tags@Scientific-IT-Systems/gr
+  script:
+    - vcvars_cmd cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/c/gr -DGR_USE_BUNDLED_LIBRARIES=OFF
+    - vcvars_cmd cmake --build build --config Release
+    - vcvars_cmd cmake --install build --config Release
+    - cd /c/Qt/5.15.2/msvc2015_64/bin
+    - cp -v Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll /c/gr/bin/
+    - cd -
+    - cd /c/gr/bin
+    - mkdir -p platforms
+    - cp -v /c/Qt/5.15.2/msvc2015_64/plugins/platforms/qwindows.dll platforms/
+    - cd -
+    - cd /c/local/bin
+    - cp -v cairo.dll freetype.dll jpeg62.dll libpng16.dll pixman-1-0.dll qhull_r.dll tiff.dll tiffxx.dll turbojpeg.dll zlib.dll /c/gr/bin/
+    - cd -
+    - cp -v "/c/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Redist/MSVC/14.28.29325/x64/Microsoft.VC142.CRT/vcruntime140.dll" /c/gr/bin/
+    - cp -v "/c/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Redist/MSVC/14.28.29325/x64/Microsoft.VC142.CRT/vcruntime140_1.dll" /c/gr/bin/
+    - cp -v "/c/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Redist/MSVC/14.28.29325/x64/Microsoft.VC142.CRT/msvcp140.dll" /c/gr/bin/
+    - mv /c/gr artifacts-windows-64bit-cmake-msvc
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - artifacts-windows-64bit-cmake-msvc/
 
 darwin-self-contained:
   stage: build
@@ -933,6 +963,10 @@ packages-tar:
   - mv artifacts-windows64/include Windows-x86_64/gr/
   - cp artifacts-js/gr.js Windows-x86_64/gr/lib/
   - rm -rf artifacts-windows64
+  - if [ -d artifacts-windows-64bit-cmake-msvc ]; then
+      mkdir -p Windows-x86_64-msvc;
+      mv artifacts-windows-64bit-cmake-msvc Windows-x86_64-msvc/gr;
+    fi
   - mkdir -p Debian-x86_64/gr/bin
   - mkdir -p Debian-x86_64/gr/lib
   - mv artifacts-debian9/*.so Debian-x86_64/gr/lib/
@@ -1003,6 +1037,9 @@ packages-tar:
     fi
   - cd Windows-i686 && tar czf gr.tar.gz gr && cd -
   - cd Windows-x86_64 && tar czf gr.tar.gz gr && cd -
+  - if [ -d Windows-x86_64-msvc ]; then
+      cd Windows-x86_64-msvc && tar czf gr.tar.gz gr && cd -;
+    fi
   - cd Debian-x86_64 && tar czf gr.tar.gz gr && cd -
   - cd Debian-armhf && tar czf gr.tar.gz gr && cd -
   - cd Debian-aarch64 && tar czf gr.tar.gz gr && cd -
@@ -1016,6 +1053,9 @@ packages-tar:
       export VERSION=`echo "$CI_COMMIT_TAG" | sed 's/^v//'`;
       cp Windows-i686/gr.tar.gz Downloads/gr-$VERSION-Windows-i686.tar.gz;
       cp Windows-x86_64/gr.tar.gz Downloads/gr-$VERSION-Windows-x86_64.tar.gz;
+      if [ -d Windows-x86_64-msvc ]; then
+        cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$VERSION-Windows-x86_64-msvc.tar.gz;
+      fi;
       cp Debian-x86_64/gr.tar.gz Downloads/gr-$VERSION-Debian-x86_64.tar.gz;
       cp Debian-armhf/gr.tar.gz Downloads/gr-$VERSION-Debian-armhf.tar.gz;
       cp Debian-aarch64/gr.tar.gz Downloads/gr-$VERSION-Debian-aarch64.tar.gz;
@@ -1033,6 +1073,9 @@ packages-tar:
     else
       cp Windows-i686/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-i686.tar.gz;
       cp Windows-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-x86_64.tar.gz;
+      if [ -d Windows-x86_64-msvc ]; then
+        cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-x86_64-msvc.tar.gz;
+      fi;
       cp Debian-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-x86_64.tar.gz;
       cp Debian-armhf/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-armhf.tar.gz;
       cp Debian-aarch64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-aarch64.tar.gz;
@@ -1049,6 +1092,9 @@ packages-tar:
       for f in Windows-i686 Windows-x86_64 Debian-x86_64 Debian-armhf Debian-aarch64 Ubuntu-x86_64 CentOS-x86_64 Redhat-x86_64 Linux-i386 Linux-x86_64 ArchLinux-x86_64; do
         ln -s gr-$CI_COMMIT_SHA-$f.tar.gz Downloads/gr-latest-$f.tar.gz;
       done;
+      if [ -d Windows-x86_64-msvc ]; then
+        ln -s gr-$CI_COMMIT_SHA-Windows-x86_64-msvc.tar.gz Downloads/gr-latest-Windows-x86_64-msvc.tar.gz;
+      fi;
       if [ -d Darwin-x86_64 ]; then
         ln -s gr-$CI_COMMIT_SHA-Darwin-x86_64.tar.gz Downloads/gr-latest-Darwin-x86_64.tar.gz;
       fi;
