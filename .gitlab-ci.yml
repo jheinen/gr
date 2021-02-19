@@ -808,9 +808,6 @@ windows-64bit-cmake-msvc:
   image: windows:10-gr-build
   tags:
     - libvirt
-  only:
-    - branches@Scientific-IT-Systems/gr
-    - tags@Scientific-IT-Systems/gr
   script:
     - vcvars_cmd cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/c/gr -DGR_USE_BUNDLED_LIBRARIES=OFF
     - vcvars_cmd cmake --build build --config Release
@@ -834,7 +831,7 @@ windows-64bit-cmake-msvc:
     paths:
       - artifacts-windows-64bit-cmake-msvc/
 
-darwin-self-contained:
+darwin-self-contained-iff1600:
   stage: build
   only:
     - branches@Scientific-IT-Systems/gr
@@ -871,22 +868,19 @@ darwin-self-contained:
       done;
     done
   - cd ../../
-  - mv artifacts artifacts-darwin
+  - mv artifacts artifacts-darwin-iff1600
   tags:
   - macos
   artifacts:
     expire_in: 1 week
     paths:
-    - artifacts-darwin/
+    - artifacts-darwin-iff1600/
 
-darwin-libvirt-self-contained:
+darwin-self-contained:
   stage: build
   image: macos:catalina-gr-build
   tags:
   - libvirt
-  only:
-    - branches@Scientific-IT-Systems/gr
-    - tags@Scientific-IT-Systems/gr
   script:
   - export MACOSX_DEPLOYMENT_TARGET=10.11
   - sudo mkdir /usr/local/gr
@@ -917,11 +911,11 @@ darwin-libvirt-self-contained:
       done;
     done
   - cd ../../
-  - mv artifacts artifacts-darwin-libvirt
+  - mv artifacts artifacts-darwin
   artifacts:
     expire_in: 1 week
     paths:
-    - artifacts-darwin-libvirt/
+    - artifacts-darwin/
 
 emscripten:
   stage: build
@@ -963,10 +957,8 @@ packages-tar:
   - mv artifacts-windows64/include Windows-x86_64/gr/
   - cp artifacts-js/gr.js Windows-x86_64/gr/lib/
   - rm -rf artifacts-windows64
-  - if [ -d artifacts-windows-64bit-cmake-msvc ]; then
-      mkdir -p Windows-x86_64-msvc;
-      mv artifacts-windows-64bit-cmake-msvc Windows-x86_64-msvc/gr;
-    fi
+  - mkdir -p Windows-x86_64-msvc
+  - mv artifacts-windows-64bit-cmake-msvc Windows-x86_64-msvc/gr
   - mkdir -p Debian-x86_64/gr/bin
   - mkdir -p Debian-x86_64/gr/lib
   - mv artifacts-debian9/*.so Debian-x86_64/gr/lib/
@@ -1024,22 +1016,18 @@ packages-tar:
   - mv artifacts-arch/include ArchLinux-x86_64/gr/
   - cp artifacts-js/gr.js ArchLinux-x86_64/gr/lib/
   - rm -rf artifacts-arch
-  - if [ -d artifacts-darwin ]; then
-      mkdir -p Darwin-x86_64/gr/lib;
-      mv artifacts-darwin/*.dylib Darwin-x86_64/gr/lib/;
-      mv artifacts-darwin/*.so Darwin-x86_64/gr/lib/;
-      mv artifacts-darwin/fonts Darwin-x86_64/gr/;
-      mv artifacts-darwin/include Darwin-x86_64/gr/;
-      mv artifacts-darwin/Applications Darwin-x86_64/gr/;
-      cp artifacts-js/gr.js Darwin-x86_64/gr/lib/;
-      rm -rf artifacts-darwin;
-      cd Darwin-x86_64 && tar czf gr.tar.gz gr && cd -;
-    fi
+  - mkdir -p Darwin-x86_64/gr/lib
+  - mv artifacts-darwin/*.dylib Darwin-x86_64/gr/lib/
+  - mv artifacts-darwin/*.so Darwin-x86_64/gr/lib/
+  - mv artifacts-darwin/fonts Darwin-x86_64/gr/
+  - mv artifacts-darwin/include Darwin-x86_64/gr/
+  - mv artifacts-darwin/Applications Darwin-x86_64/gr/
+  - cp artifacts-js/gr.js Darwin-x86_64/gr/lib/
+  - rm -rf artifacts-darwin
+  - cd Darwin-x86_64 && tar czf gr.tar.gz gr && cd -;
   - cd Windows-i686 && tar czf gr.tar.gz gr && cd -
   - cd Windows-x86_64 && tar czf gr.tar.gz gr && cd -
-  - if [ -d Windows-x86_64-msvc ]; then
-      cd Windows-x86_64-msvc && tar czf gr.tar.gz gr && cd -;
-    fi
+  - cd Windows-x86_64-msvc && tar czf gr.tar.gz gr && cd -
   - cd Debian-x86_64 && tar czf gr.tar.gz gr && cd -
   - cd Debian-armhf && tar czf gr.tar.gz gr && cd -
   - cd Debian-aarch64 && tar czf gr.tar.gz gr && cd -
@@ -1053,9 +1041,7 @@ packages-tar:
       export VERSION=`echo "$CI_COMMIT_TAG" | sed 's/^v//'`;
       cp Windows-i686/gr.tar.gz Downloads/gr-$VERSION-Windows-i686.tar.gz;
       cp Windows-x86_64/gr.tar.gz Downloads/gr-$VERSION-Windows-x86_64.tar.gz;
-      if [ -d Windows-x86_64-msvc ]; then
-        cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$VERSION-Windows-x86_64-msvc.tar.gz;
-      fi;
+      cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$VERSION-Windows-x86_64-msvc.tar.gz;
       cp Debian-x86_64/gr.tar.gz Downloads/gr-$VERSION-Debian-x86_64.tar.gz;
       cp Debian-armhf/gr.tar.gz Downloads/gr-$VERSION-Debian-armhf.tar.gz;
       cp Debian-aarch64/gr.tar.gz Downloads/gr-$VERSION-Debian-aarch64.tar.gz;
@@ -1065,17 +1051,13 @@ packages-tar:
       cp Linux-i386/gr.tar.gz Downloads/gr-$VERSION-Linux-i386.tar.gz;
       cp Linux-x86_64/gr.tar.gz Downloads/gr-$VERSION-Linux-x86_64.tar.gz;
       cp ArchLinux-x86_64/gr.tar.gz Downloads/gr-$VERSION-ArchLinux-x86_64.tar.gz;
-      if [ -d Darwin-x86_64 ]; then
-        cp Darwin-x86_64/gr.tar.gz Downloads/gr-$VERSION-Darwin-x86_64.tar.gz;
-      fi;
+      cp Darwin-x86_64/gr.tar.gz Downloads/gr-$VERSION-Darwin-x86_64.tar.gz;
       cp artifacts-js/gr.js Downloads/gr-$VERSION.js;
       cd Downloads && sha512sum -b gr-*.tar.gz > gr-$VERSION.sha512.txt && cd -;
     else
       cp Windows-i686/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-i686.tar.gz;
       cp Windows-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-x86_64.tar.gz;
-      if [ -d Windows-x86_64-msvc ]; then
-        cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-x86_64-msvc.tar.gz;
-      fi;
+      cp Windows-x86_64-msvc/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Windows-x86_64-msvc.tar.gz;
       cp Debian-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-x86_64.tar.gz;
       cp Debian-armhf/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-armhf.tar.gz;
       cp Debian-aarch64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Debian-aarch64.tar.gz;
@@ -1085,19 +1067,12 @@ packages-tar:
       cp Linux-i386/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Linux-i386.tar.gz;
       cp Linux-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Linux-x86_64.tar.gz;
       cp ArchLinux-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-ArchLinux-x86_64.tar.gz;
-      if [ -d Darwin-x86_64 ]; then
-        cp Darwin-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Darwin-x86_64.tar.gz;
-      fi;
+      cp Darwin-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Darwin-x86_64.tar.gz;
       cp artifacts-js/gr.js Downloads/gr-$CI_COMMIT_SHA.js;
-      for f in Windows-i686 Windows-x86_64 Debian-x86_64 Debian-armhf Debian-aarch64 Ubuntu-x86_64 CentOS-x86_64 Redhat-x86_64 Linux-i386 Linux-x86_64 ArchLinux-x86_64; do
+      for f in Windows-i686 Windows-x86_64 Windows-x86_64-msvc Darwin-x86_64 Debian-x86_64 Debian-armhf Debian-aarch64
+               Ubuntu-x86_64 CentOS-x86_64 Redhat-x86_64 Linux-i386 Linux-x86_64 ArchLinux-x86_64; do
         ln -s gr-$CI_COMMIT_SHA-$f.tar.gz Downloads/gr-latest-$f.tar.gz;
       done;
-      if [ -d Windows-x86_64-msvc ]; then
-        ln -s gr-$CI_COMMIT_SHA-Windows-x86_64-msvc.tar.gz Downloads/gr-latest-Windows-x86_64-msvc.tar.gz;
-      fi;
-      if [ -d Darwin-x86_64 ]; then
-        ln -s gr-$CI_COMMIT_SHA-Darwin-x86_64.tar.gz Downloads/gr-latest-Darwin-x86_64.tar.gz;
-      fi;
       ln -s gr-$CI_COMMIT_SHA.js Downloads/gr-latest.js;
       cd Downloads && sha512sum -b gr-*.tar.gz > gr-$CI_COMMIT_SHA.sha512.txt && cd -;
       ln -s gr-$CI_COMMIT_SHA.sha512.txt Downloads/gr-latest.sha512.txt;
