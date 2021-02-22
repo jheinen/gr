@@ -256,16 +256,19 @@ const char *valid_subplot_keys[] = {"adjust_xlim",
                                     "xbins",
                                     "xflip",
                                     "xform",
+                                    "xgrid",
                                     "xlabel",
                                     "xlim",
                                     "xlog",
                                     "xnotations",
                                     "ybins",
                                     "yflip",
+                                    "ygrid",
                                     "ylabel",
                                     "ylim",
                                     "ylog",
                                     "zflip",
+                                    "zgrid",
                                     "zlim",
                                     "zlog",
                                     NULL};
@@ -363,6 +366,7 @@ static string_map_entry_t key_to_formats[] = {{"a", "A"},
                                               {"xcolormap", "i"},
                                               {"xflip", "i"},
                                               {"xform", "i"},
+                                              {"xgrid", "i"},
                                               {"xlabel", "s"},
                                               {"xlim", "D"},
                                               {"xrange", "D"},
@@ -372,6 +376,7 @@ static string_map_entry_t key_to_formats[] = {{"a", "A"},
                                               {"ycolormap", "i"},
                                               {"yflip", "i"},
                                               {"yform", "i"},
+                                              {"ygrid", "i"},
                                               {"ylabel", "s"},
                                               {"ylim", "D"},
                                               {"yrange", "D"},
@@ -379,6 +384,7 @@ static string_map_entry_t key_to_formats[] = {{"a", "A"},
                                               {"z", "D"},
                                               {"z_dims", "I"},
                                               {"zflip", "i"},
+                                              {"zgrid", "i"},
                                               {"zlim", "D"},
                                               {"zrange", "D"},
                                               {"zlog", "i"}};
@@ -889,6 +895,9 @@ void plot_set_attribute_defaults(grm_args_t *plot_args)
       args_setdefault(*current_subplot, "xflip", "i", PLOT_DEFAULT_XFLIP);
       args_setdefault(*current_subplot, "yflip", "i", PLOT_DEFAULT_YFLIP);
       args_setdefault(*current_subplot, "zflip", "i", PLOT_DEFAULT_ZFLIP);
+      args_setdefault(*current_subplot, "xgrid", "i", PLOT_DEFAULT_XGRID);
+      args_setdefault(*current_subplot, "ygrid", "i", PLOT_DEFAULT_YGRID);
+      args_setdefault(*current_subplot, "zgrid", "i", PLOT_DEFAULT_ZGRID);
       if (strcmp(kind, "heatmap") == 0)
         {
           args_setdefault(*current_subplot, "adjust_xlim", "i", 0);
@@ -4757,12 +4766,15 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
   double x_tick;
   double x_org_low, x_org_high;
   int x_major_count;
+  int x_grid;
   double y_tick;
   double y_org_low, y_org_high;
   int y_major_count;
+  int y_grid;
   double z_tick;
   double z_org_low, z_org_high;
   int z_major_count;
+  int z_grid;
   double diag;
   double charheight;
   double ticksize;
@@ -4775,9 +4787,11 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
   args_values(args, "xtick", "d", &x_tick);
   args_values(args, "xorg", "dd", &x_org_low, &x_org_high);
   args_values(args, "xmajor", "i", &x_major_count);
+  args_values(args, "xgrid", "i", &x_grid);
   args_values(args, "ytick", "d", &y_tick);
   args_values(args, "yorg", "dd", &y_org_low, &y_org_high);
   args_values(args, "ymajor", "i", &y_major_count);
+  args_values(args, "ygrid", "i", &y_grid);
 
   gr_setlinecolorind(1);
   gr_setlinewidth(1);
@@ -4791,10 +4805,11 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
       args_values(args, "ztick", "d", &z_tick);
       args_values(args, "zorg", "dd", &z_org_low, &z_org_high);
       args_values(args, "zmajor", "i", &z_major_count);
+      args_values(args, "zgrid", "i", &z_grid);
       if (pass == 1)
         {
-          gr_grid3d(x_tick, 0, z_tick, x_org_low, y_org_high, z_org_low, 2, 0, 2);
-          gr_grid3d(0, y_tick, 0, x_org_low, y_org_high, z_org_low, 0, 2, 0);
+          gr_grid3d(x_grid ? x_tick : 0, 0, z_grid ? z_tick : 0, x_org_low, y_org_high, z_org_low, 2, 0, 2);
+          gr_grid3d(0, y_grid ? y_tick : 0, 0, x_org_low, y_org_high, z_org_low, 0, 2, 0);
         }
       else
         {
@@ -4810,7 +4825,7 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
         }
       if (!str_equals_any(kind, 1, "shade"))
         {
-          gr_grid(x_tick, y_tick, 0, 0, x_major_count, y_major_count);
+          gr_grid(x_grid ? x_tick : 0, y_grid ? y_tick : 0, 0, 0, x_major_count, y_major_count);
         }
       gr_axes(x_tick, y_tick, x_org_low, y_org_low, x_major_count, y_major_count, ticksize);
       gr_axes(x_tick, y_tick, x_org_high, y_org_high, -x_major_count, -y_major_count, -ticksize);
