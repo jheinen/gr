@@ -917,6 +917,51 @@ darwin-self-contained:
     paths:
     - artifacts-darwin/
 
+darwin-self-contained-iff1605:
+  stage: build
+  only:
+    - branches@Scientific-IT-Systems/gr
+    - tags@Scientific-IT-Systems/gr
+  script:
+    - curl -LO https://gr-framework.org/downloads/3rdparty/cmake-3.6.3-Darwin-x86_64.tar.gz
+    - tar xf cmake-3.6.3-Darwin-x86_64.tar.gz
+    - export CMAKE_CMD=`pwd`/cmake-3.6.3-Darwin-x86_64/CMake.app/Contents/bin/cmake
+    - export MACOSX_DEPLOYMENT_TARGET=11.0
+    - rm -rf /usr/local/gr/*
+    - make self GRDIR=/usr/local/gr QMAKE=/usr/local/qt5/bin/qmake QT5_QMAKE=/usr/local/qt5/bin/qmake
+    - mkdir artifacts
+    - cp lib/gks/demo artifacts/gksdemo
+    - cp lib/gr/demo artifacts/grdemo
+    - cp lib/gks/libGKS.dylib lib/gks/libGKS.a lib/gks/plugin/*.so lib/gr/libGR.dylib lib/gr/libGR.a lib/gr3/libGR3.dylib
+      lib/grm/libGRM.a lib/grm/libGRM.dylib lib/gr/qtgr/*.dylib artifacts/
+    - cp -r lib/gks/fonts artifacts/
+    - mkdir artifacts/include/
+    - cp lib/gks/gks.h lib/gr/gr.h lib/gr3/gr3.h lib/grm/grm.h lib/gr/qtgr/grwidget.h artifacts/include/
+    - mkdir artifacts/include/grm/
+    - cp lib/grm/args.h lib/grm/dump.h lib/grm/event.h lib/grm/interaction.h lib/grm/net.h lib/grm/plot.h lib/grm/util.h
+      artifacts/include/grm/
+    - mkdir artifacts/Applications/
+    - cp -r lib/gks/quartz/build/Release/GKSTerm.app artifacts/Applications/GKSTerm.app
+    - cp -r lib/gks/qt/gksqt.app artifacts/Applications/gksqt.app
+    - mkdir -p artifacts/Applications/gksqt.app/Contents/Frameworks
+    - mkdir -p artifacts/Applications/gksqt.app/Contents/plugins/platforms
+    - cp /usr/local/qt5/plugins/platforms/libqcocoa.dylib artifacts/Applications/gksqt.app/Contents/plugins/platforms
+    - cd artifacts/Applications
+    - for BINARY in gksqt.app/Contents/plugins/platforms/libqcocoa.dylib gksqt.app/Contents/MacOS/gksqt; do
+      for QT_FRAMEWORK in `otool -L $BINARY | tr '/' '\n' | grep -E 'Qt.*\.framework' | cut -d. -f1`; do
+      rsync -a --exclude Headers --exclude *_debug* /usr/local/qt5/lib/$QT_FRAMEWORK.framework gksqt.app/Contents/Frameworks/;
+      install_name_tool -change `otool -L $BINARY | grep $QT_FRAMEWORK | cut -d\( -f1` @executable_path/../Frameworks/$QT_FRAMEWORK.framework/Versions/Current/$QT_FRAMEWORK $BINARY;
+      done;
+      done
+    - cd ../../
+    - mv artifacts artifacts-darwin-aarch64
+  tags:
+    - macos-arm64
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - artifacts-darwin-aarch64/
+
 emscripten:
   stage: build
   image: iffregistry.fz-juelich.de/docker-images/gr-build-images/$CI_JOB_NAME
@@ -1024,6 +1069,17 @@ packages-tar:
   - mv artifacts-darwin/Applications Darwin-x86_64/gr/
   - cp artifacts-js/gr.js Darwin-x86_64/gr/lib/
   - rm -rf artifacts-darwin
+  - if [ -d artifacts-darwin-aarch64 ]; then
+      mkdir -p Darwin-aarch64/gr/lib;
+      mv artifacts-darwin-aarch64/*.dylib Darwin-aarch64/gr/lib/;
+      mv artifacts-darwin-aarch64/*.so Darwin-aarch64/gr/lib/;
+      mv artifacts-darwin-aarch64/fonts Darwin-aarch64/gr/;
+      mv artifacts-darwin-aarch64/include Darwin-aarch64/gr/;
+      mv artifacts-darwin-aarch64/Applications Darwin-aarch64/gr/;
+      cp artifacts-js/gr.js Darwin-aarch64/gr/lib/;
+      rm -rf artifacts-darwin-aarch64;
+      cd Darwin-aarch64 && tar czf gr.tar.gz gr && cd -;
+    fi
   - cd Darwin-x86_64 && tar czf gr.tar.gz gr && cd -;
   - cd Windows-i686 && tar czf gr.tar.gz gr && cd -
   - cd Windows-x86_64 && tar czf gr.tar.gz gr && cd -
@@ -1052,6 +1108,9 @@ packages-tar:
       cp Linux-x86_64/gr.tar.gz Downloads/gr-$VERSION-Linux-x86_64.tar.gz;
       cp ArchLinux-x86_64/gr.tar.gz Downloads/gr-$VERSION-ArchLinux-x86_64.tar.gz;
       cp Darwin-x86_64/gr.tar.gz Downloads/gr-$VERSION-Darwin-x86_64.tar.gz;
+      if [ -d Darwin-aarch64 ]; then
+        cp Darwin-aarch64/gr.tar.gz Downloads/gr-$VERSION-Darwin-aarch64.tar.gz;
+      fi;
       cp artifacts-js/gr.js Downloads/gr-$VERSION.js;
       cd Downloads && sha512sum -b gr-*.tar.gz > gr-$VERSION.sha512.txt && cd -;
     else
@@ -1068,11 +1127,17 @@ packages-tar:
       cp Linux-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Linux-x86_64.tar.gz;
       cp ArchLinux-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-ArchLinux-x86_64.tar.gz;
       cp Darwin-x86_64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Darwin-x86_64.tar.gz;
+      if [ -d Darwin-aarch64 ]; then
+        cp Darwin-aarch64/gr.tar.gz Downloads/gr-$CI_COMMIT_SHA-Darwin-aarch64.tar.gz;
+      fi;
       cp artifacts-js/gr.js Downloads/gr-$CI_COMMIT_SHA.js;
       for f in Windows-i686 Windows-x86_64 Windows-x86_64-msvc Darwin-x86_64 Debian-x86_64 Debian-armhf Debian-aarch64
                Ubuntu-x86_64 CentOS-x86_64 Redhat-x86_64 Linux-i386 Linux-x86_64 ArchLinux-x86_64; do
         ln -s gr-$CI_COMMIT_SHA-$f.tar.gz Downloads/gr-latest-$f.tar.gz;
       done;
+      if [ -d Darwin-aarch64 ]; then
+        ln -s gr-$CI_COMMIT_SHA-Darwin-aarch64.tar.gz Downloads/gr-latest-Darwin-aarch64.tar.gz;
+      fi;
       ln -s gr-$CI_COMMIT_SHA.js Downloads/gr-latest.js;
       cd Downloads && sha512sum -b gr-*.tar.gz > gr-$CI_COMMIT_SHA.sha512.txt && cd -;
       ln -s gr-$CI_COMMIT_SHA.sha512.txt Downloads/gr-latest.sha512.txt;
