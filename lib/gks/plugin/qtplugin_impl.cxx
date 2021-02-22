@@ -853,6 +853,11 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
   p->pixmap->save();
   p->pixmap->setRenderHint(QPainter::Antialiasing);
 
+  QColor stroke_color(p->rgb[gkss->bcoli]);
+  stroke_color.setAlpha(p->transparency);
+  QColor fill_color(p->rgb[gkss->facoli]);
+  fill_color.setAlpha(p->transparency);
+
   j = 0;
   for (i = 0; i < nc; ++i)
     {
@@ -981,26 +986,23 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           path.closeSubpath();
           cur_x = start_x;
           cur_y = start_y;
-          p->pixmap->strokePath(
-              path, QPen(QColor(p->rgb[gkss->bcoli]), gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
           break;
         case 'S': /* stroke */
-          p->pixmap->strokePath(
-              path, QPen(QColor(p->rgb[gkss->bcoli]), gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
           break;
         case 'F': /* fill and stroke */
           path.closeSubpath();
           cur_x = start_x;
           cur_y = start_y;
-          p->pixmap->fillPath(path, QColor(p->rgb[gkss->facoli]));
-          p->pixmap->strokePath(
-              path, QPen(QColor(p->rgb[gkss->bcoli]), gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->fillPath(path, fill_color);
+          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
           break;
         case 'f': /* fill */
           path.closeSubpath();
           cur_x = start_x;
           cur_y = start_y;
-          p->pixmap->fillPath(path, QColor(p->rgb[gkss->facoli]));
+          p->pixmap->fillPath(path, fill_color);
           break;
         case 'Z': /* closepath */
           path.closeSubpath();
