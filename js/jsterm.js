@@ -75,6 +75,7 @@ JSTerm = function(ispluto=false) {
       widgets_to_save = new Set(),
       data_loaded = false,
       prev_id = -1;
+    var next_anchor = null;
 
     var jsterm_ispluto = ispluto;
 
@@ -131,17 +132,31 @@ JSTerm = function(ispluto=false) {
         disp.innerHTML = "";
       }
       if (disp === null) {
-        //TODO: Wenn ungültiges Canvas übergeben wird löst dies ein endlose rekursion aus
-        if (display.length > 0 && !msg_sent) {
-          widget.display = display[0];
-          createDisplay(widget.display);
-        }
         if (wsOpen) {
+          // TODO: Wenn ungültiges Canvas übergeben wird löst dies ein endlose rekursion aus
+          if (display.length > 0 && !msg_sent) {
+            widget.display = display[0];
+            createDisplay(widget.display);
+          }
           window.setTimeout(function() {
             createCanvas(widget, msg_sent = true);
           }, CREATE_CANVAS_TIMEOUT);
+        } else {
+          disp = document.createElement('div');
+          disp.id = 'jsterm-display-' + widget.id;
+          var anchor = null;
+          if (next_anchor !== null) {
+            anchor = document.getElementById(next_anchor);
+            next_anchor = null;
+          }
+          if (anchor === null) {
+            anchor = document.body;
+          }
+          anchor.appendChild(disp);
+          widget.display = "display-" + disp.id;
         }
-      } else {
+      }
+      if (disp !== null) {
         disp.style = "display: inline;";
         let div = document.createElement('div');
         div.id = 'jsterm-div-' + widget.id;
@@ -252,6 +267,21 @@ JSTerm = function(ispluto=false) {
       window.addEventListener('beforeunload', function(e) {
         ws.close();
       });
+    };
+
+    /**
+     * Return the JSTerm GRM instance.
+     */
+    this.grmInstance = function() {
+      return grm;
+    };
+
+    /**
+     * Set an HTML element id as the anchor for the next JSTermWidget
+     * @param  {string} anchor   Id of the HTML anchor
+     */
+    this.nextWidgetAnchor = function(anchor) {
+      next_anchor = anchor;
     };
 
     /**
@@ -1033,7 +1063,7 @@ JSTerm = function(ispluto=false) {
      */
     mergeEndCallback = function(evt) {
       let display_uuid = evt.identificator.substring("jstermMerge".length);
-      if (display_uuid.length != 0) {
+      if (!wsOpen || display_uuid.length != 0) {
         iter = Array.from(widgets_to_save);
         for (let w in iter) {
           if (w != 'last') {

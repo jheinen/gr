@@ -152,6 +152,7 @@ static void write_item(int sgnum, int fctid, int dx, int dy, int dimx, int *i_ar
     case 53:  /* set clipping indicator */
     case 108: /* set resample method */
     case 207: /* set border color index */
+    case 208: /* select clipping transformation */
 
       len = 4 * sizeof(int);
       if (p->nbytes + len > p->size) reallocate(len);
@@ -394,6 +395,7 @@ void gks_drv_wiss(int fctid, int dx, int dy, int dimx, int *i_arr, int len_farr_
     case 204:
     case 206:
     case 207:
+    case 208:
 
       if (p->state == GKS_K_WS_ACTIVE)
         {
@@ -514,6 +516,7 @@ static void interp(char *str, int segn)
         case 53:  /* set clipping indicator */
         case 108: /* set resample method */
         case 207: /* set border color index */
+        case 208: /* select clipping transformation */
 
           RESOLVE(i_arr, int, sizeof(int));
           break;
@@ -715,6 +718,9 @@ static void interp(char *str, int segn)
               break;
             case 207:
               gks_set_border_color_index(i_arr[0]);
+              break;
+            case 208:
+              gks_select_clip_xform(i_arr[0]);
               break;
             }
         }

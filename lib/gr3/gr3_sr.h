@@ -1,6 +1,11 @@
 #ifndef GR3_SR_H_INCLUDED
 #define GR3_SR_H_INCLUDED
+#ifndef _MSC_VER
 #include <unistd.h>
+#else
+#define NO_THREADS 1
+#include <io.h>
+#endif
 #ifndef NO_THREADS
 #include <pthread.h>
 #endif

@@ -7,6 +7,9 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#ifdef _MSC_VER
+#define NO_THREADS 1
+#endif
 #ifndef NO_THREADS
 #include <pthread.h>
 #endif
@@ -556,7 +559,7 @@ static void divide_by_w(vertex_fp *v_fp)
  * \param [in] c color
  * \param [in] fac factor to multiply
  * \return c*fac where c is a color vector*/
-GR3API void mult_color(color_float *c, float fac, float alpha_fac)
+static void mult_color(color_float *c, float fac, float alpha_fac)
 {
   c->r *= fac;
   c->g *= fac;

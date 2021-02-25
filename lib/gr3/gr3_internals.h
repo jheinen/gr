@@ -17,7 +17,11 @@
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
-#include <unistd.h>
+#ifndef _MSC_VER
+#include <unistd.h> /* for getpid() for tempfile names */
+#else
+#include <process.h>
+#endif
 #endif
 #elif defined(__APPLE__)
 /* Core OpenGL (CGL) on Mac OS X */

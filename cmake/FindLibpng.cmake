@@ -31,7 +31,7 @@ if(NOT LIBPNG_INCLUDE_DIR)
 endif()
 
 if(NOT LIBPNG_LIBRARY)
-  find_library(LIBPNG_LIBRARY NAMES png)
+  find_library(LIBPNG_LIBRARY NAMES png libpng16)
 endif()
 
 if(LIBPNG_INCLUDE_DIR)

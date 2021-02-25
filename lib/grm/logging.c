@@ -7,7 +7,12 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifndef _MSC_VER
 #include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 #include "logging_int.h"
 #include "util_int.h"

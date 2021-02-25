@@ -53,6 +53,9 @@ extern const char *plot_clear_exclude_keys[];
 #define PLOT_DEFAULT_XFLIP 0
 #define PLOT_DEFAULT_YFLIP 0
 #define PLOT_DEFAULT_ZFLIP 0
+#define PLOT_DEFAULT_XGRID 1
+#define PLOT_DEFAULT_YGRID 1
+#define PLOT_DEFAULT_ZGRID 1
 #define PLOT_DEFAULT_ADJUST_XLIM 1
 #define PLOT_DEFAULT_ADJUST_YLIM 1
 #define PLOT_DEFAULT_ADJUST_ZLIM 1

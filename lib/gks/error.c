@@ -260,6 +260,9 @@ const char *gks_function_name(int routine)
     case 207:
       name = "SET_BORDER_COLOR_INDEX";
       break;
+    case 208:
+      name = "SELECT_CLIP_XFORM";
+      break;
     case 250:
       name = "BEGIN_SELECTION";
       break;

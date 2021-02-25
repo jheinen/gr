@@ -1,4 +1,8 @@
+#ifndef _MSC_VER
 #include <unistd.h>
+#else
+#include <io.h>
+#endif
 #include "grm.h"
 
 #define N_SERIES 3

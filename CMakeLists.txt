@@ -198,8 +198,13 @@ foreach(LIBRARY gks_static gks_shared)
   else()
     set(GKS_LINK_MODE PRIVATE)
   endif()
-  target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} pthread)
-  target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} m)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_definitions(${LIBRARY} PRIVATE _CRT_SECURE_NO_WARNINGS)
+  endif()
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} pthread)
+    target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} m)
+  endif()
   if(FREETYPE_FOUND)
     target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} Freetype::Freetype)
   else()
@@ -217,7 +222,9 @@ foreach(LIBRARY gks_static gks_shared)
     target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} msimg32)
     target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} gdi32)
   endif()
-  target_compile_options(${LIBRARY} ${GKS_LINK_MODE} -pthread)
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_compile_options(${LIBRARY} ${GKS_LINK_MODE} -pthread)
+  endif()
   target_compile_options(${LIBRARY} PRIVATE ${COMPILER_OPTION_ERROR_IMPLICIT})
   target_include_directories(
     ${LIBRARY} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/gks/>
@@ -230,11 +237,16 @@ foreach(LIBRARY gks_static gks_shared)
                C_EXTENSIONS OFF
                C_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
+               PREFIX "lib"
+               IMPORT_PREFIX "lib"
                OUTPUT_NAME GKS
                INSTALL_RPATH "${INSTALL_RPATH}"
   )
 endforeach()
 unset(GKS_LINK_MODE)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set_target_properties(gks_static PROPERTIES OUTPUT_NAME GKSstatic)
+endif()
 set_target_properties(gks_shared PROPERTIES SUFFIX "${GR_SHARED_LIBRARY_SUFFIX}" EXPORT_NAME GKS)
 add_library(GR::GKS ALIAS gks_static)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/gr_version.h
@@ -274,7 +286,9 @@ foreach(LIBRARY gr_static gr_shared)
     set(GR_LINK_MODE PRIVATE)
   endif()
   target_link_libraries(${LIBRARY} ${GR_LINK_MODE} gks_static)
-  target_link_libraries(${LIBRARY} ${GR_LINK_MODE} m)
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_link_libraries(${LIBRARY} ${GR_LINK_MODE} m)
+  endif()
   target_link_libraries(${LIBRARY} ${GR_LINK_MODE} Qhull::Qhull)
   target_link_libraries(${LIBRARY} ${GR_LINK_MODE} Jpeg::Jpeg)
   target_link_libraries(${LIBRARY} ${GR_LINK_MODE} Libpng::Libpng)
@@ -286,6 +300,9 @@ foreach(LIBRARY gr_static gr_shared)
                       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
   target_include_directories(${LIBRARY} PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_definitions(${LIBRARY} PRIVATE _CRT_SECURE_NO_WARNINGS)
+  endif()
   target_compile_definitions(${LIBRARY} PRIVATE GRDIR="${GR_DIRECTORY}")
   target_compile_options(${LIBRARY} PRIVATE ${COMPILER_OPTION_ERROR_IMPLICIT})
   set_target_properties(
@@ -295,10 +312,15 @@ foreach(LIBRARY gr_static gr_shared)
                C_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INSTALL_RPATH "${INSTALL_RPATH}"
+               PREFIX "lib"
+               IMPORT_PREFIX "lib"
                OUTPUT_NAME GR
   )
 endforeach()
 unset(GR_LINK_MODE)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set_target_properties(gr_static PROPERTIES OUTPUT_NAME GRstatic)
+endif()
 set_target_properties(gr_shared PROPERTIES SUFFIX "${GR_SHARED_LIBRARY_SUFFIX}" EXPORT_NAME GR)
 add_library(GR::GR ALIAS gr_shared)
 
@@ -333,8 +355,10 @@ foreach(LIBRARY gr3_static gr3_shared)
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} GR::GR)
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} Jpeg::Jpeg)
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} Libpng::Libpng)
-  target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} pthread)
-  target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} m)
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} pthread)
+    target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} m)
+  endif()
   if((APPLE OR WIN32) AND OpenGL_FOUND)
     target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} OpenGL::GL)
   endif()
@@ -342,8 +366,13 @@ foreach(LIBRARY gr3_static gr3_shared)
     # Apple has deprecated OpenGL in macOS 10.14
     target_compile_definitions(${LIBRARY} PRIVATE GL_SILENCE_DEPRECATION)
   endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_definitions(${LIBRARY} PRIVATE _CRT_SECURE_NO_WARNINGS)
+  endif()
   target_compile_definitions(${LIBRARY} PRIVATE GRDIR="${GR_DIRECTORY}")
-  target_compile_options(${LIBRARY} ${GR3_LINK_MODE} -pthread)
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_compile_options(${LIBRARY} ${GR3_LINK_MODE} -pthread)
+  endif()
   target_compile_options(${LIBRARY} PRIVATE ${COMPILER_OPTION_ERROR_IMPLICIT})
   target_include_directories(
     ${LIBRARY} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/gr3/>
@@ -356,10 +385,15 @@ foreach(LIBRARY gr3_static gr3_shared)
                C_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INSTALL_RPATH "${INSTALL_RPATH}"
+               PREFIX "lib"
+               IMPORT_PREFIX "lib"
                OUTPUT_NAME GR3
   )
 endforeach()
 unset(GR3_LINK_MODE)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set_target_properties(gr3_static PROPERTIES OUTPUT_NAME GR3static)
+endif()
 set_target_properties(gr3_shared PROPERTIES SUFFIX "${GR_SHARED_LIBRARY_SUFFIX}" EXPORT_NAME GR3)
 add_library(GR::GR3 ALIAS gr3_shared)
 
@@ -437,7 +471,9 @@ foreach(LIBRARY grm_static grm_shared grm_shared_internal)
   target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} GR::GKS)
   target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} GR::GR)
   target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} GR::GR3)
-  target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} m)
+  if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} m)
+  endif()
   if(WIN32)
     target_link_libraries(${LIBRARY} ${GRM_LINK_MODE} ws2_32)
   endif()
@@ -455,6 +491,8 @@ foreach(LIBRARY grm_static grm_shared grm_shared_internal)
                POSITION_INDEPENDENT_CODE ON
                C_VISIBILITY_PRESET hidden
                INSTALL_RPATH "${INSTALL_RPATH}"
+               PREFIX "lib"
+               IMPORT_PREFIX "lib"
                OUTPUT_NAME GRM
   )
 endforeach()
@@ -465,6 +503,9 @@ target_include_directories(grm_shared_internal PUBLIC $<BUILD_INTERFACE:${CMAKE_
 if(WIN32)
   target_compile_definitions(grm_shared PRIVATE BUILDING_DLL)
   target_compile_definitions(grm_shared_internal PRIVATE BUILDING_DLL)
+endif()
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set_target_properties(grm_static PROPERTIES OUTPUT_NAME GRMstatic)
 endif()
 set_target_properties(grm_shared PROPERTIES SUFFIX "${GR_SHARED_LIBRARY_SUFFIX}" EXPORT_NAME GRM)
 set_target_properties(grm_shared_internal PROPERTIES SUFFIX "${GR_SHARED_LIBRARY_SUFFIX}")
@@ -761,7 +802,7 @@ endif()
 if(Qt4_FOUND)
   add_library(qt4gr SHARED lib/gr/qtgr/grwidget.cxx)
   target_link_libraries(qt4gr PUBLIC GR::GR)
-  target_link_libraries(qt4gr PUBLIC Qt4::QtCore Qt4::QtGui Qt4::QtNetwork)
+  target_link_libraries(qt4gr PUBLIC Qt4::QtCore Qt4::QtGui)
   if(MINGW)
     target_compile_options(qt4gr PRIVATE -fno-exceptions ${COMPILER_OPTION_ERROR_IMPLICIT})
   endif()
@@ -775,20 +816,18 @@ if(Qt4_FOUND)
               ${CMAKE_CURRENT_SOURCE_DIR}/lib/gr/qtgr/grwidget.h -o ${CMAKE_CURRENT_BINARY_DIR}/moc_qt4_grwidget.cxx
       DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lib/gr/qtgr/grwidget.cxx
     )
-    target_sources(qt5gr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/moc_qt4_grwidget.cxx)
+    target_sources(qt4gr PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/moc_qt4_grwidget.cxx)
   else()
     set_target_properties(qt4gr PROPERTIES AUTOMOC ON AUTORCC ON)
     target_sources(qt4gr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/gr/qtgr/grwidget.h)
   endif()
+  add_library(GR::qt4gr ALIAS qt4gr)
 endif()
 
-if(Qt5Widgets_FOUND
-   AND Qt5Core_FOUND
-   AND Qt5Network_FOUND
-)
+if(Qt5Widgets_FOUND AND Qt5Core_FOUND)
   add_library(qt5gr SHARED lib/gr/qtgr/grwidget.cxx)
   target_link_libraries(qt5gr PUBLIC GR::GR)
-  target_link_libraries(qt5gr PUBLIC Qt5::Widgets Qt5::Core Qt5::Network)
+  target_link_libraries(qt5gr PUBLIC Qt5::Core Qt5::Widgets)
   if(MINGW)
     target_compile_options(qt5gr PRIVATE -fno-exceptions ${COMPILER_OPTION_ERROR_IMPLICIT})
   endif()
@@ -807,6 +846,7 @@ if(Qt5Widgets_FOUND
     set_target_properties(qt5gr PROPERTIES AUTOMOC ON AUTORCC ON)
     target_sources(qt5gr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/gr/qtgr/grwidget.h)
   endif()
+  add_library(GR::qt5gr ALIAS qt5gr)
 endif()
 
 string(APPEND GR_REPORT "\nGKS applications:\n")
@@ -963,6 +1003,24 @@ if(GR_INSTALL)
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
+  if(TARGET qt4gr)
+    install(
+      TARGETS qt4gr
+      EXPORT GRTargets
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+  endif()
+  if(TARGET qt5gr)
+    install(
+      TARGETS qt5gr
+      EXPORT GRTargets
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+  endif()
   install(
     EXPORT GRTargets
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/GR"
@@ -1003,6 +1061,7 @@ if(GR_INSTALL)
   if(TARGET qt4gr)
     install(
       TARGETS qt4gr
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
@@ -1010,6 +1069,7 @@ if(GR_INSTALL)
   if(TARGET qt5gr)
     install(
       TARGETS qt5gr
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )

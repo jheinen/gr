@@ -4,6 +4,7 @@
 #include <OpenGL/OpenGL.h>
 /* OpenGL.h in Mac OS X 10.7 doesn't include gl.h anymore */
 #include <OpenGL/gl.h>
+
 #include <unistd.h> /* for getpid() for tempfile names */
 
 #if GL_VERSION_2_1

@@ -12,6 +12,7 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glx.h>
+
 #include <unistd.h> /* for getpid() for tempfile names */
 
 #if GL_VERSION_2_1

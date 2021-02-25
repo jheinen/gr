@@ -320,6 +320,7 @@ static void seg_xform_rel(double *x, double *y) {}
         case 53:  /* set clipping indicator */
         case 108: /* set resample method */
         case 207: /* set border color index */
+        case 208: /* select clipping transformation */
           RESOLVE(i_arr, int, sizeof(int));
           break;
 
@@ -606,6 +607,10 @@ static void seg_xform_rel(double *x, double *y) {}
 
         case 207:
           gkss->bcoli = i_arr[0];
+          break;
+
+        case 208:
+          gkss->clip_tnr = i_arr[0];
           break;
         }
 
@@ -1078,7 +1083,9 @@ static void seg_xform_rel(double *x, double *y) {}
 
 - (void)set_clip_rect:(int)tnr
 {
-  if (gkss->clip == GKS_K_CLIP)
+  if (gkss->clip_tnr != 0)
+    clipRect = p->rect[gkss->clip_tnr];
+  else if (gkss->clip == GKS_K_CLIP)
     clipRect = p->rect[tnr];
   else
     clipRect = p->rect[0];
@@ -1160,6 +1167,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   begin_context(context);
 
   CGContextBeginPath(context);
+  CGContextSetLineWidth(context, ln_width * p->nominal_size);
 
   if (ln_type != 1)
     {

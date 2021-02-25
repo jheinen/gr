@@ -60,12 +60,21 @@ const char *gr3_error_file_ = "";
  * The only instance of ::GR3_ContextStruct_t_. For documentation, see
  * ::_GR3_ContextStruct_t_.
  */
+#ifndef NO_THREADS
 #define GR3_ContextStruct_INITIALIZER                                                                                 \
   {                                                                                                                   \
     GR3_InitStruct_INITIALIZER, 0, 0, 0, NULL, 0, NULL, not_initialized_, NULL, NULL, 0, 0, {{0}}, 0, 0, 0, NAN, NAN, \
         NAN, NAN, {0, 0, 0, 0}, 0, 0, 0, 0, 0, {0, 0, 0, 1}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 0, 0, 0, 0, {0},  \
         {0}, {0}, {0}, 0, 0                                                                                           \
   }
+#else
+#define GR3_ContextStruct_INITIALIZER                                                                                 \
+  {                                                                                                                   \
+    GR3_InitStruct_INITIALIZER, 0, 0, 0, NULL, 0, NULL, not_initialized_, NULL, NULL, 0, 0, {{0}}, 0, 0, 0, NAN, NAN, \
+        NAN, NAN, {0, 0, 0, 0}, 0, 0, 0, 0, 0, {0, 0, 0, 1}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 0, 0, 0, 0, {0},  \
+        {0}, {0}, 0, 0                                                                                                \
+  }
+#endif
 GR3_ContextStruct_t_ context_struct_ = GR3_ContextStruct_INITIALIZER;
 
 /* For documentation, see the definition. */

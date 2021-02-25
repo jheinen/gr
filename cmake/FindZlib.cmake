@@ -29,7 +29,7 @@ if(NOT ZLIB_INCLUDE_DIR)
 endif()
 
 if(NOT ZLIB_LIBRARY)
-  find_library(ZLIB_LIBRARY NAMES z)
+  find_library(ZLIB_LIBRARY NAMES z zlib)
 endif()
 
 if(ZLIB_INCLUDE_DIR)

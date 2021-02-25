@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>barplot example using gr.js and JSTerm</title>
+</head>
+
+<body>
+  <div id="grm-1"></div>
+  <div id="grm-2"></div>
+  <script src="gr.js"></script>
+  <script>
+    GR.ready(function() {
+      let x = [1.0, 2.0, 3.0];
+      let y = [4.0, 5.0, 8.0];
+
+      let jsterm = new JSTerm();
+      let grm = jsterm.grmInstance();
+
+      // set the anchor for next new plot widget
+      jsterm.nextWidgetAnchor("grm-2");
+      let args = grm.args_new();
+      grm.args_push(args, "kind", "s", "barplot");
+      grm.args_push(args, "y", "D", y);
+      // switch to plot context with id 1
+      grm.switch(1);
+      grm.plot(args);
+      grm.args_delete(args);
+
+      jsterm.nextWidgetAnchor("grm-1");
+      args = grm.args_new();
+      grm.args_push(args, "kind", "s", "line");
+      grm.args_push(args, "x", "D", x);
+      grm.args_push(args, "y", "D", y);
+      // switch to plot context with id 2
+      grm.switch(2);
+      grm.plot(args);
+      grm.args_delete(args);
+    });
+  </script>
+</body>
+
+</html>
