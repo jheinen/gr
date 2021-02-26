@@ -1730,6 +1730,7 @@ static void to_DC(int n, double *x, double *y)
   CGContextRef bitmap;
   CGImageRef image;
   const CGFloat *colors;
+  double scale = [self.window backingScaleFactor];
 
   WC_to_NDC(xmin, ymax, gkss->cntnr, x1, y1);
   seg_xform(&x1, &y1);
@@ -1743,13 +1744,12 @@ static void to_DC(int n, double *x, double *y)
   ix2 = round(x2);
   iy2 = round(y2);
 
-
-  width = abs(ix2 - ix1);
-  height = abs(iy2 - iy1);
+  width = abs(ix2 - ix1) * scale;
+  height = abs(iy2 - iy1) * scale;
   if (width == 0 || height == 0) return;
 
-  x = min(ix1, ix2);
-  y = min(iy1, iy2);
+  x = min(ix1, ix2) * scale;
+  y = min(iy1, iy2) * scale;
 
   swapx = ix1 > ix2;
   swapy = iy1 > iy2;
@@ -1809,6 +1809,7 @@ static void to_DC(int n, double *x, double *y)
     }
 
   bitmap = CGBitmapContextCreate(colia, width, height, 8, 4 * width, cs, kCGImageAlphaPremultipliedLast);
+  CGContextScaleCTM(context, 1 / scale, 1 / scale);
   image = CGBitmapContextCreateImage(bitmap);
   CGContextDrawImage(context, CGRectMake(x, y, width, height), image);
 
