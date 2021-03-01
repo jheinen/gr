@@ -11,11 +11,13 @@ project(
 )
 
 include(GNUInstallDirs)
+include(CheckCXXCompilerFlag)
 
 # Honor `C_VISIBILITY_PRESET hidden` in static libraries
 cmake_policy(SET CMP0063 NEW)
 
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+check_cxx_compiler_flag("-Werror=implicit" ERROR_IMPLICIT_SUPPORTED)
+if(ERROR_IMPLICIT_SUPPORTED)
   set(COMPILER_OPTION_ERROR_IMPLICIT
       "-Werror=implicit"
       CACHE INTERNAL "Compiler flag for generating errors on implicit declarations"
