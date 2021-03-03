@@ -20,6 +20,7 @@ set(EXECUTABLE_SOURCES
     line_errorbar.c
     merge_args.c
     multi_plot.c
+    pie.c
     plot.c
     polar_histogram.c
     quiver.c

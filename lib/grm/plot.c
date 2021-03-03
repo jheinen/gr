@@ -141,18 +141,18 @@ event_queue_t *event_queue = NULL;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~ kind to fmt ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-static string_map_entry_t kind_to_fmt[] = {{"line", "xys"},         {"hexbin", "xys"},
-                                           {"polar", "xys"},        {"shade", "xys"},
-                                           {"stem", "xys"},         {"step", "xys"},
-                                           {"contour", "xyzc"},     {"contourf", "xyzc"},
-                                           {"tricont", "xyzc"},     {"trisurf", "xyzc"},
-                                           {"surface", "xyzc"},     {"wireframe", "xyzc"},
-                                           {"plot3", "xyzc"},       {"scatter", "xyzc"},
-                                           {"scatter3", "xyzc"},    {"quiver", "xyuv"},
-                                           {"heatmap", "xyzc"},     {"hist", "x"},
-                                           {"barplot", "y"},        {"isosurface", "c"},
-                                           {"imshow", "c"},         {"nonuniformheatmap", "xyzc"},
-                                           {"polar_histogram", "x"}};
+static string_map_entry_t kind_to_fmt[] = {{"line", "xys"},          {"hexbin", "xys"},
+                                           {"polar", "xys"},         {"shade", "xys"},
+                                           {"stem", "xys"},          {"step", "xys"},
+                                           {"contour", "xyzc"},      {"contourf", "xyzc"},
+                                           {"tricont", "xyzc"},      {"trisurf", "xyzc"},
+                                           {"surface", "xyzc"},      {"wireframe", "xyzc"},
+                                           {"plot3", "xyzc"},        {"scatter", "xyzc"},
+                                           {"scatter3", "xyzc"},     {"quiver", "xyuv"},
+                                           {"heatmap", "xyzc"},      {"hist", "x"},
+                                           {"barplot", "y"},         {"isosurface", "c"},
+                                           {"imshow", "c"},          {"nonuniformheatmap", "xyzc"},
+                                           {"polar_histogram", "x"}, {"pie", "x"}};
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~ kind to func ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -179,7 +179,8 @@ static plot_func_map_entry_t kind_to_func[] = {{"line", plot_line},
                                                {"tricont", plot_tricont},
                                                {"shade", plot_shade},
                                                {"nonuniformheatmap", plot_heatmap},
-                                               {"polar_histogram", plot_polar_histogram}};
+                                               {"polar_histogram", plot_polar_histogram},
+                                               {"pie", plot_pie}};
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~ maps ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -1039,7 +1040,7 @@ error_t plot_pre_subplot(grm_args_t *subplot_args)
     {
       plot_draw_polar_axes(subplot_args);
     }
-  else
+  else if (strcmp(kind, "pie") != 0)
     {
       plot_draw_axes(subplot_args, 1);
     }
@@ -1175,7 +1176,7 @@ void plot_process_viewport(grm_args_t *subplot_args)
       gr_restorestate();
     }
 
-  if (str_equals_any(kind, 2, "polar", "polar_histogram"))
+  if (str_equals_any(kind, 3, "pie", "polar", "polar_histogram"))
     {
       double x_center, y_center, r;
 
@@ -1184,7 +1185,7 @@ void plot_process_viewport(grm_args_t *subplot_args)
       r = 0.5 * min(viewport[1] - viewport[0], viewport[3] - viewport[2]);
       if (grm_args_contains(subplot_args, "title"))
         {
-          y_center = (y_center + r) / 2.0;
+          y_center -= 0.1 * r;
         }
       viewport[0] = x_center - r;
       viewport[1] = x_center + r;
@@ -1224,7 +1225,7 @@ void plot_process_window(grm_args_t *subplot_args)
   args_values(subplot_args, "yflip", "i", &yflip);
   args_values(subplot_args, "zflip", "i", &zflip);
 
-  if (!str_equals_any(kind, 2, "polar", "polar_histogram"))
+  if (!str_equals_any(kind, 3, "pie", "polar", "polar_histogram"))
     {
       scale |= xlog ? GR_OPTION_X_LOG : 0;
       scale |= ylog ? GR_OPTION_Y_LOG : 0;
@@ -1234,7 +1235,7 @@ void plot_process_window(grm_args_t *subplot_args)
       scale |= zflip ? GR_OPTION_FLIP_Z : 0;
     }
 
-  if (str_equals_any(kind, 2, "polar", "polar_histogram"))
+  if (str_equals_any(kind, 3, "pie", "polar", "polar_histogram"))
     {
       y_min = x_min = -1.1;
       y_max = x_max = 1.1;
@@ -1478,7 +1479,7 @@ error_t plot_store_coordinate_ranges(grm_args_t *subplot_args)
   args_values(subplot_args, "kind", "s", &kind);
   args_values(subplot_args, "style", "s", &style);
   string_map_at(fmt_map, kind, (char **)&fmt); /* TODO: check if the map access was successful */
-  if (strcmp(kind, "polar_histogram") != 0)
+  if (!str_equals_any(kind, 2, "pie", "polar_histogram"))
     {
       current_component_name = data_component_names;
       current_range_keys = range_keys;
@@ -1777,9 +1778,16 @@ void plot_post_subplot(grm_args_t *subplot_args)
   gr_restorestate();
   args_values(subplot_args, "kind", "s", &kind);
   logger((stderr, "Got keyword \"kind\" with value \"%s\"\n", kind));
-  if (str_equals_any(kind, 4, "line", "step", "scatter", "stem") && grm_args_contains(subplot_args, "labels"))
+  if (grm_args_contains(subplot_args, "labels"))
     {
-      plot_draw_legend(subplot_args);
+      if (str_equals_any(kind, 4, "line", "step", "scatter", "stem"))
+        {
+          plot_draw_legend(subplot_args);
+        }
+      else if (strcmp(kind, "pie") == 0)
+        {
+          plot_draw_pie_legend(subplot_args);
+        }
     }
 }
 
@@ -4639,6 +4647,77 @@ cleanup:
   return error;
 }
 
+error_t plot_pie(grm_args_t *subplot_args)
+{
+  grm_args_t *series;
+  double *x;
+  double *normalized_x = NULL;
+  unsigned int *normalized_x_int = NULL;
+  unsigned int x_length;
+  int color_ind;
+  unsigned char color_rgb[4];
+  double start_angle, middle_angle, end_angle;
+  double text_pos[2];
+  char text[80];
+  const char *title;
+  unsigned int i;
+  error_t error = NO_ERROR;
+
+  args_values(subplot_args, "series", "a", &series); /* series exists always */
+
+  gr_savestate();
+  gr_setfillintstyle(GKS_K_INTSTYLE_SOLID);
+  gr_settextalign(GKS_K_TEXT_HALIGN_CENTER, GKS_K_TEXT_VALIGN_HALF);
+
+
+  cleanup_and_set_error_if(!args_first_value(series, "x", "D", &x, &x_length), ERROR_PLOT_MISSING_DATA);
+  normalized_x = normalize(x_length, x);
+  cleanup_and_set_error_if(normalized_x == NULL, ERROR_MALLOC);
+  normalized_x_int = normalize_int(x_length, x, 1000);
+  cleanup_and_set_error_if(normalized_x_int == NULL, ERROR_MALLOC);
+
+  start_angle = 90;
+  for (i = 0; i < x_length; ++i)
+    {
+      gr_uselinespec("");
+      gr_inqlinecolorind(&color_ind);
+      gr_setfillcolorind(color_ind);
+      gr_inqcolor(color_ind, (int *)color_rgb);
+      set_text_color_for_background(color_rgb[0] / 255.0, color_rgb[1] / 255.0, color_rgb[2] / 255.0);
+      end_angle = start_angle - normalized_x[i] * 360.0;
+      gr_fillarc(-1.0, 1.0, -1.0, 1.0, start_angle, end_angle);
+      middle_angle = (start_angle + end_angle) / 2.0;
+      text_pos[0] = 0.7 * cos(middle_angle * M_PI / 180.0);
+      text_pos[1] = 0.7 * sin(middle_angle * M_PI / 180.0);
+      gr_wctondc(&text_pos[0], &text_pos[1]);
+      snprintf(text, 80, "%.2lf\n%.1lf %%", x[i], normalized_x_int[i] / 10.0);
+      gr_text(text_pos[0], text_pos[1], text);
+      start_angle = end_angle;
+      if (start_angle < 0)
+        {
+          start_angle += 360.0;
+        }
+    }
+
+  if (args_values(subplot_args, "title", "s", &title))
+    {
+      const double *viewport, *vp;
+      args_values(subplot_args, "viewport", "D", &viewport);
+      args_values(subplot_args, "vp", "D", &vp);
+
+      gr_settextcolorind(1);
+      gr_settextalign(GKS_K_TEXT_HALIGN_CENTER, GKS_K_TEXT_VALIGN_TOP);
+      gr_textext(0.5 * (viewport[0] + viewport[1]), vp[3] - 0.02, (char *)title);
+    }
+
+cleanup:
+  gr_restorestate();
+  free(normalized_x);
+  free(normalized_x_int);
+
+  return error;
+}
+
 error_t plot_trisurf(grm_args_t *subplot_args)
 {
   grm_args_t **current_series;
@@ -5133,6 +5212,63 @@ error_t plot_draw_legend(grm_args_t *subplot_args)
   return NO_ERROR;
 }
 
+error_t plot_draw_pie_legend(grm_args_t *subplot_args)
+{
+  const char **labels, **current_label;
+  unsigned int num_labels;
+  grm_args_t **current_series;
+  const double *viewport;
+  double px, py, w, h;
+  double tbx[4], tby[4];
+  int color_ind;
+
+
+  return_error_if(!args_first_value(subplot_args, "labels", "S", &labels, &num_labels), ERROR_PLOT_MISSING_LABELS);
+  logger((stderr, "Draw a pie legend with %d labels\n", num_labels));
+  args_values(subplot_args, "viewport", "D", &viewport);
+  gr_savestate();
+  gr_selntran(0);
+  gr_setscale(0);
+  w = 0;
+  h = 0;
+  for (current_label = labels; *current_label != NULL; ++current_label)
+    {
+      gr_inqtextext(0, 0, *(char **)current_label, tbx, tby);
+      w += tbx[2];
+      h = max(h, tby[2]);
+    }
+  w += num_labels * 0.03 + (num_labels - 1) * 0.02;
+
+  px = 0.5 * (viewport[0] + viewport[1] - w);
+  py = viewport[2] - 0.75 * h;
+
+  gr_setfillintstyle(GKS_K_INTSTYLE_SOLID);
+  gr_setfillcolorind(0);
+  gr_fillrect(px - 0.02, px + w + 0.02, py - 0.5 * h - 0.02, py + 0.5 * h + 0.02);
+  gr_setlinetype(GKS_K_INTSTYLE_SOLID);
+  gr_setlinecolorind(1);
+  gr_setlinewidth(1);
+  gr_drawrect(px - 0.02, px + w + 0.02, py - 0.5 * h - 0.02, py + 0.5 * h + 0.02);
+  gr_settextalign(GKS_K_TEXT_HALIGN_LEFT, GKS_K_TEXT_VALIGN_HALF);
+  gr_uselinespec(" ");
+  for (current_label = labels; *current_label != NULL; ++current_label)
+    {
+      gr_uselinespec("");
+      gr_inqlinecolorind(&color_ind);
+      gr_setfillcolorind(color_ind);
+      gr_fillrect(px, px + 0.02, py - 0.01, py + 0.01);
+      gr_setlinecolorind(1);
+      gr_drawrect(px, px + 0.02, py - 0.01, py + 0.01);
+      gr_textext(px + 0.03, py, (char *)*current_label);
+      gr_inqtextext(0, 0, *(char **)current_label, tbx, tby);
+      px += tbx[2] + 0.05;
+    }
+  gr_selntran(1);
+  gr_restorestate();
+
+  return NO_ERROR;
+}
+
 error_t plot_draw_colorbar(grm_args_t *subplot_args, double off, unsigned int colors)
 {
   const double *viewport;
@@ -5410,6 +5546,112 @@ double find_max_step(unsigned int n, const double *x)
     }
 
   return max_step;
+}
+
+/*!
+ * Normalize a given array of doubles so all values sum up to 1.0
+ *
+ * \param[in] n The number of array elements.
+ * \param[in] x A pointer to the array elements.
+ * \return A pointer to newly alloced heap memory with the normalized values.
+ */
+double *normalize(unsigned int n, const double *x)
+{
+  double sum;
+  double *normalized_x;
+  unsigned int i;
+
+  sum = 0.0;
+  for (i = 0; i < n; ++i)
+    {
+      sum += x[i];
+    }
+
+  normalized_x = malloc(n * sizeof(double));
+  if (normalized_x == NULL)
+    {
+      debug_print_malloc_error();
+      return NULL;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      normalized_x[i] = x[i] / sum;
+    }
+
+  return normalized_x;
+}
+
+/*!
+ * Normalize a given array of doubles so all values sum up to `sum`.
+ * All values are converted to unsigned integers. It is guaranteed that
+ * the sum of all values is always `sum` (rounding errors are handled).
+ *
+ * \param[in] n The number of array elements.
+ * \param[in] x A pointer to the array elements.
+ * \return A pointer to newly alloced heap memory with the normalized values.
+ */
+unsigned int *normalize_int(unsigned int n, const double *x, unsigned int sum)
+{
+  double sum_x;
+  unsigned int *normalized_x;
+  unsigned int actual_sum;
+  int rounding_error;
+  double normalized_x_without_rounding;
+  double current_relative_error;
+  double min_relative_error;
+  unsigned int min_relative_error_index;
+  unsigned int i;
+
+  sum_x = 0.0;
+  for (i = 0; i < n; ++i)
+    {
+      sum_x += x[i];
+    }
+
+  normalized_x = malloc(n * sizeof(unsigned int));
+  if (normalized_x == NULL)
+    {
+      debug_print_malloc_error();
+      return NULL;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      normalized_x[i] = (int)((x[i] * sum / sum_x) + 0.5);
+    }
+
+  actual_sum = 0;
+  for (i = 0; i < n; ++i)
+    {
+      actual_sum += normalized_x[i];
+    }
+  rounding_error = sum - actual_sum;
+
+  if (rounding_error != 0)
+    {
+      /*
+       * Find the data value which gets the lowest relative error
+       * when the rounding error is added.
+       */
+      min_relative_error = INFINITY;
+      min_relative_error_index = 0;
+      for (i = 0; i < n; ++i)
+        {
+          normalized_x_without_rounding = x[i] * sum / sum_x;
+          current_relative_error =
+              fabs(normalized_x[i] + rounding_error - normalized_x_without_rounding) / normalized_x_without_rounding;
+          if (current_relative_error < min_relative_error)
+            {
+              min_relative_error = current_relative_error;
+              min_relative_error_index = i;
+            }
+        }
+      /* Apply the rounding error to the previously found data value */
+      normalized_x[min_relative_error_index] += rounding_error;
+    }
+
+  return normalized_x;
 }
 
 const char *next_fmt_key(const char *kind)
@@ -6587,6 +6829,41 @@ cleanup:
   return error;
 }
 
+/*!
+ * Convert an RGB triple to a luminance value following the CCIR 601 format.
+ *
+ * \param[in] r The red component of the RGB triple in the range [0.0, 1.0].
+ * \param[in] g The green component of the RGB triple in the range [0.0, 1.0].
+ * \param[in] b The blue component of the RGB triple in the range [0.0, 1.0].
+ * \return The luminance of the given RGB triple in the range [0.0, 1.0].
+ */
+double get_lightness_from_rbg(double r, double g, double b)
+{
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/*!
+ * Set the text color either to black or white depending on the given background color.
+ *
+ * \param[in] r The red component of the RGB triple in the range [0.0, 1.0].
+ * \param[in] g The green component of the RGB triple in the range [0.0, 1.0].
+ * \param[in] b The blue component of the RGB triple in the range [0.0, 1.0].
+ * \return The luminance of the given RGB triple.
+ */
+void set_text_color_for_background(double r, double g, double b)
+{
+  double color_lightness;
+
+  color_lightness = get_lightness_from_rbg(r, g, b);
+  if (color_lightness < 0.4)
+    {
+      gr_settextcolorind(0);
+    }
+  else
+    {
+      gr_settextcolorind(1);
+    }
+}
 
 /* ========================= methods ================================================================================ */
 
