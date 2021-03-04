@@ -238,6 +238,8 @@ extern "C" {
 /* GKS generalized drawing primitive (GDP) function IDs */
 
 #define GKS_K_GDP_DRAW_PATH 1
+#define GKS_K_GDP_DRAW_LINES 2
+#define GKS_K_GDP_DRAW_MARKERS 3
 
 /* GKS error codes */
 

@@ -144,6 +144,8 @@ static int pcolor[PATTERNS];
 
 static int color_ = -1;
 
+static CGColorSpaceRef colorSpace = NULL;
+
 static CGContextRef context = NULL;
 
 static CGLayerRef layer;
@@ -767,6 +769,11 @@ static void seg_xform_rel(double *x, double *y) {}
           patternLayers[i] = nil;
         }
     }
+  if (colorSpace != NULL)
+    {
+      CGColorSpaceRelease(colorSpace);
+      colorSpace = NULL;
+    }
   gks_close_font(fontfile);
   if (buffer)
     {
@@ -1186,14 +1193,25 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   end_context(context);
 }
 
-- (void)draw_marker:(double)xn:(double)yn:(int)mtype:(double)mscale:(int)mcolor:(CGContextRef)context
+- (void)draw_marker:(double)
+                 xn:(double)yn
+                   :(int)mtype
+                   :(double)mscale
+                   :(int)mcolor
+                   :(CGContextRef)context
+                   :(const CGFloat *)color
 {
   double x, y;
   int r, i;
   double scale, xr, yr;
   int pc, op;
+  const CGFloat *marker_color, *border_color, *background_color;
 
 #include "marker.h"
+
+  marker_color = color != NULL ? color : CGColorGetComponents(mcolor);
+  border_color = CGColorGetComponents(gkss->bcoli);
+  background_color = CGColorGetComponents(0);
 
   mscale *= p->nominal_size;
   r = (int)(3 * mscale);
@@ -1215,14 +1233,14 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
       switch (op)
         {
         case 1: // point
-          [self set_fill_color:mcolor:context];
+          CGContextSetFillColor(context, marker_color);
           CGContextFillRect(context, CGRectMake(x, y, 1, 1));
           break;
 
         case 2: // line
           CGContextBeginPath(context);
           CGContextSetLineWidth(context, p->nominal_size);
-          [self set_stroke_color:mcolor:context];
+          CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < 2; i++)
             {
               xr = scale * marker[mtype][pc + 2 * i + 1];
@@ -1240,7 +1258,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
         case 3: // polyline
           CGContextBeginPath(context);
           CGContextSetLineWidth(context, p->nominal_size);
-          [self set_stroke_color:mcolor:context];
+          CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < marker[mtype][pc + 1]; i++)
             {
               xr = scale * marker[mtype][pc + 2 + 2 * i];
@@ -1261,15 +1279,15 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
           CGContextBeginPath(context);
           if (op == 4)
             {
-              [self set_fill_color:mcolor:context];
-              if (gkss->bcoli != mcolor)
+              CGContextSetFillColor(context, marker_color);
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   CGContextSetLineWidth(context, gkss->bwidth * p->nominal_size);
-                  [self set_stroke_color:gkss->bcoli:context];
+                  CGContextSetStrokeColor(context, border_color);
                 }
             }
           else
-            [self set_fill_color:0:context];
+            CGContextSetFillColor(context, background_color);
           for (i = 0; i < marker[mtype][pc + 1]; i++)
             {
               xr = scale * marker[mtype][pc + 2 + 2 * i];
@@ -1281,7 +1299,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
                 CGContextAddLineToPoint(context, x - xr, y + yr);
             }
           CGContextClosePath(context);
-          if (op == 4 && gkss->bcoli != mcolor)
+          if (op == 4 && gkss->bcoli != gkss->pmcoli)
             CGContextDrawPath(context, kCGPathFillStroke);
           else
             CGContextDrawPath(context, kCGPathFill);
@@ -1292,7 +1310,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
         case 6: // arc
           CGContextBeginPath(context);
           CGContextSetLineWidth(context, p->nominal_size);
-          [self set_stroke_color:mcolor:context];
+          CGContextSetStrokeColor(context, marker_color);
           CGContextAddArc(context, x, y, r, 0.0, 2 * M_PI, 0);
           CGContextDrawPath(context, kCGPathStroke);
           break;
@@ -1302,17 +1320,17 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
           CGContextBeginPath(context);
           if (op == 7)
             {
-              [self set_fill_color:mcolor:context];
-              if (gkss->bcoli != mcolor)
+              CGContextSetFillColor(context, marker_color);
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   CGContextSetLineWidth(context, gkss->bwidth * p->nominal_size);
-                  [self set_stroke_color:gkss->bcoli:context];
+                  CGContextSetStrokeColor(context, border_color);
                 }
             }
           else
-            [self set_fill_color:0:context];
+            CGContextSetStrokeColor(context, background_color);
           CGContextAddArc(context, x, y, r, 0.0, 2 * M_PI, 0);
-          if (op == 7 && gkss->bcoli != mcolor)
+          if (op == 7 && gkss->bcoli != gkss->pmcoli)
             CGContextDrawPath(context, kCGPathFillStroke);
           else
             CGContextDrawPath(context, kCGPathFill);
@@ -1336,6 +1354,14 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
 
   begin_context(context);
+
+  if (colorSpace == NULL)
+    {
+      colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+  CGContextSetStrokeColorSpace(context, colorSpace);
+  CGContextSetFillColorSpace(context, colorSpace);
+
   for (i = 0; i < n; i++)
     {
       WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
@@ -1346,7 +1372,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
       else
         draw = 1;
 
-      if (draw) [self draw_marker:x:y:mk_type:mk_size:mk_color:context];
+      if (draw) [self draw_marker:x:y:mk_type:mk_size:mk_color:context:NULL];
     }
   end_context(context);
 }
@@ -1702,11 +1728,115 @@ static void to_DC(int n, double *x, double *y)
 }
 
 
+- (void)draw_lines:(int)n:(double *)px:(double *)py:(int *)attributes
+{
+  int i, j = 0, rgba;
+  double x, y;
+  int xim1, yim1, xi, yi;
+  float line_width;
+  CGFloat color[4];
+
+  begin_context(context);
+
+  if (colorSpace == NULL)
+    {
+      colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+
+  WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);
+  seg_xform(&x, &y);
+  NDC_to_DC(x, y, xi, yi);
+
+  for (i = 1; i < n; i++)
+    {
+      xim1 = xi;
+      yim1 = yi;
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+
+      CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinMiter);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      line_width = 0.01 * attributes[j++];
+      CGContextSetLineWidth(context, line_width * p->nominal_size);
+
+      rgba = attributes[j++];
+      color[0] = (rgba & 0xff) / 255.0;
+      color[1] = ((rgba >> 8) & 0xff) / 255.0;
+      color[2] = ((rgba >> 16) & 0xff) / 255.0;
+      color[3] = gkss->alpha;
+      CGContextSetStrokeColorSpace(context, colorSpace);
+      CGContextSetStrokeColor(context, color);
+
+      CGContextMoveToPoint(context, xim1, yim1);
+      CGContextAddLineToPoint(context, xi, yi);
+      CGContextDrawPath(context, kCGPathStroke);
+    }
+
+  end_context(context);
+}
+
+
+- (void)draw_markers:(int)n:(double *)px:(double *)py:(int *)attributes
+{
+  int mk_type, mk_color = 0;
+  double x, y, mk_size;
+  double *clrt = gkss->viewport[gkss->cntnr];
+  int i, j = 0, rgba, draw;
+  CGFloat color[4];
+
+  mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+
+  begin_context(context);
+
+  if (colorSpace == NULL)
+    {
+      colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+  CGContextSetStrokeColorSpace(context, colorSpace);
+  CGContextSetFillColorSpace(context, colorSpace);
+
+  for (i = 0; i < n; i++)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+
+      if (gkss->clip == GKS_K_CLIP)
+        draw = (x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3]);
+      else
+        draw = 1;
+
+      mk_size = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      color[0] = (rgba & 0xff) / 255.0;
+      color[1] = ((rgba >> 8) & 0xff) / 255.0;
+      color[2] = ((rgba >> 16) & 0xff) / 255.0;
+      color[3] = gkss->alpha;
+
+      if (draw) [self draw_marker:x:y:mk_type:mk_size:mk_color:context:color];
+    }
+
+  end_context(context);
+}
+
+
 - (void)gdp:(int)n:(double *)px:(double *)py:(int)primid:(int)nc:(int *)codes
 {
-  if (primid == GKS_K_GDP_DRAW_PATH)
+  switch (primid)
     {
+    case GKS_K_GDP_DRAW_PATH:
       [self draw_path:n:px:py:nc:codes];
+      break;
+    case GKS_K_GDP_DRAW_LINES:
+      [self draw_lines:n:px:py:codes];
+      break;
+    case GKS_K_GDP_DRAW_MARKERS:
+      [self draw_markers:n:px:py:codes];
+      break;
+    default:
+      gks_perror("invalid drawing primitive ('%d')", primid);
+      exit(1);
     }
 }
 

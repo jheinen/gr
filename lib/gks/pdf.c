@@ -132,7 +132,7 @@ typedef struct ws_state_list_t
   double a, b, c, d;
   int stroke;
   double lastx, lasty;
-  double red[MAX_COLOR], green[MAX_COLOR], blue[MAX_COLOR];
+  double red[MAX_COLOR + 1], green[MAX_COLOR + 1], blue[MAX_COLOR + 1];
   int alpha, ltype, font, size, pt;
   double lwidth, angle;
   double nominal_size;
@@ -880,12 +880,12 @@ static void set_clip(double *clrt)
 
 static void set_color(int color)
 {
-  if (color < MAX_COLOR) pdf_setrgbcolor(p, p->red[color], p->green[color], p->blue[color]);
+  if (color <= MAX_COLOR) pdf_setrgbcolor(p, p->red[color], p->green[color], p->blue[color]);
 }
 
 static void set_fillcolor(int color)
 {
-  if (color < MAX_COLOR) pdf_setfillcolor(p, p->red[color], p->green[color], p->blue[color]);
+  if (color <= MAX_COLOR) pdf_setfillcolor(p, p->red[color], p->green[color], p->blue[color]);
 }
 
 static void set_transparency(int alpha)
@@ -1105,7 +1105,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
           if (op == 4)
             {
               set_fillcolor(mcolor);
-              if (gkss->bcoli != mcolor)
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   set_linewidth(gkss->bwidth);
                   set_color(gkss->bcoli);
@@ -1123,7 +1123,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
               else
                 pdf_lineto(p, x - xr, y - yr);
             }
-          if (op == 4 && gkss->bcoli != mcolor)
+          if (op == 4 && gkss->bcoli != gkss->pmcoli)
             pdf_printf(p->content, "b*\n");
           else
             pdf_eofill(p);
@@ -1157,7 +1157,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
           if (op == 7)
             {
               set_fillcolor(mcolor);
-              if (gkss->bcoli != mcolor)
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   set_linewidth(gkss->bwidth);
                   set_color(gkss->bcoli);
@@ -1180,7 +1180,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
                 }
               pdf_curveto(p);
             }
-          if (op == 7 && gkss->bcoli != mcolor)
+          if (op == 7 && gkss->bcoli != gkss->pmcoli)
             pdf_printf(p->content, "b*\n");
           else
             pdf_eofill(p);
@@ -1833,22 +1833,86 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
     }
 }
 
+static void draw_lines(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba, ln_color = MAX_COLOR;
+  double x, y, xim1, yim1, xi, yi;
+  double line_width;
+
+  WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);
+  seg_xform(&x, &y);
+  NDC_to_DC(x, y, xi, yi);
+
+  for (i = 1; i < n; i++)
+    {
+      xim1 = xi;
+      yim1 = yi;
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+
+      line_width = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      p->red[ln_color] = (rgba & 0xff) / 255.0;
+      p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      set_color(ln_color);
+      set_linewidth(line_width);
+
+      pdf_printf(p->content, "1 J %.2f %.2f m %.2f %.2f l S\n", xim1, yim1, xi, yi);
+    }
+}
+
+
+static void draw_markers(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba;
+  int mk_type, mk_color = MAX_COLOR;
+  double mk_size, x, y;
+
+  mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+
+  for (i = 0; i < n; i++)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+
+      mk_size = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      p->red[mk_color] = (rgba & 0xff) / 255.0;
+      p->green[mk_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[mk_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      draw_marker(x, y, mk_type, mk_size, mk_color);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
-  if (primid == GKS_K_GDP_DRAW_PATH)
+  if (gkss->clip_tnr != 0)
     {
-      if (gkss->clip_tnr != 0)
-        {
-          pdf_save(p);
-          set_clip(gkss->viewport[gkss->clip_tnr]);
-        }
-
+      pdf_save(p);
+      set_clip(gkss->viewport[gkss->clip_tnr]);
+    }
+  switch (primid)
+    {
+    case GKS_K_GDP_DRAW_PATH:
       draw_path(n, px, py, nc, codes);
-
-      if (gkss->clip_tnr != 0)
-        {
-          pdf_restore(p);
-        }
+      break;
+    case GKS_K_GDP_DRAW_LINES:
+      draw_lines(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_MARKERS:
+      draw_markers(n, px, py, codes);
+      break;
+    default:
+      gks_perror("invalid drawing primitive ('%d')", primid);
+      exit(1);
+    }
+  if (gkss->clip_tnr != 0)
+    {
+      pdf_restore(p);
     }
 }
 
