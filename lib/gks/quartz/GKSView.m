@@ -1209,9 +1209,9 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
 #include "marker.h"
 
-  marker_color = color != NULL ? color : CGColorGetComponents(mcolor);
-  border_color = CGColorGetComponents(gkss->bcoli);
-  background_color = CGColorGetComponents(0);
+  marker_color = color != NULL ? color : CGColorGetComponents(p->rgb[mcolor]);
+  border_color = CGColorGetComponents(p->rgb[gkss->bcoli]);
+  background_color = CGColorGetComponents(p->rgb[0]);
 
   mscale *= p->nominal_size;
   r = (int)(3 * mscale);
