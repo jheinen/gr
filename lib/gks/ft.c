@@ -1001,7 +1001,7 @@ static int cubic_to(const FT_Vector *control1, const FT_Vector *control2, const 
   return 0;
 }
 
-static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first)
+static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first, FT_Bool last)
 {
   FT_Outline_Funcs callbacks;
   FT_GlyphSlot slot;
@@ -1032,10 +1032,16 @@ static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first)
       opcodes[num_opcodes] = '\0';
     }
 
-  if (charcode != 32)
-    pen_x += metrics.horiBearingX + metrics.width;
+  if (last && charcode != 32)
+    {
+      /* Use bearingX + width for the last character so that right-aligned texts are aligned to the bounding box of the
+       * last glyph. If the last character is a space use the horiAdvance instead as the width is 0. */
+      pen_x += metrics.horiBearingX + metrics.width;
+    }
   else
-    pen_x += metrics.horiAdvance;
+    {
+      pen_x += metrics.horiAdvance;
+    }
 }
 
 static long get_kerning(FT_Face face, FT_UInt left_glyph, FT_UInt right_glyph)
@@ -1115,7 +1121,7 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
       if (i > 0 && FT_HAS_KERNING(face) && !FT_IS_FIXED_WIDTH(face))
         pen_x += get_kerning(face, unicode_string[i - 1], unicode_string[i]);
 
-      get_outline(face, unicode_string[i], i == 0);
+      get_outline(face, unicode_string[i], i == 0, i == length - 1);
 
       if (npoints > 0 && bBoxX == NULL && bBoxY == NULL)
         {
@@ -1266,7 +1272,7 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
       if (i > 0 && FT_HAS_KERNING(face) && !FT_IS_FIXED_WIDTH(face))
         pen_x += get_kerning(face, unicode_string[i - 1], unicode_string[i]);
 
-      get_outline(face, unicode_string[i], i == 0);
+      get_outline(face, unicode_string[i], i == 0, i == length - 1);
 
       if (npoints > 0 && bBoxX == NULL && bBoxY == NULL)
         {
