@@ -217,6 +217,11 @@ foreach(LIBRARY gks_static gks_shared)
     )
   endif()
   target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} Zlib::Zlib)
+  target_compile_definitions(
+    ${LIBRARY}
+    ${GKS_LINK_MODE}
+    HAVE_ZLIB
+  )
   if(UNIX)
     target_link_libraries(${LIBRARY} ${GKS_LINK_MODE} dl)
   elseif(WIN32)
