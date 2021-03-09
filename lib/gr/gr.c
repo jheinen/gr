@@ -10311,6 +10311,7 @@ static void latex2image(char *string, int pointSize, double *rgb, int *width, in
   int color;
   char s[FILENAME_MAX], path[FILENAME_MAX], cache[33];
   char *tmp, *temp, *null, cmd[1024];
+  static char *preamble = NULL;
   char tex[FILENAME_MAX], dvi[FILENAME_MAX], png[FILENAME_MAX];
   FILE *stream;
   int math, ret;
@@ -10360,11 +10361,32 @@ static void latex2image(char *string, int pointSize, double *rgb, int *width, in
       null = "/dev/null";
       stream = fopen(tex, "w");
 #endif
-      fprintf(stream, "\
+      if (preamble == NULL)
+        {
+          preamble = (char *)gks_getenv("GR_LATEX_PREAMBLE");
+        }
+      if (preamble != NULL)
+        {
+          if (strcmp(preamble, "AMS") == 0)
+            {
+              preamble = "\
+\\documentclass{article}\n\
+\\pagestyle{empty}\n\
+\\usepackage{amssymb}\n\
+\\usepackage{amsmath}\n\
+\\usepackage[dvips]{color}\n\
+\\begin{document}\n";
+            }
+        }
+      else
+        {
+          preamble = "\
 \\documentclass{article}\n\
 \\pagestyle{empty}\n\
 \\usepackage[dvips]{color}\n\
-\\begin{document}\n");
+\\begin{document}\n";
+        }
+      fprintf(stream, "%s", preamble);
       if (math) fprintf(stream, "\\[\n");
       fprintf(stream, "\\color[rgb]{%.3f,%.3f,%.3f} {\n", rgb[0], rgb[1], rgb[2]);
       fwrite(string, strlen(string), 1, stream);

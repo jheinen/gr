@@ -1098,8 +1098,8 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
   FT_UInt unicode_string[256];
   FT_UInt length = strlen(text);
   int i, j;
-  double xj, yj, cos_f, sin_f;
-  double chh, height;
+  double xj, yj, cos_f, sin_f, shear_x, shear_y;
+  double chh, height, theta;
   int alh;
 
   if (!init) gks_ft_init();
@@ -1112,6 +1112,9 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
   sin_f = sin(phi);
   chh = gkss->chh;
   height = chh / get_capheight(face);
+  theta = gkss->txslant * M_PI / 180.0;
+  shear_x = cos(theta);
+  shear_y = sin(theta);
   alh = gkss->txal[0];
 
   for (i = 0; i < length; i++)
@@ -1127,8 +1130,10 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
         {
           for (j = 0; j < npoints; j++)
             {
-              xj = horiAdvance + xpoint[j] * height;
-              yj = vertAdvance + ypoint[j] * height;
+              xj = xpoint[j] * height;
+              yj = ypoint[j] * height;
+              xj = horiAdvance + shear_x * xj + shear_y * yj;
+              yj = vertAdvance + shear_x * yj;
               xpoint[j] = x + cos_f * xj - sin_f * yj;
               ypoint[j] = y + sin_f * xj + cos_f * yj;
             }
@@ -1247,8 +1252,8 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
   FT_UInt unicode_string[256];
   FT_UInt length = strlen(text);
   int i, j;
-  double xj, yj, zj, cos_f, sin_f;
-  double chh, height;
+  double xj, yj, zj, cos_f, sin_f, shear_x, shear_y;
+  double chh, height, theta;
   int alh;
 
   if (!init) gks_ft_init();
@@ -1259,10 +1264,12 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
   cos_f = cos(phi);
   sin_f = sin(phi);
   chh = gkss->chh;
-
   chh /= heightFactor;
-
   height = chh / get_capheight(face);
+  theta = gkss->txslant * M_PI / 180.0;
+  shear_x = cos(theta);
+  shear_y = sin(theta);
+
   alh = gkss->txal[0];
 
   for (i = 0; i < length; i++)
@@ -1278,8 +1285,10 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
         {
           for (j = 0; j < npoints; j++)
             {
-              xj = horiAdvance + (axis < 0 ? -1 : 1) * xpoint[j] * height;
-              yj = vertAdvance + ypoint[j] * height;
+              xj = xpoint[j] * height;
+              yj = ypoint[j] * height;
+              xj = horiAdvance + (axis < 0 ? -1 : 1) * (shear_x * xj + shear_y * yj);
+              yj = vertAdvance + shear_x * yj;
               xpoint[j] = cos_f * xj - sin_f * yj;
               ypoint[j] = sin_f * xj + cos_f * yj;
 
