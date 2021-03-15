@@ -52,13 +52,16 @@ typedef struct ws_state_list_t
   void *cairo_ws_state_list;
   int video_plugin_initialized;
   int user_defined_resolution;
+  int video_flags;
 } ws_state_list;
 
 static ws_state_list *p;
 
 static void close_page(void)
 {
-  if ((p->wtype == 120 || p->wtype == 130 || p->wtype == 160 || p->wtype == 161 || p->wtype == 162) && p->movie)
+  if ((p->wtype == 120 || p->wtype == 121 || p->wtype == 130 || p->wtype == 160 || p->wtype == 161 ||
+       p->wtype == 162) &&
+      p->movie)
     {
       vc_movie_finish(p->movie);
     }
@@ -73,7 +76,7 @@ static void open_page()
   height = p->mem[1];
   char path[MAXPATHLEN];
 
-  if (p->wtype == 120)
+  if (p->wtype == 120 || p->wtype == 121)
     {
       gks_filepath(path, p->path, "mov", 0, 0);
     }
@@ -93,7 +96,7 @@ static void open_page()
     {
       gks_filepath(path, p->path, "ogg", 0, 0);
     }
-  p->movie = vc_movie_create(path, p->framerate, 4000000, width, height);
+  p->movie = vc_movie_create(path, p->framerate, 4000000, width, height, p->video_flags);
   p->frame = (frame_t)gks_malloc(sizeof(struct frame_t_));
 }
 
@@ -162,6 +165,7 @@ void gks_videoplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doub
       p->mem = NULL;
       p->wtype = ia[2];
       p->path = chars;
+      p->video_flags = 0;
       *ptr = p;
 
       long width, height, framerate, num_args;
@@ -172,7 +176,7 @@ void gks_videoplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doub
         {
           /* GKS_VIDEO_OPTS=<width>x<height>@<framerate> */
           num_args = sscanf(env, "%ldx%ld@%ld", &width, &height, &framerate);
-          if (num_args == 0)
+          if (num_args == 0 && !(strlen(env) >= 3 && strcmp(env + strlen(env) - 3, "@x2") == 0))
             {
               /* GKS_VIDEO_OPTS invalid */
               fprintf(stderr, "Failed to parse GKS_VIDEO_OPTS. Expected '<width>x<height>@<framerate>', "
@@ -191,6 +195,23 @@ void gks_videoplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doub
               /* GKS_VIDEO_OPTS=<width>x<height> */
               framerate = -1;
             }
+          if (strlen(env) >= 3 && strcmp(env + strlen(env) - 3, "@x2") == 0)
+            {
+              /* Allow @x2 suffix to GKS_VIDEO_OPTS enabling HiDPI mov videos */
+              if (p->wtype == 120)
+                {
+                  p->video_flags |= VC_FLAGS_MOV_HIDPI;
+                }
+              else
+                {
+                  fprintf(stderr, "HiDPI is only supported when using mov files.\n");
+                  exit(1);
+                }
+            }
+        }
+      if (p->wtype == 121)
+        {
+          p->video_flags |= VC_FLAGS_MOV_HIDPI;
         }
 
       p->framerate = 24;
@@ -217,7 +238,7 @@ void gks_videoplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doub
       p->mem = (int *)gks_malloc(3 * sizeof(int) + sizeof(unsigned char *));
       p->mem[0] = p->width;
       p->mem[1] = p->height;
-      p->mem[2] = 100;
+      p->mem[2] = 144;
       *((unsigned char **)(p->mem + 3)) = NULL;
 
       sprintf(p->mem_path, "!resizable@%p.mem", (void *)p->mem);

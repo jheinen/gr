@@ -50,8 +50,9 @@ static ws_descr_t ws_types[] = {{2, GKS_K_METERS, 1.00000, 1.00000, 65536, 65536
                                 {100, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
                                 {101, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "pdf", NULL},
                                 {102, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "pdf", NULL},
-                                {120, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "mov", NULL},
-                                {130, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "gif", NULL},
+                                {120, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "mov", NULL},
+                                {121, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "mov", NULL},
+                                {130, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "gif", NULL},
                                 {140, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "png", NULL},
                                 {141, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
                                 {142, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
@@ -60,9 +61,9 @@ static ws_descr_t ws_types[] = {{2, GKS_K_METERS, 1.00000, 1.00000, 65536, 65536
                                 {145, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "bmp", NULL},
                                 {146, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "tif", NULL},
                                 {150, GKS_K_METERS, 0.20320, 0.15240, 560, 420, 0, "six", NULL},
-                                {160, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "mp4", NULL},
-                                {161, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "webm", NULL},
-                                {162, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "ogg", NULL},
+                                {160, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "mp4", NULL},
+                                {161, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "webm", NULL},
+                                {162, GKS_K_METERS, 0.25400, 0.19050, 1440, 1080, 0, "ogg", NULL},
                                 {210, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, NULL, NULL},
                                 {211, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
                                 {212, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
@@ -287,6 +288,7 @@ static void gks_ddlk(int fctid, int dx, int dy, int dimx, int *i_arr, int len_f_
               break;
 
             case 120:
+            case 121:
             case 130:
             case 160:
             case 161:
