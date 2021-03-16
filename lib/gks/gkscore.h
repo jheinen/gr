@@ -385,6 +385,7 @@ DLLEXPORT void gks_ft_inq_text3d_extent(double x, double y, double z, char *text
                                         void (*wc3towc)(double *, double *, double *), double *bx, double *by);
 DLLEXPORT void gks_ft_set_bearing_x_direction(int);
 DLLEXPORT void gks_ft_inq_bearing_x_direction(int *);
+DLLEXPORT int gks_ft_load_user_font(char *font);
 
 DLLEXPORT void gks_set_encoding(int encoding);
 DLLEXPORT void gks_inq_encoding(int *encoding);
