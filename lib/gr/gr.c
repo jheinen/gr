@@ -3226,6 +3226,31 @@ void gr_settextfontprec(int font, int precision)
 }
 
 /*!
+ * Load a font file from a given filename.
+ *
+ * \param[in] filename The absolute filename of the font
+ * \param[out] font The font index to use with gr_settextfontprec
+ *
+ * This function loads a font from a given absolute filename and assigns a font index to it. To use the loaded
+ * font call `gr_settextfontprec` using the resulting font index and precision 3.
+ *
+ *      int font;
+ *      gr_loadfont(filename, &font);
+ *      gr_settextfontprec(font, 3);
+ *
+ * As the font file is internally loaded using FreeType, it is required that FreeType support is compiled
+ * in and FreeType has to support the given file type. On error the font index is set to -1.
+ *
+ */
+void gr_loadfont(char *filename, int *font)
+{
+  check_autoinit;
+
+  *font = gks_ft_load_user_font(filename);
+  if (flag_graphics) gr_writestream("<loadfont filename=\"%s\"/>\n", filename);
+}
+
+/*!
  * Set the current character expansion factor (width to height ratio).
  *
  * \param[in] factor Text expansion factor applied to the nominal text
@@ -10311,6 +10336,7 @@ static void latex2image(char *string, int pointSize, double *rgb, int *width, in
   int color;
   char s[FILENAME_MAX], path[FILENAME_MAX], cache[33];
   char *tmp, *temp, *null, cmd[1024];
+  static char *preamble = NULL;
   char tex[FILENAME_MAX], dvi[FILENAME_MAX], png[FILENAME_MAX];
   FILE *stream;
   int math, ret;
@@ -10360,11 +10386,32 @@ static void latex2image(char *string, int pointSize, double *rgb, int *width, in
       null = "/dev/null";
       stream = fopen(tex, "w");
 #endif
-      fprintf(stream, "\
+      if (preamble == NULL)
+        {
+          preamble = (char *)gks_getenv("GR_LATEX_PREAMBLE");
+        }
+      if (preamble != NULL)
+        {
+          if (strcmp(preamble, "AMS") == 0)
+            {
+              preamble = "\
+\\documentclass{article}\n\
+\\pagestyle{empty}\n\
+\\usepackage{amssymb}\n\
+\\usepackage{amsmath}\n\
+\\usepackage[dvips]{color}\n\
+\\begin{document}\n";
+            }
+        }
+      else
+        {
+          preamble = "\
 \\documentclass{article}\n\
 \\pagestyle{empty}\n\
 \\usepackage[dvips]{color}\n\
-\\begin{document}\n");
+\\begin{document}\n";
+        }
+      fprintf(stream, "%s", preamble);
       if (math) fprintf(stream, "\\[\n");
       fprintf(stream, "\\color[rgb]{%.3f,%.3f,%.3f} {\n", rgb[0], rgb[1], rgb[2]);
       fwrite(string, strlen(string), 1, stream);

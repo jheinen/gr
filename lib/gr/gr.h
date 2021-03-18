@@ -205,6 +205,7 @@ DLLEXPORT void gr_text3d(double, double, double, char *, int axis);
 DLLEXPORT void gr_inqtext3d(double, double, double, char *, int axis, double *, double *);
 DLLEXPORT void gr_settextencoding(int);
 DLLEXPORT void gr_inqtextencoding(int *);
+DLLEXPORT void gr_loadfont(char *, int *);
 DLLEXPORT void gr_setcallback(char *(*)(const char *));
 
 #ifdef __cplusplus

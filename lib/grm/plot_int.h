@@ -164,6 +164,7 @@ error_t plot_imshow(grm_args_t *subplot_args);
 error_t plot_isosurface(grm_args_t *subplot_args);
 error_t plot_polar(grm_args_t *subplot_args);
 error_t plot_polar_histogram(grm_args_t *subplot_args);
+error_t plot_pie(grm_args_t *subplot_args);
 error_t plot_trisurf(grm_args_t *subplot_args);
 error_t plot_tricont(grm_args_t *subplot_args);
 error_t plot_shade(grm_args_t *subplot_args);
@@ -175,6 +176,7 @@ error_t plot_raw(grm_args_t *subplot_args);
 error_t plot_draw_axes(grm_args_t *args, unsigned int pass);
 error_t plot_draw_polar_axes(grm_args_t *args);
 error_t plot_draw_legend(grm_args_t *args);
+error_t plot_draw_pie_legend(grm_args_t *args);
 error_t plot_draw_colorbar(grm_args_t *args, double off, unsigned int colors);
 error_t plot_draw_errorbars(grm_args_t *series_args, double *x, unsigned int x_length, double *y, char *kind);
 
@@ -182,6 +184,8 @@ error_t plot_draw_errorbars(grm_args_t *series_args, double *x, unsigned int x_l
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~ util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 double find_max_step(unsigned int n, const double *x);
+double *normalize(unsigned int n, const double *x);
+unsigned int *normalize_int(unsigned int n, const double *x, unsigned int sum);
 const char *next_fmt_key(const char *fmt) UNUSED;
 const char *get_compatible_format(const char *key, const char *given_format);
 int get_id_from_args(const grm_args_t *args, int *plot_id, int *subplot_id, int *series_id);
@@ -197,6 +201,8 @@ double *listcomprehension(double count, double (*pFunction)(double), double *pDo
                           double *result);
 int *create_colormap(int x, int y, int size);
 error_t classes_polar_histogram(grm_args_t *subplot_args, double *r_max);
+double get_lightness_from_rbg(double r, double g, double b);
+void set_text_color_for_background(double r, double g, double b);
 
 
 #endif /* ifndef GRM_PLOT_INT_H_INCLUDED */

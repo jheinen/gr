@@ -148,7 +148,7 @@ typedef struct ws_state_list_t
   int mem_resizable;
   double a, b, c, d;
   double window[4], viewport[4];
-  double rgb[MAX_COLOR][3];
+  double rgb[MAX_COLOR + 1][3];
   double transparency;
   int width, height;
   int color;
@@ -345,7 +345,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
 
           if (op == 4)
             {
-              if (gkss->bcoli != mcolor)
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   cairo_fill_preserve(p->cr);
                   set_color(gkss->bcoli);
@@ -369,7 +369,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
           set_color(mcolor);
           if (op == 7)
             {
-              if (gkss->bcoli != mcolor)
+              if (gkss->bcoli != gkss->pmcoli)
                 {
                   cairo_fill_preserve(p->cr);
                   set_color(gkss->bcoli);
@@ -1805,11 +1805,82 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
     }
 }
 
+static void draw_lines(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba, line_color = MAX_COLOR;
+  double x, y;
+  int xim1, yim1, xi, yi;
+  double line_width;
+
+  WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);
+  seg_xform(&x, &y);
+  NDC_to_DC(x, y, xi, yi);
+
+  for (i = 1; i < n; i++)
+    {
+      xim1 = xi;
+      yim1 = yi;
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+
+      line_width = 0.01 * attributes[j++];
+      cairo_set_line_width(p->cr, line_width * p->nominal_size);
+      rgba = attributes[j++];
+      p->rgb[line_color][0] = (rgba & 0xff) / 255.0;
+      p->rgb[line_color][1] = ((rgba >> 8) & 0xff) / 255.0;
+      p->rgb[line_color][2] = ((rgba >> 16) & 0xff) / 255.0;
+
+      set_color(line_color);
+      cairo_set_line_cap(p->cr, CAIRO_LINE_CAP_ROUND);
+
+      cairo_move_to(p->cr, xim1, yim1);
+      cairo_line_to(p->cr, xi, yi);
+      cairo_stroke(p->cr);
+    }
+}
+
+static void draw_markers(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba;
+  int mk_type, mk_color = MAX_COLOR;
+  double mk_size, x, y;
+
+  mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+
+  for (i = 0; i < n; i++)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+
+      mk_size = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      p->rgb[mk_color][0] = (rgba & 0xff) / 255.0;
+      p->rgb[mk_color][1] = ((rgba >> 8) & 0xff) / 255.0;
+      p->rgb[mk_color][2] = ((rgba >> 16) & 0xff) / 255.0;
+
+      set_color(mk_color);
+
+      draw_marker(x, y, mk_type, mk_size, mk_color);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
-  if (primid == GKS_K_GDP_DRAW_PATH)
+  switch (primid)
     {
+    case GKS_K_GDP_DRAW_PATH:
       draw_path(n, px, py, nc, codes);
+      break;
+    case GKS_K_GDP_DRAW_LINES:
+      draw_lines(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_MARKERS:
+      draw_markers(n, px, py, codes);
+      break;
+    default:
+      gks_perror("invalid drawing primitive ('%d')", primid);
+      exit(1);
     }
 }
 

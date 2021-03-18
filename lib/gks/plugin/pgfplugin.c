@@ -313,9 +313,21 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
           seg_xform_rel(&xr, &yr);
 
           if (op == 4)
-            pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+            {
+              if (gkss->bcoli != gkss->pmcoli)
+                {
+                  pgf_printf(p->stream, "\\definecolor{bcoli}{HTML}{%s}\n", p->rgb[gkss->bcoli]);
+                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt]", p->linewidth);
+                }
+              else
+                {
+                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+                }
+            }
           else
-            pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+            {
+              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+            }
 
           pgf_printf(p->stream, " (%f,%f)", x - xr, y - yr);
 
@@ -337,9 +349,21 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
         case 7: /* filled arc */
         case 8: /* hollow arc */
           if (op == 7)
-            pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+            {
+              if (gkss->bcoli != gkss->pmcoli)
+                {
+                  pgf_printf(p->stream, "\\definecolor{bcoli}{HTML}{%s}\n", p->rgb[gkss->bcoli]);
+                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt]", p->linewidth);
+                }
+              else
+                {
+                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+                }
+            }
           else
-            pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+            {
+              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+            }
 
           pgf_printf(p->stream, " (%f, %f) arc (0:360:%d);\n", x + r, y, r);
           break;
@@ -1192,11 +1216,87 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
   pgf_free_stream(buf);
 }
 
+static void draw_lines(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba, prev_rgba = -1, prev_line_width = -1;
+  double x, y;
+  double xim1, yim1, xi, yi, line_width;
+
+  WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);
+  seg_xform(&x, &y);
+  NDC_to_DC(x, y, xi, yi);
+
+  for (i = 1; i < n; i++)
+    {
+      xim1 = xi;
+      yim1 = yi;
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+
+      line_width = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      if (line_width == prev_line_width && rgba == prev_rgba)
+        {
+          pgf_printf(p->stream, "(%f,%f) -- (%f,%f)", xim1, yim1, xi, yi);
+        }
+      else
+        {
+          if (i > 1)
+            {
+              pgf_printf(p->stream, ";\n");
+            }
+          pgf_printf(p->stream, "\\definecolor{mycolor}{RGB}{%d,%d,%d}\n", (rgba & 0xff), ((rgba >> 8) & 0xff),
+                     ((rgba >> 16) & 0xff));
+          pgf_printf(p->stream, "\\draw[color=mycolor, cap=round, line width=%fpt] (%f,%f) -- (%f,%f)", line_width,
+                     xim1, yim1, xi, yi);
+        }
+      prev_rgba = rgba;
+      prev_line_width = line_width;
+    }
+  pgf_printf(p->stream, ";\n");
+}
+
+static void draw_markers(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba;
+  int mk_type;
+  double mk_size, x, y;
+
+  mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+
+  for (i = 0; i < n; i++)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+
+      mk_size = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+
+      pgf_printf(p->stream, "\\definecolor{mycolor}{RGB}{%d,%d,%d}\n", (rgba & 0xff), ((rgba >> 8) & 0xff),
+                 ((rgba >> 16) & 0xff));
+      p->linewidth = nint(p->nominal_size);
+
+      draw_marker(x, y, mk_type, mk_size);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
-  if (primid == GKS_K_GDP_DRAW_PATH)
+  switch (primid)
     {
+    case GKS_K_GDP_DRAW_PATH:
       draw_path(n, px, py, nc, codes);
+      break;
+    case GKS_K_GDP_DRAW_LINES:
+      draw_lines(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_MARKERS:
+      draw_markers(n, px, py, codes);
+      break;
+    default:
+      gks_perror("invalid drawing primitive ('%d')", primid);
+      exit(1);
     }
 }
 

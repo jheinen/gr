@@ -26,6 +26,10 @@
 #define isnan(x) ((x) != (x))
 #endif
 
+#ifndef INFINITY
+#define INFINITY (1.0 / 0.0)
+#endif
+
 #ifndef min
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 #endif

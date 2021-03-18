@@ -32,6 +32,7 @@ $(PREFIX)/src/ffmpeg-$(VERSION)/configure: $(PREFIX)/src/ffmpeg-$(VERSION).tar.g
 	cd $(PREFIX)/src/ && tar -xf ffmpeg-$(VERSION).tar.gz
 	sed 's/    \(bcrypt\|clock_gettime\)//' $(PREFIX)/src/ffmpeg-$(VERSION)/configure > $(PREFIX)/src/ffmpeg-$(VERSION)/configure.tmp
 	mv $(PREFIX)/src/ffmpeg-$(VERSION)/configure.tmp $(PREFIX)/src/ffmpeg-$(VERSION)/configure
+	cd $(PREFIX)/src/ffmpeg-$(VERSION)/libavformat && patch -p1 < $(CURDIR)/mov_pixeldensity.patch
 	chmod +x $(PREFIX)/src/ffmpeg-$(VERSION)/configure
 
 $(PREFIX)/src/ffmpeg-$(VERSION)/Makefile: $(PREFIX)/src/ffmpeg-$(VERSION)/configure $(PREFIX)/lib/libtheora.a $(PREFIX)/lib/libvpx.a $(PREFIX)/lib/libopenh264.a

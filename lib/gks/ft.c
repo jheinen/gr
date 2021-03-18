@@ -10,6 +10,11 @@
 
 #define POINT_INC 1000
 
+#define MAX_NUM_USER_FONTS 100
+#ifndef MAXPATHLEN
+#define MAXPATHLEN 1024
+#endif
+
 #ifndef NO_FT
 
 #include <ft2build.h>
@@ -64,19 +69,22 @@ const static FT_String *gks_font_list_pfb[] = {
     "Dingbats"               /* 31: Zapf Dingbats */
 };
 
-const static FT_String *gks_font_list_ttf[] = {NULL,         NULL,        NULL, NULL, NULL, NULL, NULL, NULL,
-                                               NULL,         NULL,        NULL, NULL, NULL, NULL, NULL, NULL,
-                                               NULL,         NULL,        NULL, NULL, NULL, NULL, NULL, NULL,
-                                               NULL,         NULL,        NULL, NULL, NULL, NULL, NULL, "CMUSerif-Math",
-                                               "DejaVuSans", "PingFangSC"};
+const static FT_String *gks_font_list_ttf[] = {
+    NULL,        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL,        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "CMUSerif-Math",
+    "DejaVuSans"};
+
+static char gks_font_list_user_defined[MAX_NUM_USER_FONTS][MAXPATHLEN];
 
 static FT_Face font_face_cache_pfb[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                                         NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                                         NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
-static FT_Face font_face_cache_ttf[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                                        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                                        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+static FT_Face font_face_cache_ttf[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                                        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                                        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+
+static FT_Face font_face_cache_user_defined[MAX_NUM_USER_FONTS] = {0};
 
 /* TODO: Add fallback fonts for non-Latin languages */
 static const char *fallback_font_list[] = {NULL};
@@ -325,7 +333,7 @@ void gks_ft_terminate(void)
 static int gks_ft_convert_textfont(int textfont)
 {
   textfont = abs(textfont);
-  if (textfont >= 201 && textfont <= 234)
+  if (textfont >= 201 && textfont <= 233)
     {
       textfont -= 200;
     }
@@ -336,6 +344,11 @@ static int gks_ft_convert_textfont(int textfont)
   else if (textfont > 1 && textfont <= 32)
     {
       textfont = map[textfont - 1];
+    }
+  else if (textfont >= 300 && textfont < 300 + MAX_NUM_USER_FONTS)
+    {
+      /* user-defined font */
+      return textfont - 300;
     }
   else
     {
@@ -407,6 +420,42 @@ static void gks_ft_init_fallback_faces()
     }
 }
 
+int gks_ft_load_user_font(char *font)
+{
+  static int user_font_index = 300;
+  FT_Error error;
+  FT_Face face;
+  int textfont;
+
+  if (!init) gks_ft_init();
+  if (strlen(font) > MAXPATHLEN - 1)
+    {
+      gks_perror("file name too long: %s", font);
+      return -1;
+    }
+  textfont = gks_ft_convert_textfont(user_font_index);
+  if (textfont >= MAX_NUM_USER_FONTS)
+    {
+      gks_perror("reached maximum number of user defined fonts (%d)", MAX_NUM_USER_FONTS);
+      return -1;
+    }
+
+  error = FT_New_Face(library, font, 0, &face);
+  if (error == FT_Err_Unknown_File_Format)
+    {
+      gks_perror("unknown file format: %s", font);
+      return -1;
+    }
+  else if (error)
+    {
+      gks_perror("could not open font file: %s", font);
+      return -1;
+    }
+
+  strcpy(gks_font_list_user_defined[textfont], font);
+  font_face_cache_user_defined[textfont] = face;
+  return user_font_index++;
+}
 
 void *gks_ft_get_face(int textfont)
 {
@@ -415,9 +464,23 @@ void *gks_ft_get_face(int textfont)
   const FT_String *font;
 
   if (!init) gks_ft_init();
+  int user_defined = (textfont >= 300 && textfont < 300 + MAX_NUM_USER_FONTS);
   int use_ttf = (textfont >= 200);
   int original_textfont = textfont;
   textfont = gks_ft_convert_textfont(textfont);
+
+  if (user_defined)
+    {
+      if (font_face_cache_user_defined[textfont] != NULL)
+        {
+          return (void *)font_face_cache_user_defined[textfont];
+        }
+      else
+        {
+          gks_perror("Missing font: %d\n", original_textfont);
+          return NULL;
+        }
+    }
 
   const FT_String **font_list = use_ttf ? gks_font_list_ttf : gks_font_list_pfb;
   FT_Face *font_face_cache = use_ttf ? font_face_cache_ttf : font_face_cache_pfb;
@@ -1001,7 +1064,7 @@ static int cubic_to(const FT_Vector *control1, const FT_Vector *control2, const 
   return 0;
 }
 
-static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first)
+static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first, FT_Bool last)
 {
   FT_Outline_Funcs callbacks;
   FT_GlyphSlot slot;
@@ -1032,10 +1095,16 @@ static void get_outline(FT_Face face, FT_UInt charcode, FT_Bool first)
       opcodes[num_opcodes] = '\0';
     }
 
-  if (charcode != 32)
-    pen_x += metrics.horiBearingX + metrics.width;
+  if (last && charcode != 32)
+    {
+      /* Use bearingX + width for the last character so that right-aligned texts are aligned to the bounding box of the
+       * last glyph. If the last character is a space use the horiAdvance instead as the width is 0. */
+      pen_x += metrics.horiBearingX + metrics.width;
+    }
   else
-    pen_x += metrics.horiAdvance;
+    {
+      pen_x += metrics.horiAdvance;
+    }
 }
 
 static long get_kerning(FT_Face face, FT_UInt left_glyph, FT_UInt right_glyph)
@@ -1092,8 +1161,8 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
   FT_UInt unicode_string[256];
   FT_UInt length = strlen(text);
   int i, j;
-  double xj, yj, cos_f, sin_f;
-  double chh, height;
+  double xj, yj, cos_f, sin_f, shear_x, shear_y;
+  double chh, height, theta;
   int alh;
 
   if (!init) gks_ft_init();
@@ -1106,6 +1175,9 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
   sin_f = sin(phi);
   chh = gkss->chh;
   height = chh / get_capheight(face);
+  theta = gkss->txslant * M_PI / 180.0;
+  shear_x = cos(theta);
+  shear_y = sin(theta);
   alh = gkss->txal[0];
 
   for (i = 0; i < length; i++)
@@ -1115,14 +1187,16 @@ static void process_glyphs(FT_Face face, double x, double y, char *text, double 
       if (i > 0 && FT_HAS_KERNING(face) && !FT_IS_FIXED_WIDTH(face))
         pen_x += get_kerning(face, unicode_string[i - 1], unicode_string[i]);
 
-      get_outline(face, unicode_string[i], i == 0);
+      get_outline(face, unicode_string[i], i == 0, i == length - 1);
 
       if (npoints > 0 && bBoxX == NULL && bBoxY == NULL)
         {
           for (j = 0; j < npoints; j++)
             {
-              xj = horiAdvance + xpoint[j] * height;
-              yj = vertAdvance + ypoint[j] * height;
+              xj = xpoint[j] * height;
+              yj = ypoint[j] * height;
+              xj = horiAdvance + shear_x * xj + shear_y * yj;
+              yj = vertAdvance + shear_x * yj;
               xpoint[j] = x + cos_f * xj - sin_f * yj;
               ypoint[j] = y + sin_f * xj + cos_f * yj;
             }
@@ -1241,8 +1315,8 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
   FT_UInt unicode_string[256];
   FT_UInt length = strlen(text);
   int i, j;
-  double xj, yj, zj, cos_f, sin_f;
-  double chh, height;
+  double xj, yj, zj, cos_f, sin_f, shear_x, shear_y;
+  double chh, height, theta;
   int alh;
 
   if (!init) gks_ft_init();
@@ -1253,10 +1327,12 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
   cos_f = cos(phi);
   sin_f = sin(phi);
   chh = gkss->chh;
-
   chh /= heightFactor;
-
   height = chh / get_capheight(face);
+  theta = gkss->txslant * M_PI / 180.0;
+  shear_x = cos(theta);
+  shear_y = sin(theta);
+
   alh = gkss->txal[0];
 
   for (i = 0; i < length; i++)
@@ -1266,14 +1342,16 @@ static void process_glyphs3d(FT_Face face, double x, double y, double z, char *t
       if (i > 0 && FT_HAS_KERNING(face) && !FT_IS_FIXED_WIDTH(face))
         pen_x += get_kerning(face, unicode_string[i - 1], unicode_string[i]);
 
-      get_outline(face, unicode_string[i], i == 0);
+      get_outline(face, unicode_string[i], i == 0, i == length - 1);
 
       if (npoints > 0 && bBoxX == NULL && bBoxY == NULL)
         {
           for (j = 0; j < npoints; j++)
             {
-              xj = horiAdvance + (axis < 0 ? -1 : 1) * xpoint[j] * height;
-              yj = vertAdvance + ypoint[j] * height;
+              xj = xpoint[j] * height;
+              yj = ypoint[j] * height;
+              xj = horiAdvance + (axis < 0 ? -1 : 1) * (shear_x * xj + shear_y * yj);
+              yj = vertAdvance + shear_x * yj;
               xpoint[j] = cos_f * xj - sin_f * yj;
               ypoint[j] = sin_f * xj + cos_f * yj;
 
@@ -1495,6 +1573,12 @@ void gks_ft_inq_text3d_extent(double x, double y, double z, char *text, int axis
                               void (*wc3towc)(double *, double *, double *), double *bBoxX, double *bBoxY)
 {
   if (!init) gks_ft_init();
+}
+
+int gks_ft_load_user_font(char *font)
+{
+  if (!init) gks_ft_init();
+  return -1;
 }
 
 #endif

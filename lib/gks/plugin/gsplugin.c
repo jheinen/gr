@@ -1740,11 +1740,85 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
     }
 }
 
+static void draw_lines(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba, ln_color = MAX_COLOR;
+  double x, y;
+  int xim1, yim1, xi, yi;
+  double line_width;
+  char buffer[50];
+
+  WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);
+  seg_xform(&x, &y);
+  NDC_to_DC(x, y, xi, yi);
+
+  for (i = 1; i < n; i++)
+    {
+      xim1 = xi;
+      yim1 = yi;
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+
+      line_width = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      p->red[ln_color] = (rgba & 0xff) / 255.0;
+      p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      packb("np 1 setlinecap");
+      set_linewidth(line_width);
+      set_color(-ln_color, p->wtype);
+
+      sprintf(buffer, "%d %d m %d %d l sk", xim1, yim1, xi, yi);
+      packb(buffer);
+    }
+
+  packb("0 setlinecap");
+}
+
+static void draw_markers(int n, double *px, double *py, int *attributes)
+{
+  int i, j = 0, rgba;
+  int mk_type, mk_color = MAX_COLOR;
+  double mk_size, x, y;
+
+  mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+
+  for (i = 0; i < n; i++)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+
+      mk_size = 0.01 * attributes[j++];
+      rgba = attributes[j++];
+      p->red[mk_color] = (rgba & 0xff) / 255.0;
+      p->green[mk_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[mk_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      set_markersize(mk_size);
+      set_foreground(-mk_color, p->wtype);
+
+      marker_routine(x, y, mk_type);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
-  if (primid == GKS_K_GDP_DRAW_PATH)
+  switch (primid)
     {
+    case GKS_K_GDP_DRAW_PATH:
       draw_path(n, px, py, nc, codes);
+      break;
+    case GKS_K_GDP_DRAW_LINES:
+      draw_lines(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_MARKERS:
+      draw_markers(n, px, py, codes);
+      break;
+    default:
+      gks_perror("invalid drawing primitive ('%d')", primid);
+      exit(1);
     }
 }
 
@@ -1860,7 +1934,7 @@ void gks_gsplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double 
                   char *chars, void **ptr)
 {
   int style, color, pattern, ltype;
-  double yres, width, size, factor, x, y, angle;
+  double yres, width, size, x, y, angle;
   int font, tnr, prec;
   int nchars;
 

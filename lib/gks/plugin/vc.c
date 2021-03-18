@@ -93,7 +93,7 @@ void vc_movie_append_frame(movie_t movie, frame_t frame)
   movie->frame->pts++;
 }
 
-movie_t vc_movie_create(const char *path, int framerate, int bitrate, int width, int height)
+movie_t vc_movie_create(const char *path, int framerate, int bitrate, int width, int height, int flags)
 {
   const AVCodec *codec;
   int ret;
@@ -107,7 +107,13 @@ movie_t vc_movie_create(const char *path, int framerate, int bitrate, int width,
 
   movie_t movie = (movie_t)gks_malloc(sizeof(struct movie_t_));
 
-  avformat_alloc_output_context2(&movie->fmt_ctx, NULL, NULL, path);
+  const char *format_name = NULL;
+  if (strlen(path) >= 3 && strcmp(path + strlen(path) - 3, "mov") == 0)
+    {
+      format_name = "mov";
+    }
+
+  avformat_alloc_output_context2(&movie->fmt_ctx, NULL, format_name, path);
   if (!movie->fmt_ctx || movie->fmt_ctx->oformat->video_codec == AV_CODEC_ID_NONE)
     {
       fprintf(stderr, "Failed to allocate the output context\n");
@@ -136,6 +142,12 @@ movie_t vc_movie_create(const char *path, int framerate, int bitrate, int width,
       vc_movie_finish(movie);
       gks_free(movie);
       return NULL;
+    }
+
+  if (flags & VC_FLAGS_MOV_HIDPI)
+    {
+      width *= 2;
+      height *= 2;
     }
 
   movie->cdc_ctx = avcodec_alloc_context3(codec);
@@ -219,7 +231,12 @@ movie_t vc_movie_create(const char *path, int framerate, int bitrate, int width,
         }
     }
 
-  ret = avformat_write_header(movie->fmt_ctx, NULL);
+  AVDictionary *muxer_options = NULL;
+  if (flags & VC_FLAGS_MOV_HIDPI)
+    {
+      av_dict_set(&muxer_options, "movflags", "write_pixeldensity", 0);
+    }
+  ret = avformat_write_header(movie->fmt_ctx, &muxer_options);
   if (ret < 0)
     {
       fprintf(stderr, "Error occurred while writing video header: %s\n", av_err2str(ret));
