@@ -1,9 +1,18 @@
 stages:
+- prebuild
 - build
 - test
 - package
 - deploy
 - deploy-to-aur
+
+tag-type-check:
+  stage: prebuild
+  image: iffregistry.fz-juelich.de/docker-images/gr-build-images/deploy
+  only:
+    - tags@Scientific-IT-Systems/gr
+  script:
+    - test `git cat-file -t $CI_COMMIT_TAG` = "tag"
 
 code-style-check:
   stage: build
