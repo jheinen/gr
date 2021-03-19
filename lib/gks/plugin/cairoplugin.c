@@ -1808,8 +1808,7 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
 static void draw_lines(int n, double *px, double *py, int *attributes)
 {
   int i, j = 0, rgba, line_color = MAX_COLOR;
-  double x, y;
-  int xim1, yim1, xi, yi;
+  double x, y, xim1, yim1, xi, yi;
   double line_width;
 
   WC_to_NDC(px[0], py[0], gkss->cntnr, x, y);

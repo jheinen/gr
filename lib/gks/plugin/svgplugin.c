@@ -1282,7 +1282,9 @@ static void draw_lines(int n, double *px, double *py, int *attributes)
 
       svg_printf(p->stream, "<path clip-path=\"url(#clip%02d%d)\" d=\"", path_id, p->rect_index);
       svg_printf(p->stream, "M%g %g L%g %g ", xim1, yim1, xi, yi);
-      svg_printf(p->stream, "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" />",
+      svg_printf(p->stream,
+                 "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" "
+                 "stroke-linecap=\"round\" stroke-linejoin=\"miter\" />",
                  red, green, blue, p->transparency, line_width * p->nominal_size);
     }
 }
