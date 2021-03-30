@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 #ifdef _MSC_VER
 #define NO_THREADS 1
 #endif
@@ -41,6 +42,7 @@ static matrix3x3 mat_mul_3x3(matrix3x3 *a, matrix3x3 *b);
 static void mat_vec_mul_4x1(matrix *a, vertex_fp *b);
 static void mat_vec_mul_3x1(matrix3x3 *a, vector *b);
 static void divide_by_w(vertex_fp *v_fp);
+static void cross_product(vector* a, vector* b, vector* res);
 vector VECTOR3x1_INIT_NUL = {0, 0, 0};
 matrix MAT4x4_INIT_NUL = {{0}};
 matrix3x3 MAT3x3_INIT_NUL = {{0}};
@@ -95,6 +97,13 @@ static pthread_mutex_t lock_main;
 static pthread_cond_t wait_for_merge;
 static pthread_cond_t wait_after_merge;
 #endif
+
+
+static void cross_product(vector* a, vector* b, vector* res){
+    res->x = a->y * b->z - a->z * b->y;
+    res->y = a->z * b->x - a->x * b->z;
+    res->z = a->x * b->y - a->y * b->x;
+}
 
 /* Every thread has its own queue containing equal sized parts of every mesh that has to be drawn. The main
  * threads divides the meshes and enqueues jobs for the worker threads meaning they have to draw a part of
@@ -818,6 +827,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir)
 {
+    /* Markierung 1 */
   vertex_fp *v_fp_sorted_y[3];
   float A12, A20, A01, B12, B20, B01;
   int ind[3] = {0, 0, 0};
@@ -866,6 +876,7 @@ static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int 
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01)
 {
+    /* Markierung 2 */
   float invslope_short_1 = (v_fp_sorted[1]->x - v_fp_sorted[0]->x) / (v_fp_sorted[1]->y - v_fp_sorted[0]->y);
   float invslope_short_2 = (v_fp_sorted[2]->x - v_fp_sorted[1]->x) / (v_fp_sorted[2]->y - v_fp_sorted[1]->y);
   float invslope_long = (v_fp_sorted[2]->x - v_fp_sorted[0]->x) / (v_fp_sorted[2]->y - v_fp_sorted[0]->y);
@@ -970,7 +981,6 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
     }
   for (x = startx; x <= endx && x < width; x += 1)
     {
-
 #ifdef BACKFACE_CULLING
       if (w0 < 0 && w1 < 0 && w2 < 0)
         {
@@ -980,8 +990,31 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
       depth = (w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z) * sum_inv;
       if (depth < dep_buf[y * width + x])
         {
-          col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
-          color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+          vector diff_vec_1 = {x-v_fp[0]->x, y-v_fp[0]->y, depth-v_fp[0]->z};
+          vector diff_vec_2 = {x-v_fp[1]->x, y-v_fp[1]->y, depth-v_fp[1]->z};
+          vector diff_vec_3 = {x-v_fp[2]->x, y-v_fp[2]->y, depth-v_fp[2]->z};
+          vector edge_1 = {v_fp[0]->x-v_fp[1]->x, v_fp[0]->y-v_fp[1]->y, v_fp[0]->z-v_fp[1]->z};
+          vector edge_2 = {v_fp[1]->x-v_fp[2]->x, v_fp[1]->y-v_fp[2]->y, v_fp[1]->z-v_fp[2]->z};
+          vector edge_3 = {v_fp[2]->x-v_fp[0]->x, v_fp[2]->y-v_fp[0]->y, v_fp[2]->z-v_fp[0]->z};
+          vector vec1, vec2, vec3;
+          cross_product(&diff_vec_1, &edge_1, &vec1);
+          cross_product(&diff_vec_2, &edge_2, &vec2);
+          cross_product(&diff_vec_3, &edge_3, &vec3);
+          double d1 = sqrt(dot_vector(&vec1, &vec1))/sqrt(dot_vector(&edge_1, &edge_1));
+          double d2 = sqrt(dot_vector(&vec2, &vec2))/sqrt(dot_vector(&edge_2, &edge_2));
+          double d3 = sqrt(dot_vector(&vec3, &vec3))/sqrt(dot_vector(&edge_3, &edge_3));
+          double eps = 0.5;
+          if(d1 < eps || d2 < eps || d3 < eps) {
+              col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
+              color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+          }else{
+              color col;
+              col.r = (unsigned char)(context_struct_.background_color[0] * 255);
+              col.g = (unsigned char)(context_struct_.background_color[1] * 255);
+              col.b = (unsigned char)(context_struct_.background_color[2] * 255);
+              col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+              color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+          }
         }
       w0 += A12;
       w1 += A20;

@@ -1057,13 +1057,10 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
 
   gr3_getrenderpathstring(); /* Initializes GR3 if it is not initialized yet */
 
-  if (context_struct_.use_software_renderer)
-    {
+  if (context_struct_.use_software_renderer) {
       fprintf(stderr, "gr_volume requires OpenGL, but the GR3 software renderer is in use.\n");
       return;
-    }
-
-  /* TODO: inquire the required resolution */
+  }
   int base_resolution = 1000;
   gr_inqprojectiontype(&projection_type);
   if (projection_type == GR_PROJECTION_DEFAULT)

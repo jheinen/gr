@@ -7,7 +7,7 @@
 
 int main(void)
 {
-  int mesh = 0;
+  /*int mesh = 0;
   int nx = 93;
   int ny = 64;
   int nz = 64;
@@ -50,12 +50,17 @@ int main(void)
               }
           }
       }
-  }
-  gr_setviewport(0, 1, 0, 1);
+  }*/
+  /*gr_setviewport(0, 1, 0, 1);
   gr_setcolormap(1);
-  gr3_init(NULL);
-
-  gr3_createisosurfacemesh(&mesh, data, 40000, nx, ny, nz, stride_x, stride_y, stride_z, step_x, step_y, step_z,
+  gr3_init(NULL);*/
+  /*float px[3] = {0,0,1};
+  float py[3] = {1,0,0};
+  float pz[9] = {0.5,0.5,0.5, 0.5,0.5,0.5, 0.5,0.5,0.5};
+  gr3_surface(3, 3, px, py, pz, 0);
+  gr3_drawimage(0, 1, 0, 1, 500, 500, GR3_DRAWABLE_GKS);
+  gr_updatews();*/
+  /*gr3_createisosurfacemesh(&mesh, data, 40000, nx, ny, nz, stride_x, stride_y, stride_z, step_x, step_y, step_z,
                            offset_x, offset_y, offset_z);
   gr3_cameralookat(-3, 3, -4, 0, 0, 0, -1, 0, 0);
   {
@@ -110,7 +115,54 @@ int main(void)
       }
   }
   gr3_deletemesh(mesh);
-  free(data);
+  free(data);*/
+	float angle;
+  int ix;
+  int iy;
+  int nx = 100;
+  int ny = 100;
+  float *px = malloc(nx * sizeof(float));
+  float *py = malloc(ny * sizeof(float));
+  float *pz = malloc(ny * nx * sizeof(float));
+
+  for (ix = 0; ix < nx; ix++)
+    {
+      px[ix] = -1.0 + 2.0 * ix / (nx - 1);
+    }
+  for (iy = 0; iy < ny; iy++)
+    {
+      py[iy] = -1.0 + 2.0 * iy / (ny - 1);
+    }
+  for (iy = 0; iy < ny; iy++)
+    {
+      for (ix = 0; ix < nx; ix++)
+        {
+          pz[iy * nx + ix] = sin(16 * px[ix]) * cos(2 * px[ix]) + cos(8 * py[iy]);
+        }
+    }
+  angle = 50;
+
+  gr_clearws();
+  //gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
+  gr_setviewport(0, 1, 0, 1);
+  gr_setwindow(-2, 2, -2, 2);
+  gr_setspace(-8, 8, angle, 45);
+  gr3_surface(nx, ny, px, py, pz, 4);
+  /*nx = 2;
+  ny = 2;
+  float px_2[2] = {-1.0f, 1.0f};
+  float pz_2[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+  gr3_surface(nx, ny, px_2, px_2, pz_2, 4);*/
+  gr3_export("gr3_surface_demo_single_picture_export.png", 3000, 3000);
+  gr_updatews();
+  free(px);
+  free(py);
+  free(pz);
+
   gr3_terminate();
+  gr_emergencyclosegks();
   return 0;
+
+  /*gr3_terminate();
+  return 0;*/
 }
