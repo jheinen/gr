@@ -3231,12 +3231,15 @@ void gr_settextfontprec(int font, int precision)
  * \param[in] filename The absolute filename of the font
  * \param[out] font The font index to use with gr_settextfontprec
  *
- * This function loads a font from a given absolute filename and assigns a font index to it. To use the loaded
- * font call `gr_settextfontprec` using the resulting font index and precision 3.
+ * This function loads a font from a given filename and assigns a font index to it. To use the loaded font call
+ * `gr_settextfontprec` using the resulting font index and precision 3.
  *
  *      int font;
  *      gr_loadfont(filename, &font);
  *      gr_settextfontprec(font, 3);
+ *
+ * The filename can either be an absolute path or a filename like `Arial.ttf`. Font files are searched in the
+ * directories specified by the `GKS_FONT_DIRS` environment variable and the operating systems default font locations.
  *
  * As the font file is internally loaded using FreeType, it is required that FreeType support is compiled
  * in and FreeType has to support the given file type. On error the font index is set to -1.

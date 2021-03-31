@@ -1,5 +1,13 @@
 #include <stdlib.h>
 #include <math.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
+#endif
 
 #include "gks.h"
 #include "gkscore.h"
@@ -113,6 +121,31 @@ static int *opcodes = NULL;
 
 static long pen_x = 0;
 
+static const char *system_font_directories[] = {
+#if defined(_WIN32)
+    "\\Fonts", NULL
+#elif defined(__APPLE__)
+    "/opt/local/share/fonts", "/Library/Fonts/", "/System/Library/Fonts/", NULL
+#else
+    "/usr/X11R6/lib/X11/fonts/TTF/",
+    "/usr/X11/lib/X11/fonts",
+    "/usr/share/fonts/",
+    "/usr/local/share/fonts/",
+    "/usr/lib/openoffice/share/fonts/truetype/",
+    NULL
+#endif
+};
+
+static const char *user_font_directories[] = {
+#if defined(_WIN32)
+    "\\AppData\\Local\\Microsoft\\Windows\\Fonts", NULL
+#elif defined(__APPLE__)
+    "Library/Fonts", NULL
+#else
+    ".local/share/fonts", ".fonts", NULL
+#endif
+};
+
 static FT_Error set_glyph(FT_Face face, FT_UInt codepoint, FT_UInt *previous, FT_Vector *pen, FT_Bool vertical,
                           FT_Matrix *rotation, FT_Vector *bearing, FT_Int halign, FT_GlyphSlot *glyph_slot_ptr);
 static void gks_ft_init_fallback_faces();
@@ -128,6 +161,229 @@ static FT_Long ft_min(FT_Long a, FT_Long b)
 static FT_Long ft_max(FT_Long a, FT_Long b)
 {
   return a > b ? a : b;
+}
+
+static int ft_join_path(char *result, const char *first, const char *second)
+{
+#if defined(_WIN32)
+  const char delim = '\\';
+#else
+  const char delim = '/';
+#endif
+  if (strlen(first) + strlen(second) + 1 >= MAXPATHLEN)
+    {
+      return 0;
+    }
+
+  sprintf(result, "%s%c%s", first, delim, second);
+  return 1;
+}
+
+static int ft_is_absolute_path(const char *path)
+{
+#ifndef _WIN32
+  return (path[0] == '/');
+#else
+  return (path[0] == '\\' || (path[0] && path[1] == ':' && path[2] == '\\'));
+#endif
+}
+
+static char *ft_user_home_path()
+{
+#if defined(_WIN32)
+  return getenv("USERPROFILE");
+#else
+  char *env = getenv("HOME");
+  if (env)
+    {
+      return env;
+    }
+  return getpwuid(getuid())->pw_dir;
+#endif
+}
+
+static int ft_search_file_in_dir(const char *base_dir, const char *filename, char *result, int recursive)
+{
+  char path[MAXPATHLEN];
+#if defined(_WIN32)
+  WIN32_FIND_DATA file;
+  HANDLE handle = NULL;
+
+  if (!ft_join_path(path, base_dir, "*.*") || (handle = FindFirstFile(path, &file)) == INVALID_HANDLE_VALUE)
+    {
+      return 0;
+    }
+
+  do
+    {
+      if (strcmp(file.cFileName, ".") == 0 || strcmp(file.cFileName, "..") == 0 ||
+          !ft_join_path(path, base_dir, file.cFileName))
+        {
+          continue;
+        }
+      if (recursive && file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+          if (ft_search_file_in_dir(path, filename, result, recursive))
+            {
+              FindClose(handle);
+              return 1;
+            }
+        }
+      else if (!(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+               (file.dwFileAttributes & (FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE)))
+        {
+          if (strcmp(file.cFileName, filename) == 0)
+            {
+              strcpy(result, path);
+              FindClose(handle);
+              return 1;
+            }
+        }
+    }
+  while (FindNextFile(handle, &file));
+
+  FindClose(handle);
+#else
+  DIR *dir;
+  struct stat filestat;
+  struct dirent *entry;
+
+  if (!(dir = opendir(base_dir)))
+    {
+      return 0;
+    }
+
+  while ((entry = readdir(dir)) != NULL)
+    {
+      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 ||
+          !ft_join_path(path, base_dir, entry->d_name))
+        {
+          continue;
+        }
+      stat(path, &filestat);
+      if (recursive && S_ISDIR(filestat.st_mode))
+        {
+          if (ft_search_file_in_dir(path, filename, result, recursive))
+            {
+              closedir(dir);
+              return 1;
+            }
+        }
+      else if (S_ISREG(filestat.st_mode))
+        {
+          if (strcmp(entry->d_name, filename) == 0)
+            {
+              strcpy(result, path);
+              closedir(dir);
+              return 1;
+            }
+        }
+    }
+  closedir(dir);
+#endif
+  return 0;
+}
+
+static int ft_find_font(const char *filename, char *result)
+{
+  const char **font_directory;
+#if defined(_WIN32)
+  const char delim[2] = ";";
+#else
+  const char delim[2] = ":";
+#endif
+  char abspath[MAXPATHLEN];
+  char *gks_font_dir, *user_home;
+
+  /* search paths from `GKS_FONT_DIRS` environment variable */
+  if ((gks_font_dir = getenv("GKS_FONT_DIRS")) != NULL)
+    {
+      strncpy(abspath, gks_font_dir, MAXPATHLEN - 1);
+      gks_font_dir = strtok(abspath, delim);
+      while (gks_font_dir)
+        {
+          if (ft_search_file_in_dir(gks_font_dir, filename, result, 0))
+            {
+              return 1;
+            }
+          gks_font_dir = strtok(NULL, delim);
+        }
+    }
+
+  /* search OS's user font directories */
+  user_home = ft_user_home_path();
+  if (user_home)
+    {
+      for (font_directory = user_font_directories; *font_directory; font_directory++)
+        {
+          if (!ft_join_path(abspath, user_home, *font_directory))
+            {
+              continue;
+            }
+          if (ft_search_file_in_dir(abspath, filename, result, 1))
+            {
+              return 1;
+            }
+        }
+    }
+
+    /* search OS's system font directories */
+#if defined(_WIN32)
+  long size = MAXPATHLEN;
+  char *windir = NULL;
+  HKEY registry_key;
+
+  LSTATUS lResult =
+      RegOpenKeyEx(HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders", 0,
+                   KEY_QUERY_VALUE, &registry_key);
+
+  if (lResult == ERROR_SUCCESS)
+    {
+      lResult = RegQueryValueExA(registry_key, "Fonts", NULL, NULL, abspath, &size);
+      if (lResult != ERROR_SUCCESS)
+        {
+          size = 0;
+        }
+      RegCloseKey(registry_key);
+    }
+  else
+    {
+      size = 0;
+    }
+
+  if (!size)
+    {
+      if ((windir = getenv("WINDIR")) == NULL)
+        {
+          windir = "C:\\Windows";
+        }
+      for (font_directory = system_font_directories; *font_directory; font_directory++)
+        {
+          if (!ft_join_path(abspath, windir, *font_directory))
+            {
+              continue;
+            }
+          if (ft_search_file_in_dir(abspath, filename, result, 1))
+            {
+              return 1;
+            }
+        }
+    }
+  else if (ft_search_file_in_dir(abspath, filename, result, 1))
+    {
+      return 1;
+    }
+
+#else
+  for (font_directory = system_font_directories; *font_directory; font_directory++)
+    {
+      if (ft_search_file_in_dir(*font_directory, filename, result, 1))
+        {
+          return 1;
+        }
+    }
+#endif
+  return 0;
 }
 
 int gks_ft_bearing_x_direction = -1;
@@ -423,6 +679,7 @@ static void gks_ft_init_fallback_faces()
 int gks_ft_load_user_font(char *font)
 {
   static int user_font_index = 300;
+  char abspath[MAXPATHLEN] = {0};
   FT_Error error;
   FT_Face face;
   int textfont;
@@ -432,6 +689,19 @@ int gks_ft_load_user_font(char *font)
     {
       gks_perror("file name too long: %s", font);
       return -1;
+    }
+
+  if (!ft_is_absolute_path(font))
+    {
+      if (ft_find_font(font, abspath))
+        {
+          font = abspath;
+        }
+      else
+        {
+          gks_perror("could not find font %s", font);
+          return -1;
+        }
     }
   textfont = gks_ft_convert_textfont(user_font_index);
   if (textfont >= MAX_NUM_USER_FONTS)

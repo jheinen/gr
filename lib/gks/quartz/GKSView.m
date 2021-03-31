@@ -774,7 +774,11 @@ static void seg_xform_rel(double *x, double *y) {}
       CGColorSpaceRelease(colorSpace);
       colorSpace = NULL;
     }
-  gks_close_font(fontfile);
+  if (fontfile)
+    {
+      gks_close_font(fontfile);
+      fontfile = 0;
+    }
   if (buffer)
     {
       free(buffer);
@@ -1731,8 +1735,7 @@ static void to_DC(int n, double *x, double *y)
 - (void)draw_lines:(int)n:(double *)px:(double *)py:(int *)attributes
 {
   int i, j = 0, rgba;
-  double x, y;
-  int xim1, yim1, xi, yi;
+  double x, y, xim1, yim1, xi, yi;
   float line_width;
   CGFloat color[4];
 
