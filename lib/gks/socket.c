@@ -44,11 +44,15 @@ static int is_running = 0;
 static DWORD WINAPI gksqt_tread(LPVOID parm)
 {
   char *cmd = (char *)parm;
-  wchar_t w_cmd[MAX_PATH];
+  wchar_t *w_cmd;
   STARTUPINFOW startupInfo = {0};
   PROCESS_INFORMATION processInformation = {NULL, NULL, 0, 0};
+  int len = strlen(cmd);
+  int w_len = MultiByteToWideChar(CP_UTF8, 0, cmd, len, NULL, 0);
 
-  MultiByteToWideChar(CP_UTF8, 0, cmd, strlen(cmd) + 1, w_cmd, MAX_PATH);
+  w_cmd = (wchar_t *)gks_malloc(sizeof(wchar_t) * w_len);
+
+  MultiByteToWideChar(CP_UTF8, 0, cmd, len, w_cmd, w_len);
   startupInfo.cb = sizeof(startupInfo);
 
   is_running = 1;
@@ -59,6 +63,8 @@ static DWORD WINAPI gksqt_tread(LPVOID parm)
 
   CloseHandle(processInformation.hProcess);
   CloseHandle(processInformation.hThread);
+
+  free(w_cmd);
 
   return 0;
 }
