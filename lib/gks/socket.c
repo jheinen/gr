@@ -41,23 +41,30 @@ static int is_running = 0;
 
 #ifdef _WIN32
 
+#define CMD_LINE_LEN 8192
+
 static DWORD WINAPI gksqt_tread(LPVOID parm)
 {
   char *cmd = (char *)parm;
   wchar_t *w_cmd;
-  STARTUPINFOW startupInfo = {0};
-  PROCESS_INFORMATION processInformation = {NULL, NULL, 0, 0};
   int len = strlen(cmd);
-  int w_len = MultiByteToWideChar(CP_UTF8, 0, cmd, len, NULL, 0);
+  int w_len = MultiByteToWideChar(CP_UTF8, 0, cmd, len, NULL, 0) + 1;
+  wchar_t w_cmd_line[CMD_LINE_LEN];
+  STARTUPINFOW startupInfo;
+  PROCESS_INFORMATION processInformation;
 
   w_cmd = (wchar_t *)gks_malloc(sizeof(wchar_t) * w_len);
+  MultiByteToWideChar(CP_UTF8, 0, cmd, len + 1, w_cmd, w_len);
 
-  MultiByteToWideChar(CP_UTF8, 0, cmd, len, w_cmd, w_len);
+  swprintf(w_cmd_line, CMD_LINE_LEN, L"cmd /c \"%ls\"", w_cmd);
+
+  ZeroMemory(&startupInfo, sizeof(startupInfo));
   startupInfo.cb = sizeof(startupInfo);
+  ZeroMemory(&processInformation, sizeof(processInformation));
 
   is_running = 1;
-  CreateProcessW(NULL, w_cmd, NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS | DETACHED_PROCESS, NULL, NULL, &startupInfo,
-                 &processInformation);
+  CreateProcessW(NULL, w_cmd_line, NULL, NULL, FALSE, CREATE_DEFAULT_ERROR_MODE | CREATE_NO_WINDOW | DETACHED_PROCESS,
+                 NULL, NULL, &startupInfo, &processInformation);
   WaitForSingleObject(processInformation.hThread, INFINITE);
   is_running = 0;
 
