@@ -61,7 +61,4 @@ $(PREFIX)/lib/libglfw3.a: $(PREFIX)/build/glfw-$(VERSION)/Makefile
 
 install: $(PREFIX)/lib/libglfw3.a
 
-$(PREFIX)/bin/cmake:
-	$(MAKE) -C ../cmake PREFIX="$(PREFIX)" install
-
 .PHONY: default install

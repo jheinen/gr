@@ -26,8 +26,8 @@ override_dh_auto_configure:
 	cp ../SOURCES/libtheora-1.1.1.tar.gz ${THIRDPARTY_SRC}
 	cp ../SOURCES/libvpx-1.4.0.tar.bz2 ${THIRDPARTY_SRC}
 	cp ../SOURCES/ffmpeg-4.2.1.tar.gz ${THIRDPARTY_SRC}
-	cp ../SOURCES/glfw-3.1.1.tar.gz ${THIRDPARTY_SRC}
-	cp ../SOURCES/zeromq-4.0.4.tar.gz ${THIRDPARTY_SRC}
+	cp ../SOURCES/glfw-3.3.3.tar.gz ${THIRDPARTY_SRC}
+	cp ../SOURCES/zeromq-4.3.4.tar.gz ${THIRDPARTY_SRC}
 	cp ../SOURCES/cairo-1.14.6.tar.xz ${THIRDPARTY_SRC}
 	cp ../SOURCES/pixman-0.34.0.tar.gz ${THIRDPARTY_SRC}
 	cp ../SOURCES/tiff-4.0.10.tar.gz ${THIRDPARTY_SRC}
