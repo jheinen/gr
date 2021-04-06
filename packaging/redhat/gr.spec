@@ -25,9 +25,9 @@ Source1:			https://gr-framework.org/downloads/3rdparty/libogg-1.3.2.tar.gz
 Source2:			https://gr-framework.org/downloads/3rdparty/libtheora-1.1.1.tar.gz
 Source3:			https://gr-framework.org/downloads/3rdparty/libvpx-1.4.0.tar.bz2
 Source4:			https://gr-framework.org/downloads/3rdparty/ffmpeg-4.2.1.tar.gz
-Source5:			https://gr-framework.org/downloads/3rdparty/glfw-3.1.1.tar.gz
-Source6:			https://gr-framework.org/downloads/3rdparty/zeromq-4.0.4.tar.gz
-Source7:			https://gr-framework.org/downloads/3rdparty/cmake-2.8.12.2.tar.gz
+Source5:			https://gr-framework.org/downloads/3rdparty/glfw-3.3.3.tar.gz
+Source6:			https://gr-framework.org/downloads/3rdparty/zeromq-4.3.4.tar.gz
+Source7:			https://gr-framework.org/downloads/3rdparty/cmake-3.6.3-Linux-x86_64.tar.gz
 Source8:			https://gr-framework.org/downloads/3rdparty/cairo-1.14.6.tar.xz
 Source9:			https://gr-framework.org/downloads/3rdparty/pixman-0.34.0.tar.gz
 Source10:			https://gr-framework.org/downloads/3rdparty/tiff-4.0.10.tar.gz
@@ -76,8 +76,8 @@ BuildRequires:		ghostscript-devel
 BuildRequires:		libjpeg-turbo-devel
 %endif
 
-# RHEL 6 and Scientific Linux 6 have too old cmake version (build internal)
-%if 0%{?rhel_version} == 600 || 0%{?scientificlinux_version} == 600
+# RHEL, CentOS and Scientific Linux 7 have too old cmake version (use prebuild)
+%if 0%{?rhel_version} == 700 || 0%{?scientificlinux_version} == 700 || 0%{?centos_version} == 700
 %else
 BuildRequires:		cmake
 %endif
@@ -106,6 +106,7 @@ GR, a universal framework for visualization applications
 
 %prep
 %setup -n gr-%{fixedversion}
+mkdir -p %{THIRDPARTY}
 mkdir -p %{THIRDPARTY_SRC}
 %{__cp} %{SOURCE1} %{THIRDPARTY_SRC}
 %{__cp} %{SOURCE2} %{THIRDPARTY_SRC}
@@ -118,8 +119,13 @@ mkdir -p %{THIRDPARTY_SRC}
 %{__cp} %{SOURCE9} %{THIRDPARTY_SRC}
 %{__cp} %{SOURCE10} %{THIRDPARTY_SRC}
 %{__cp} %{SOURCE11} %{THIRDPARTY_SRC}
+%{__tar} -C %{THIRDPARTY} -xf %{SOURCE7}
 
 %build
+# RHEL, CentOS and Scientific Linux 7 have too old cmake version (use prebuild)
+%if 0%{?rhel_version} == 700 || 0%{?scientificlinux_version} == 700 || 0%{?centos_version} == 700
+export PATH=`pwd`/%{THIRDPARTY}/cmake-3.6.3-Linux-x86_64/bin:$PATH
+%endif
 make -C 3rdparty GRDIR=%{grdir} DIR=`pwd`/%{THIRDPARTY}
 make -C 3rdparty extras GRDIR=%{grdir} DIR=`pwd`/%{THIRDPARTY}
 %if 0%{?__jcns}
