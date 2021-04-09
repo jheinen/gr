@@ -2,6 +2,33 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "self:GKSTerm.xcodeproj">
+      location = "group:../../plugin/networkbib/libconnection.a">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/connection_library.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/connection_library.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/library.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/library.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/linked_list.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/linked_list.h">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/queue.c">
+   </FileRef>
+   <FileRef
+      location = "group:../../plugin/networkbib/queue.h">
+   </FileRef>
+   <FileRef
+      location = "self:">
    </FileRef>
 </Workspace>

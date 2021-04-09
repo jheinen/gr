@@ -7,10 +7,10 @@
 #import <AppKit/AppKit.h>
 
 #include <pthread.h>
-#include <zmq.h>
 
 #include "gks.h"
 #include "gksquartz.h"
+#include "networkbib/connection_library.h"
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN 1024
@@ -43,6 +43,7 @@ static int gksterm_has_run_before = 0;
 #define GKSTERM_IS_RUNNING_TIMEOUT (gksterm_has_run_before ? 500 : 50)
 
 static gks_state_list_t *gkss;
+static gks_state_list_t *gkss;
 
 static NSLock *mutex;
 
@@ -65,73 +66,86 @@ static NSTask *task = NULL;
 
 static bool gksterm_is_running();
 
+struct context_object* nb_context;
+static bool nb_context_is_created = FALSE;
+static bool nb_context_is_connected = FALSE;
+static int connection_id;
+
+static struct context_object* create_nb_context(){
+    int own_port = 7019;
+    time_t diff = 5000;
+    time_t limit = 10000;
+    nb_context = init_context(own_port, NULL, diff, limit);
+    nb_context_is_created = TRUE;
+    return nb_context;
+}
+
+static int connect_nb_context(){
+
+    if (nb_context == NULL){
+      return -1;
+    }
+    char* server_ip = "127.0.0.1";
+    int server_port = 7020;
+    int own_port = 7019;
+    char* own_ip = "127.0.0.1";
+    connection_id = new_connection(nb_context, server_ip, server_port, own_ip, own_port);
+    if(connection_id >= 0){
+        nb_context_is_connected = TRUE;
+        printf("NB is connected\n");
+    }
+    return connection_id;
+}
+
+static int try_connect(int count){
+  int counter;
+  int connection_id = -1;
+  [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+  for (counter = 0; counter < count && !nb_context_is_connected; counter++)
+    {
+        connection_id = connect_nb_context();
+        if (connection_id >= 0){
+          return connection_id;
+        }
+        if (counter +1 == count){
+          return -1;
+        }
+        [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+    }
+      return connection_id;
+}
+
 static void gksterm_communicate(const char *request, size_t request_len, int timeout, bool only_if_running,
                                 void (^reply_handler)(char *, size_t))
 {
-  int rc;
-  void *context = zmq_ctx_new();
-  void *socket = zmq_socket(context, ZMQ_REQ);
-  CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
-  // Disable waiting for unsent messages when closing a socket
-  int linger = 0;
-  zmq_setsockopt(socket, ZMQ_LINGER, &linger, sizeof(int));
+  int gkstermhasdied = 0;
 
-  rc = zmq_connect(socket, "ipc:///tmp/GKSTerm.sock");
-  assert(rc == 0);
-
-  zmq_msg_t message;
-  zmq_msg_init_size(&message, request_len);
-  memcpy(zmq_msg_data(&message), (void *)request, request_len);
-  do
-    {
-      if ((only_if_running && !gksterm_is_running()) || (CFAbsoluteTimeGetCurrent() - startTime) * 1000.0 > timeout)
-        {
-          zmq_msg_close(&message);
-          zmq_close(socket);
-          zmq_ctx_term(context);
-          @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
-                                         reason:@"The connection to GKSTerm has timed out."
-                                       userInfo:nil];
-        }
-      if (rc == -1 && errno == EAGAIN)
-        {
-          usleep(1000);
-        }
-      rc = zmq_msg_send(&message, socket, ZMQ_DONTWAIT);
+  if (!(only_if_running && !gksterm_is_running())){
+    int sent = nb_send_message(nb_context, (void*)request, request_len, connection_id, 2, timeout);
+    if (sent == -1){
+      gkstermhasdied = 1;
     }
-  while (rc == -1 && (errno == EINTR || errno == EAGAIN));
-  assert(rc == request_len);
-  zmq_msg_close(&message);
-
-  zmq_msg_init(&message);
-  do
-    {
-      if ((only_if_running && !gksterm_is_running()) || (CFAbsoluteTimeGetCurrent() - startTime) * 1000.0 > timeout)
-        {
-          zmq_msg_close(&message);
-          zmq_close(socket);
-          zmq_ctx_term(context);
-          @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
-                                         reason:@"The connection to GKSTerm has timed out."
-                                       userInfo:nil];
-        }
-      if (rc == -1 && errno == EAGAIN)
-        {
-          usleep(1000);
-        }
-      rc = zmq_msg_recv(&message, socket, ZMQ_DONTWAIT);
-    }
-  while (rc == -1 && (errno == EINTR || errno == EAGAIN));
-  assert(rc >= 1);
-
-  char *reply = (char *)zmq_msg_data(&message);
-  assert(reply[0] == request[0]);
-
-  reply_handler(reply + 1, rc - 1);
-
-  zmq_msg_close(&message);
-  zmq_close(socket);
-  zmq_ctx_term(context);
+  }
+  else{
+    gkstermhasdied = 1;
+  }
+  if (gkstermhasdied == 1){
+    @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
+                                   reason:@"The connection to GKSTerm has timed out."
+                                 userInfo:nil];
+  }
+  struct message* recv_message = new_message();
+  int rcv = nb_recv_message(nb_context, connection_id, &recv_message, 1, timeout);
+  if (rcv > 0){
+    assert(((char*)(recv_message->data))[0] == request[0]);
+    reply_handler(recv_message->data + 1, rcv - 1);
+  }
+  if (rcv == -1){
+    @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
+                                   reason:@"The connection to GKSTerm has timed out."
+                                 userInfo:nil];
+  }
+return;
 }
 
 static bool gksterm_is_running()
@@ -171,6 +185,7 @@ static bool gksterm_is_alive(int window)
 
 static int gksterm_create_window()
 {
+  printf("create Window Aufruf\n");
   size_t request_len = 1;
   char request[1];
   request[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
@@ -197,6 +212,7 @@ static void gksterm_close_window(int window)
 
 static void gksterm_draw(int window, void *displaylist, size_t displaylist_len)
 {
+  printf("Aufruf gksterm draw\n");
   size_t request_len = 1 + sizeof(int) + sizeof(size_t) + displaylist_len;
   char *request = (char *)malloc(request_len);
   assert(request != NULL);
@@ -333,6 +349,19 @@ static BOOL gks_terminal(void)
 void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
                       char *chars, void **ptr)
 {
+  if (!nb_context_is_created){
+    create_nb_context();
+  }
+  if (!nb_context_is_connected){
+    struct timespec begin, end;
+    clock_gettime(CLOCK_REALTIME, &begin);
+    try_connect(1); // <--
+    clock_gettime(CLOCK_REALTIME, &end);
+    long seconds = end.tv_sec - begin.tv_sec;
+    long nanoseconds = end.tv_nsec - begin.tv_nsec;
+    double elapsed = seconds + nanoseconds*1e-9;
+    printf("Time measured: %.3f seconds.\n", elapsed);
+  }
 
   ws_state_list *wss = (ws_state_list *)*ptr;
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
@@ -344,10 +373,12 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
 
       wss = (ws_state_list *)calloc(1, sizeof(ws_state_list));
       bool is_connected = NO;
-      if (gksterm_is_running())
-        {
-          is_connected = YES;
+      if (nb_context_is_connected){
+        if (gksterm_is_running())
+          {
+            is_connected = YES;
         }
+      }
       if (mutex == nil)
         {
           mutex = [[NSLock alloc] init];
@@ -361,20 +392,19 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
               NSLog(@"Launching GKSTerm failed.");
               exit(-1);
             }
-          else
-            {
+          else{
+            try_connect(10);
+            if (nb_context_is_connected == TRUE){
               int counter;
-              for (counter = 0; counter < 10 && !is_connected; counter++)
-                {
-                  [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
-                  if (gksterm_is_running())
-                    {
-                      is_connected = YES;
-                    }
+              for (counter = 0; counter < 10 && !is_connected; counter++){
+                [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]];
+                if (gksterm_is_running()){
+                  is_connected = YES;
                 }
+              }
             }
+          }
         }
-
       /* Do not create a window yet */
       wss->win = -1;
       wss->empty = YES;

@@ -1,396 +1,416 @@
 // !$*UTF8*$!
 {
-	archiveVersion = 1;
-	classes = {
-	};
-	objectVersion = 46;
-	objects = {
+archiveVersion = 1;
+classes = {
+};
+objectVersion = 46;
+objects = {
 
 /* Begin PBXBuildFile section */
-		13C7C4E3200F4851007A6396 /* libzmq.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 13C7C4E2200F4851007A6396 /* libzmq.a */; };
-		13E82E0423507CA0004A4130 /* resample.c in Sources */ = {isa = PBXBuildFile; fileRef = 13E82E0323507CA0004A4130 /* resample.c */; };
-		202DC483101F0B9F00A39179 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 202DC482101F0B9F00A39179 /* QuartzCore.framework */; };
-		20A794F5106BB92800D5CF6E /* GKSTerm.icns in Resources */ = {isa = PBXBuildFile; fileRef = 20A794F4106BB92800D5CF6E /* GKSTerm.icns */; };
-		20A87F351062253500F6E07D /* ExtendSavePanel.nib in Resources */ = {isa = PBXBuildFile; fileRef = 20A87F331062253500F6E07D /* ExtendSavePanel.nib */; };
-		20F444710FCC0F0000FC6780 /* GKSTerm.m in Sources */ = {isa = PBXBuildFile; fileRef = 20F4446F0FCC0F0000FC6780 /* GKSTerm.m */; };
-		20F444720FCC0F0000FC6780 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 20F444700FCC0F0000FC6780 /* main.m */; };
-		6625B75F10298C790059B278 /* afm.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75B10298C790059B278 /* afm.c */; };
-		6625B76010298C790059B278 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75C10298C790059B278 /* error.c */; };
-		6625B76110298C790059B278 /* malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75D10298C790059B278 /* malloc.c */; };
-		6625B76210298C790059B278 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75E10298C790059B278 /* util.c */; };
-		6625B77410298D570059B278 /* font.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B77310298D570059B278 /* font.c */; };
-		6625B77710298D6C0059B278 /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B77610298D6C0059B278 /* io.c */; };
-		6629D22916E0F03F009E93C2 /* ft.c in Sources */ = {isa = PBXBuildFile; fileRef = 6629D22816E0F03F009E93C2 /* ft.c */; };
-		6641A634102AC967001FB593 /* dl.c in Sources */ = {isa = PBXBuildFile; fileRef = 6641A633102AC967001FB593 /* dl.c */; };
-		666F41B0102DB39500B8F004 /* GKSView.m in Sources */ = {isa = PBXBuildFile; fileRef = 666F41AF102DB39500B8F004 /* GKSView.m */; };
-		8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
-		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
-		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+13C7C4E3200F4851007A6396 /* libzmq.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 13C7C4E2200F4851007A6396 /* libzmq.a */; };
+13E82E0423507CA0004A4130 /* resample.c in Sources */ = {isa = PBXBuildFile; fileRef = 13E82E0323507CA0004A4130 /* resample.c */; };
+202DC483101F0B9F00A39179 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 202DC482101F0B9F00A39179 /* QuartzCore.framework */; };
+20A794F5106BB92800D5CF6E /* GKSTerm.icns in Resources */ = {isa = PBXBuildFile; fileRef = 20A794F4106BB92800D5CF6E /* GKSTerm.icns */; };
+20A87F351062253500F6E07D /* ExtendSavePanel.nib in Resources */ = {isa = PBXBuildFile; fileRef = 20A87F331062253500F6E07D /* ExtendSavePanel.nib */; };
+20F444710FCC0F0000FC6780 /* GKSTerm.m in Sources */ = {isa = PBXBuildFile; fileRef = 20F4446F0FCC0F0000FC6780 /* GKSTerm.m */; };
+20F444720FCC0F0000FC6780 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 20F444700FCC0F0000FC6780 /* main.m */; };
+6625B75F10298C790059B278 /* afm.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75B10298C790059B278 /* afm.c */; };
+6625B76010298C790059B278 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75C10298C790059B278 /* error.c */; };
+6625B76110298C790059B278 /* malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75D10298C790059B278 /* malloc.c */; };
+6625B76210298C790059B278 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B75E10298C790059B278 /* util.c */; };
+6625B77410298D570059B278 /* font.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B77310298D570059B278 /* font.c */; };
+6625B77710298D6C0059B278 /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = 6625B77610298D6C0059B278 /* io.c */; };
+6629D22916E0F03F009E93C2 /* ft.c in Sources */ = {isa = PBXBuildFile; fileRef = 6629D22816E0F03F009E93C2 /* ft.c */; };
+6641A634102AC967001FB593 /* dl.c in Sources */ = {isa = PBXBuildFile; fileRef = 6641A633102AC967001FB593 /* dl.c */; };
+666F41B0102DB39500B8F004 /* GKSView.m in Sources */ = {isa = PBXBuildFile; fileRef = 666F41AF102DB39500B8F004 /* GKSView.m */; };
+8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
+8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
+8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
-		13C7C4E1200F47A4007A6396 /* zmq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zmq.h; path = ../../../3rdparty/build/include/zmq.h; sourceTree = "<group>"; };
-		13C7C4E2200F4851007A6396 /* libzmq.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzmq.a; path = ../../../3rdparty/build/lib/libzmq.a; sourceTree = "<group>"; };
-		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
-		13E82E0323507CA0004A4130 /* resample.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = resample.c; path = ../resample.c; sourceTree = "<group>"; };
-		202DC482101F0B9F00A39179 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = /System/Library/Frameworks/QuartzCore.framework; sourceTree = "<absolute>"; };
-		2093412D10285A27004FC05A /* gkscore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gkscore.h; path = ../gkscore.h; sourceTree = SOURCE_ROOT; };
-		2093412E10285A27004FC05A /* gksquartz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gksquartz.h; path = ../gksquartz.h; sourceTree = SOURCE_ROOT; };
-		20A794F4106BB92800D5CF6E /* GKSTerm.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = GKSTerm.icns; sourceTree = "<group>"; };
-		20A87F341062253500F6E07D /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/ExtendSavePanel.nib; sourceTree = "<group>"; };
-		20F4446E0FCC0F0000FC6780 /* GKSTerm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSTerm.h; sourceTree = "<group>"; };
-		20F4446F0FCC0F0000FC6780 /* GKSTerm.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GKSTerm.m; sourceTree = "<group>"; };
-		20F444700FCC0F0000FC6780 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
-		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
-		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
-		32CA4F630368D1EE00C91783 /* GKSTerm_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSTerm_Prefix.pch; sourceTree = "<group>"; };
-		4BF11C1A1C89ED700018E037 /* marker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = marker.h; path = ../marker.h; sourceTree = "<group>"; };
-		6625B75B10298C790059B278 /* afm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = afm.c; path = ../afm.c; sourceTree = SOURCE_ROOT; };
-		6625B75C10298C790059B278 /* error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = error.c; path = ../error.c; sourceTree = SOURCE_ROOT; };
-		6625B75D10298C790059B278 /* malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = malloc.c; path = ../malloc.c; sourceTree = SOURCE_ROOT; };
-		6625B75E10298C790059B278 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = util.c; path = ../util.c; sourceTree = SOURCE_ROOT; };
-		6625B76C10298CAF0059B278 /* gks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gks.h; path = ../gks.h; sourceTree = SOURCE_ROOT; };
-		6625B77310298D570059B278 /* font.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = font.c; path = ../font.c; sourceTree = SOURCE_ROOT; };
-		6625B77610298D6C0059B278 /* io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = io.c; path = ../io.c; sourceTree = SOURCE_ROOT; };
-		6629D22816E0F03F009E93C2 /* ft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ft.c; path = ../ft.c; sourceTree = "<group>"; };
-		6641A633102AC967001FB593 /* dl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dl.c; path = ../dl.c; sourceTree = SOURCE_ROOT; };
-		666F41AE102DB39500B8F004 /* GKSView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSView.h; sourceTree = "<group>"; };
-		666F41AF102DB39500B8F004 /* GKSView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GKSView.m; sourceTree = "<group>"; };
-		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		8D1107320486CEB800E47090 /* GKSTerm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GKSTerm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+13C7C4E1200F47A4007A6396 /* zmq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zmq.h; path = ../../../3rdparty/build/include/zmq.h; sourceTree = "<group>"; };
+13C7C4E2200F4851007A6396 /* libzmq.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzmq.a; path = ../../../3rdparty/build/lib/libzmq.a; sourceTree = "<group>"; };
+13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
+13E82E0323507CA0004A4130 /* resample.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = resample.c; path = ../resample.c; sourceTree = "<group>"; };
+202DC482101F0B9F00A39179 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = /System/Library/Frameworks/QuartzCore.framework; sourceTree = "<absolute>"; };
+2093412D10285A27004FC05A /* gkscore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gkscore.h; path = ../gkscore.h; sourceTree = SOURCE_ROOT; };
+2093412E10285A27004FC05A /* gksquartz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gksquartz.h; path = ../gksquartz.h; sourceTree = SOURCE_ROOT; };
+20A794F4106BB92800D5CF6E /* GKSTerm.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = GKSTerm.icns; sourceTree = "<group>"; };
+20A87F341062253500F6E07D /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/ExtendSavePanel.nib; sourceTree = "<group>"; };
+20F4446E0FCC0F0000FC6780 /* GKSTerm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSTerm.h; sourceTree = "<group>"; };
+20F4446F0FCC0F0000FC6780 /* GKSTerm.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GKSTerm.m; sourceTree = "<group>"; };
+20F444700FCC0F0000FC6780 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+32CA4F630368D1EE00C91783 /* GKSTerm_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSTerm_Prefix.pch; sourceTree = "<group>"; };
+4BF11C1A1C89ED700018E037 /* marker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = marker.h; path = ../marker.h; sourceTree = "<group>"; };
+6625B75B10298C790059B278 /* afm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = afm.c; path = ../afm.c; sourceTree = SOURCE_ROOT; };
+6625B75C10298C790059B278 /* error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = error.c; path = ../error.c; sourceTree = SOURCE_ROOT; };
+6625B75D10298C790059B278 /* malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = malloc.c; path = ../malloc.c; sourceTree = SOURCE_ROOT; };
+6625B75E10298C790059B278 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = util.c; path = ../util.c; sourceTree = SOURCE_ROOT; };
+6625B76C10298CAF0059B278 /* gks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gks.h; path = ../gks.h; sourceTree = SOURCE_ROOT; };
+6625B77310298D570059B278 /* font.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = font.c; path = ../font.c; sourceTree = SOURCE_ROOT; };
+6625B77610298D6C0059B278 /* io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = io.c; path = ../io.c; sourceTree = SOURCE_ROOT; };
+6629D22816E0F03F009E93C2 /* ft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ft.c; path = ../ft.c; sourceTree = "<group>"; };
+6641A633102AC967001FB593 /* dl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dl.c; path = ../dl.c; sourceTree = SOURCE_ROOT; };
+666F41AE102DB39500B8F004 /* GKSView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GKSView.h; sourceTree = "<group>"; };
+666F41AF102DB39500B8F004 /* GKSView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GKSView.m; sourceTree = "<group>"; };
+8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+8D1107320486CEB800E47090 /* GKSTerm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GKSTerm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		8D11072E0486CEB800E47090 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				13C7C4E3200F4851007A6396 /* libzmq.a in Frameworks */,
-				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
-				202DC483101F0B9F00A39179 /* QuartzCore.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+8D11072E0486CEB800E47090 /* Frameworks */ = {
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+13C7C4E3200F4851007A6396 /* libzmq.a in Frameworks */,
+8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
+202DC483101F0B9F00A39179 /* QuartzCore.framework in Frameworks */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		080E96DDFE201D6D7F000001 /* Classes */ = {
-			isa = PBXGroup;
-			children = (
-				666F41AF102DB39500B8F004 /* GKSView.m */,
-				666F41AE102DB39500B8F004 /* GKSView.h */,
-				20F4446F0FCC0F0000FC6780 /* GKSTerm.m */,
-				20F4446E0FCC0F0000FC6780 /* GKSTerm.h */,
-			);
-			name = Classes;
-			sourceTree = "<group>";
-		};
-		1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
-			);
-			name = "Linked Frameworks";
-			sourceTree = "<group>";
-		};
-		1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				202DC482101F0B9F00A39179 /* QuartzCore.framework */,
-				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
-				13E42FB307B3F0F600E4EEF1 /* CoreData.framework */,
-				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
-			);
-			name = "Other Frameworks";
-			sourceTree = "<group>";
-		};
-		19C28FACFE9D520D11CA2CBB /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				8D1107320486CEB800E47090 /* GKSTerm.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		29B97314FDCFA39411CA2CEA /* GKSTerm */ = {
-			isa = PBXGroup;
-			children = (
-				20A87F331062253500F6E07D /* ExtendSavePanel.nib */,
-				080E96DDFE201D6D7F000001 /* Classes */,
-				29B97315FDCFA39411CA2CEA /* Other Sources */,
-				29B97317FDCFA39411CA2CEA /* Resources */,
-				29B97323FDCFA39411CA2CEA /* Frameworks */,
-				19C28FACFE9D520D11CA2CBB /* Products */,
-			);
-			name = GKSTerm;
-			sourceTree = "<group>";
-		};
-		29B97315FDCFA39411CA2CEA /* Other Sources */ = {
-			isa = PBXGroup;
-			children = (
-				13E82E0323507CA0004A4130 /* resample.c */,
-				13C7C4E1200F47A4007A6396 /* zmq.h */,
-				6629D22816E0F03F009E93C2 /* ft.c */,
-				20F444700FCC0F0000FC6780 /* main.m */,
-				6641A633102AC967001FB593 /* dl.c */,
-				6625B77610298D6C0059B278 /* io.c */,
-				6625B77310298D570059B278 /* font.c */,
-				6625B76C10298CAF0059B278 /* gks.h */,
-				6625B75B10298C790059B278 /* afm.c */,
-				6625B75C10298C790059B278 /* error.c */,
-				6625B75D10298C790059B278 /* malloc.c */,
-				6625B75E10298C790059B278 /* util.c */,
-				2093412D10285A27004FC05A /* gkscore.h */,
-				4BF11C1A1C89ED700018E037 /* marker.h */,
-				2093412E10285A27004FC05A /* gksquartz.h */,
-				32CA4F630368D1EE00C91783 /* GKSTerm_Prefix.pch */,
-			);
-			name = "Other Sources";
-			sourceTree = "<group>";
-		};
-		29B97317FDCFA39411CA2CEA /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				20A794F4106BB92800D5CF6E /* GKSTerm.icns */,
-				8D1107310486CEB800E47090 /* Info.plist */,
-				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
-				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
-			);
-			name = Resources;
-			sourceTree = "<group>";
-		};
-		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				13C7C4E2200F4851007A6396 /* libzmq.a */,
-				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
-				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
+080E96DDFE201D6D7F000001 /* Classes */ = {
+isa = PBXGroup;
+children = (
+666F41AF102DB39500B8F004 /* GKSView.m */,
+666F41AE102DB39500B8F004 /* GKSView.h */,
+20F4446F0FCC0F0000FC6780 /* GKSTerm.m */,
+20F4446E0FCC0F0000FC6780 /* GKSTerm.h */,
+);
+name = Classes;
+sourceTree = "<group>";
+};
+1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
+isa = PBXGroup;
+children = (
+1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
+);
+name = "Linked Frameworks";
+sourceTree = "<group>";
+};
+1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
+isa = PBXGroup;
+children = (
+202DC482101F0B9F00A39179 /* QuartzCore.framework */,
+29B97324FDCFA39411CA2CEA /* AppKit.framework */,
+13E42FB307B3F0F600E4EEF1 /* CoreData.framework */,
+29B97325FDCFA39411CA2CEA /* Foundation.framework */,
+);
+name = "Other Frameworks";
+sourceTree = "<group>";
+};
+19C28FACFE9D520D11CA2CBB /* Products */ = {
+isa = PBXGroup;
+children = (
+8D1107320486CEB800E47090 /* GKSTerm.app */,
+);
+name = Products;
+sourceTree = "<group>";
+};
+29B97314FDCFA39411CA2CEA /* GKSTerm */ = {
+isa = PBXGroup;
+children = (
+20A87F331062253500F6E07D /* ExtendSavePanel.nib */,
+080E96DDFE201D6D7F000001 /* Classes */,
+29B97315FDCFA39411CA2CEA /* Other Sources */,
+29B97317FDCFA39411CA2CEA /* Resources */,
+29B97323FDCFA39411CA2CEA /* Frameworks */,
+19C28FACFE9D520D11CA2CBB /* Products */,
+);
+name = GKSTerm;
+sourceTree = "<group>";
+};
+29B97315FDCFA39411CA2CEA /* Other Sources */ = {
+isa = PBXGroup;
+children = (
+13E82E0323507CA0004A4130 /* resample.c */,
+13C7C4E1200F47A4007A6396 /* zmq.h */,
+6629D22816E0F03F009E93C2 /* ft.c */,
+20F444700FCC0F0000FC6780 /* main.m */,
+6641A633102AC967001FB593 /* dl.c */,
+6625B77610298D6C0059B278 /* io.c */,
+6625B77310298D570059B278 /* font.c */,
+6625B76C10298CAF0059B278 /* gks.h */,
+6625B75B10298C790059B278 /* afm.c */,
+6625B75C10298C790059B278 /* error.c */,
+6625B75D10298C790059B278 /* malloc.c */,
+6625B75E10298C790059B278 /* util.c */,
+2093412D10285A27004FC05A /* gkscore.h */,
+4BF11C1A1C89ED700018E037 /* marker.h */,
+2093412E10285A27004FC05A /* gksquartz.h */,
+32CA4F630368D1EE00C91783 /* GKSTerm_Prefix.pch */,
+);
+name = "Other Sources";
+sourceTree = "<group>";
+};
+29B97317FDCFA39411CA2CEA /* Resources */ = {
+isa = PBXGroup;
+children = (
+20A794F4106BB92800D5CF6E /* GKSTerm.icns */,
+8D1107310486CEB800E47090 /* Info.plist */,
+089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
+29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
+);
+name = Resources;
+sourceTree = "<group>";
+};
+29B97323FDCFA39411CA2CEA /* Frameworks */ = {
+isa = PBXGroup;
+children = (
+13C7C4E2200F4851007A6396 /* libzmq.a */,
+1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
+1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
+);
+name = Frameworks;
+sourceTree = "<group>";
+};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		8D1107260486CEB800E47090 /* GKSTerm */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "GKSTerm" */;
-			buildPhases = (
-				8D1107290486CEB800E47090 /* Resources */,
-				8D11072C0486CEB800E47090 /* Sources */,
-				8D11072E0486CEB800E47090 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = GKSTerm;
-			productInstallPath = "$(HOME)/Applications";
-			productName = GKSTerm;
-			productReference = 8D1107320486CEB800E47090 /* GKSTerm.app */;
-			productType = "com.apple.product-type.application";
-		};
+8D1107260486CEB800E47090 /* GKSTerm */ = {
+isa = PBXNativeTarget;
+buildConfigurationList = C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "GKSTerm" */;
+buildPhases = (
+8D1107290486CEB800E47090 /* Resources */,
+8D11072C0486CEB800E47090 /* Sources */,
+8D11072E0486CEB800E47090 /* Frameworks */,
+);
+buildRules = (
+);
+dependencies = (
+);
+name = GKSTerm;
+productInstallPath = "$(HOME)/Applications";
+productName = GKSTerm;
+productReference = 8D1107320486CEB800E47090 /* GKSTerm.app */;
+productType = "com.apple.product-type.application";
+};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		29B97313FDCFA39411CA2CEA /* Project object */ = {
-			isa = PBXProject;
-			attributes = {
-				LastUpgradeCheck = 0500;
-			};
-			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "GKSTerm" */;
-			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
-			hasScannedForEncodings = 1;
-			knownRegions = (
-				English,
-				en,
-			);
-			mainGroup = 29B97314FDCFA39411CA2CEA /* GKSTerm */;
-			projectDirPath = "";
-			projectRoot = "";
-			targets = (
-				8D1107260486CEB800E47090 /* GKSTerm */,
-			);
-		};
+29B97313FDCFA39411CA2CEA /* Project object */ = {
+isa = PBXProject;
+attributes = {
+LastUpgradeCheck = 0500;
+};
+buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "GKSTerm" */;
+compatibilityVersion = "Xcode 3.2";
+developmentRegion = English;
+hasScannedForEncodings = 1;
+knownRegions = (
+English,
+en,
+);
+mainGroup = 29B97314FDCFA39411CA2CEA /* GKSTerm */;
+projectDirPath = "";
+projectRoot = "";
+targets = (
+8D1107260486CEB800E47090 /* GKSTerm */,
+);
+};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		8D1107290486CEB800E47090 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */,
-				8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
-				20A87F351062253500F6E07D /* ExtendSavePanel.nib in Resources */,
-				20A794F5106BB92800D5CF6E /* GKSTerm.icns in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+8D1107290486CEB800E47090 /* Resources */ = {
+isa = PBXResourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */,
+8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
+20A87F351062253500F6E07D /* ExtendSavePanel.nib in Resources */,
+20A794F5106BB92800D5CF6E /* GKSTerm.icns in Resources */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		8D11072C0486CEB800E47090 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				20F444710FCC0F0000FC6780 /* GKSTerm.m in Sources */,
-				20F444720FCC0F0000FC6780 /* main.m in Sources */,
-				6625B75F10298C790059B278 /* afm.c in Sources */,
-				6625B76010298C790059B278 /* error.c in Sources */,
-				6625B76110298C790059B278 /* malloc.c in Sources */,
-				6625B76210298C790059B278 /* util.c in Sources */,
-				6625B77410298D570059B278 /* font.c in Sources */,
-				6625B77710298D6C0059B278 /* io.c in Sources */,
-				13E82E0423507CA0004A4130 /* resample.c in Sources */,
-				6641A634102AC967001FB593 /* dl.c in Sources */,
-				666F41B0102DB39500B8F004 /* GKSView.m in Sources */,
-				6629D22916E0F03F009E93C2 /* ft.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+8D11072C0486CEB800E47090 /* Sources */ = {
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+20F444710FCC0F0000FC6780 /* GKSTerm.m in Sources */,
+20F444720FCC0F0000FC6780 /* main.m in Sources */,
+6625B75F10298C790059B278 /* afm.c in Sources */,
+6625B76010298C790059B278 /* error.c in Sources */,
+6625B76110298C790059B278 /* malloc.c in Sources */,
+6625B76210298C790059B278 /* util.c in Sources */,
+6625B77410298D570059B278 /* font.c in Sources */,
+6625B77710298D6C0059B278 /* io.c in Sources */,
+13E82E0423507CA0004A4130 /* resample.c in Sources */,
+6641A634102AC967001FB593 /* dl.c in Sources */,
+666F41B0102DB39500B8F004 /* GKSView.m in Sources */,
+6629D22916E0F03F009E93C2 /* ft.c in Sources */,
+);
+runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				089C165DFE840E0CC02AAC07 /* English */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		20A87F331062253500F6E07D /* ExtendSavePanel.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				20A87F341062253500F6E07D /* English */,
-			);
-			name = ExtendSavePanel.nib;
-			sourceTree = "<group>";
-		};
-		29B97318FDCFA39411CA2CEA /* MainMenu.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				29B97319FDCFA39411CA2CEA /* English */,
-			);
-			name = MainMenu.nib;
-			sourceTree = "<group>";
-		};
+089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
+isa = PBXVariantGroup;
+children = (
+089C165DFE840E0CC02AAC07 /* English */,
+);
+name = InfoPlist.strings;
+sourceTree = "<group>";
+};
+20A87F331062253500F6E07D /* ExtendSavePanel.nib */ = {
+isa = PBXVariantGroup;
+children = (
+20A87F341062253500F6E07D /* English */,
+);
+name = ExtendSavePanel.nib;
+sourceTree = "<group>";
+};
+29B97318FDCFA39411CA2CEA /* MainMenu.nib */ = {
+isa = PBXVariantGroup;
+children = (
+29B97319FDCFA39411CA2CEA /* English */,
+);
+name = MainMenu.nib;
+sourceTree = "<group>";
+};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		C01FCF4B08A954540054247B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				CLANG_WARN_OBJCPP_ARC_ABI = YES;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(HOME)/Applications";
-				LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
-				"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				"OTHER_CFLAGS[arch=*]" = "-DNO_FT";
-				OTHER_LDFLAGS = "-lc++";
-				PRODUCT_NAME = GKSTerm;
-				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
-			};
-			name = Debug;
-		};
-		C01FCF4C08A954540054247B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				CLANG_WARN_OBJCPP_ARC_ABI = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
-				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(HOME)/Applications";
-				LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
-				"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				"OTHER_CFLAGS[arch=*]" = "-DNO_FT";
-				OTHER_LDFLAGS = "-lc++";
-				PRODUCT_NAME = GKSTerm;
-				WRAPPER_EXTENSION = app;
-			};
-			name = Release;
-		};
-		C01FCF4F08A954540054247B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "GRDIR=\\\"/usr/local/gr\\\"";
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				New_Setting = "";
-				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CPLUSPLUSFLAGS = "";
-				SDKROOT = "";
-			};
-			name = Debug;
-		};
-		C01FCF5008A954540054247B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				DEBUG_INFORMATION_FORMAT = stabs;
-				GCC_ENABLE_OBJC_GC = unsupported;
-				GCC_ENABLE_SSE3_EXTENSIONS = YES;
-				GCC_ENABLE_SUPPLEMENTAL_SSE3_INSTRUCTIONS = YES;
-				GCC_OBJC_CALL_CXX_CDTORS = YES;
-				GCC_OPTIMIZATION_LEVEL = 3;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "GRDIR=\\\"/usr/local/gr\\\"";
-				GCC_UNROLL_LOOPS = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_SHADOW = NO;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				GENERATE_MASTER_OBJECT_FILE = NO;
-				LINK_WITH_STANDARD_LIBRARIES = YES;
-				New_Setting = "";
-				OTHER_CPLUSPLUSFLAGS = "";
-				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = YES;
-				SDKROOT = "";
-				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static;
-			};
-			name = Release;
-		};
+C01FCF4B08A954540054247B /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ALWAYS_SEARCH_USER_PATHS = NO;
+ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+CLANG_WARN_OBJCPP_ARC_ABI = YES;
+COPY_PHASE_STRIP = NO;
+GCC_DYNAMIC_NO_PIC = NO;
+GCC_MODEL_TUNING = G5;
+GCC_OPTIMIZATION_LEVEL = 0;
+GCC_PRECOMPILE_PREFIX_HEADER = YES;
+GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
+HEADER_SEARCH_PATHS = (
+/usr/X11/include,
+/usr/X11/include/freetype2,
+"/Users/peters/Desktop/grnb/gr/lib/gks/plugin/networkbib",
+);
+INFOPLIST_FILE = Info.plist;
+INSTALL_PATH = "$(HOME)/Applications";
+LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
+"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
+MACOSX_DEPLOYMENT_TARGET = 10.11;
+"OTHER_CFLAGS[arch=*]" = "-DXFT";
+OTHER_LDFLAGS = (
+"-L/usr/X11/lib",
+"-lfreetype",
+"-lc++",
+"/Users/peters/Desktop/grnb/gr/lib/gks/plugin/networkbib/libconnection.a",
+);
+PRODUCT_NAME = GKSTerm;
+WRAPPER_EXTENSION = app;
+ZERO_LINK = YES;
+};
+name = Debug;
+};
+C01FCF4C08A954540054247B /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+ALWAYS_SEARCH_USER_PATHS = NO;
+ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+CLANG_WARN_OBJCPP_ARC_ABI = YES;
+DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+GCC_MODEL_TUNING = G5;
+GCC_PRECOMPILE_PREFIX_HEADER = YES;
+GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
+HEADER_SEARCH_PATHS = (
+/usr/X11/include,
+/usr/X11/include/freetype2,
+"/Users/peters/Desktop/grnb/gr/lib/gks/plugin/networkbib",
+);
+INFOPLIST_FILE = Info.plist;
+INSTALL_PATH = "$(HOME)/Applications";
+LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
+"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
+MACOSX_DEPLOYMENT_TARGET = 10.11;
+"OTHER_CFLAGS[arch=*]" = "-DXFT";
+OTHER_LDFLAGS = (
+"-L/usr/X11/lib",
+"-lfreetype",
+"-lc++",
+"/Users/peters/Desktop/grnb/gr/lib/gks/plugin/networkbib/libconnection.a",
+);
+PRODUCT_NAME = GKSTerm;
+WRAPPER_EXTENSION = app;
+};
+name = Release;
+};
+C01FCF4F08A954540054247B /* Debug */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+COMBINE_HIDPI_IMAGES = YES;
+GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "GRDIR=\\\"/usr/local/gr\\\"";
+GCC_WARN_ABOUT_RETURN_TYPE = YES;
+GCC_WARN_UNUSED_VARIABLE = YES;
+New_Setting = "";
+ONLY_ACTIVE_ARCH = YES;
+OTHER_CPLUSPLUSFLAGS = "";
+SDKROOT = "";
+};
+name = Debug;
+};
+C01FCF5008A954540054247B /* Release */ = {
+isa = XCBuildConfiguration;
+buildSettings = {
+COMBINE_HIDPI_IMAGES = YES;
+DEBUG_INFORMATION_FORMAT = stabs;
+GCC_ENABLE_OBJC_GC = unsupported;
+GCC_ENABLE_SSE3_EXTENSIONS = YES;
+GCC_ENABLE_SUPPLEMENTAL_SSE3_INSTRUCTIONS = YES;
+GCC_OBJC_CALL_CXX_CDTORS = YES;
+GCC_OPTIMIZATION_LEVEL = 3;
+GCC_PRECOMPILE_PREFIX_HEADER = YES;
+GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "GRDIR=\\\"/usr/local/gr\\\"";
+GCC_UNROLL_LOOPS = YES;
+GCC_WARN_ABOUT_RETURN_TYPE = YES;
+GCC_WARN_SHADOW = NO;
+GCC_WARN_UNUSED_VARIABLE = YES;
+GENERATE_MASTER_OBJECT_FILE = NO;
+LINK_WITH_STANDARD_LIBRARIES = YES;
+New_Setting = "";
+OTHER_CPLUSPLUSFLAGS = "";
+SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = YES;
+SDKROOT = "";
+STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static;
+};
+name = Release;
+};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "GKSTerm" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C01FCF4B08A954540054247B /* Debug */,
-				C01FCF4C08A954540054247B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		C01FCF4E08A954540054247B /* Build configuration list for PBXProject "GKSTerm" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C01FCF4F08A954540054247B /* Debug */,
-				C01FCF5008A954540054247B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "GKSTerm" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+C01FCF4B08A954540054247B /* Debug */,
+C01FCF4C08A954540054247B /* Release */,
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Release;
+};
+C01FCF4E08A954540054247B /* Build configuration list for PBXProject "GKSTerm" */ = {
+isa = XCConfigurationList;
+buildConfigurations = (
+C01FCF4F08A954540054247B /* Debug */,
+C01FCF5008A954540054247B /* Release */,
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Release;
+};
 /* End XCConfigurationList section */
-	};
-	rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
+};
+rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
 }

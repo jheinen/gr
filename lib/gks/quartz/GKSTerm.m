@@ -2,31 +2,17 @@
 #include "gks.h"
 #include "gkscore.h"
 #include "gksquartz.h"
-#include "zmq.h"
+#include "connection_library.h"
 
 #import "GKSTerm.h"
 #import "GKSView.h"
 
-@interface GKSNetworkingForwarderThread : NSObject
-+ (void)run:(GKSTerm *)gksterm;
-@end
-
-@interface GKSNetworkingWorkerThread : NSObject
-+ (void)run:(GKSTerm *)gksterm;
-@end
-
-static void *context = NULL;
-
-static void send_message(void *socket, void *data, size_t data_len)
+static void send_nb_message(struct message* message, void *reply, size_t reply_len)
 {
-  zmq_msg_t message;
-  zmq_msg_init_size(&message, data_len);
-  memcpy(zmq_msg_data(&message), data, data_len);
-  zmq_msg_send(&message, socket, 0);
-  zmq_msg_close(&message);
+    struct message* response_message = get_response_message(message, reply_len, reply, USE_MEMCOPY);
+    message_send(response_message);
 }
-
-static void handle_create_window(GKSTerm *gksterm, void *socket, unsigned char *data)
+static void nb_handle_create_window(GKSTerm *gksterm, char *data, struct message* message)
 {
   (void)data;
 
@@ -38,16 +24,37 @@ static void handle_create_window(GKSTerm *gksterm, void *socket, unsigned char *
     }
   });
   char reply[1 + sizeof(int)];
+  DATALENGTH reply_len = sizeof(reply);
   reply[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
   *(int *)(reply + 1) = result;
-  send_message(socket, reply, sizeof(reply));
+  printf("Laenge Antwort: %d\n", reply_len);
+  send_nb_message(message, reply, reply_len);
 
   /* Show the app icon in dock */
   ProcessSerialNumber psn = {0, kCurrentProcess};
   TransformProcessType(&psn, kProcessTransformToForegroundApplication);
 }
 
-static void handle_is_alive(GKSTerm *gksterm, void *socket, unsigned char *data)
+static void nb_handle_draw(GKSTerm *gksterm, char *data, struct message* message)
+{
+    // Send acknowledgement before actually drawing to avoid timeout
+    char reply[1];
+    reply[0] = GKSTERM_FUNCTION_DRAW;
+    DATALENGTH reply_len = 1;
+    send_nb_message(message, reply, reply_len);
+
+     int window = *(int *)data;
+     size_t displaylist_len = *(size_t *)(data + sizeof(int));
+     void *displaylist = malloc(displaylist_len);
+     memcpy(displaylist, (void *)(data + sizeof(int) + sizeof(size_t)), displaylist_len);
+     dispatch_async(dispatch_get_main_queue(), ^{
+       NSData *displaylist_objc = [NSData dataWithBytesNoCopy:displaylist length:displaylist_len freeWhenDone:NO];
+       [gksterm GKSQuartzDraw:window displayList:displaylist_objc];
+       free(displaylist);
+     });
+}
+
+static void nb_handle_is_alive(GKSTerm *gksterm, char *data, struct message* message)
 {
   int window = *(int *)data;
   bool result = NO;
@@ -58,36 +65,10 @@ static void handle_is_alive(GKSTerm *gksterm, void *socket, unsigned char *data)
   char reply[2];
   reply[0] = GKSTERM_FUNCTION_IS_ALIVE;
   reply[1] = result ? 1 : 0;
-  send_message(socket, reply, sizeof(reply));
+  DATALENGTH reply_len = 2;
+  send_nb_message(message, reply, reply_len);
 }
-
-static void handle_is_running(GKSTerm *gksterm, void *socket, unsigned char *data)
-{
-  (void)data;
-  char reply[1];
-  reply[0] = GKSTERM_FUNCTION_IS_RUNNING;
-  send_message(socket, reply, sizeof(reply));
-}
-
-static void handle_draw(GKSTerm *gksterm, void *socket, unsigned char *data)
-{
-  // Send acknowledgement before actually drawing to avoid timeout
-  char reply[1];
-  reply[0] = GKSTERM_FUNCTION_DRAW;
-  send_message(socket, reply, sizeof(reply));
-
-  int window = *(int *)data;
-  size_t displaylist_len = *(size_t *)(data + sizeof(int));
-  void *displaylist = malloc(displaylist_len);
-  memcpy(displaylist, (void *)(data + sizeof(int) + sizeof(size_t)), displaylist_len);
-  dispatch_async(dispatch_get_main_queue(), ^{
-    NSData *displaylist_objc = [NSData dataWithBytesNoCopy:displaylist length:displaylist_len freeWhenDone:NO];
-    [gksterm GKSQuartzDraw:window displayList:displaylist_objc];
-    free(displaylist);
-  });
-}
-
-static void handle_close_window(GKSTerm *gksterm, void *socket, unsigned char *data)
+static void nb_handle_close_window(GKSTerm *gksterm, char *data, struct message* message)
 {
   int window = *(int *)data;
   dispatch_sync(dispatch_get_main_queue(), ^{
@@ -98,124 +79,68 @@ static void handle_close_window(GKSTerm *gksterm, void *socket, unsigned char *d
   });
   char reply[1];
   reply[0] = GKSTERM_FUNCTION_CLOSE_WINDOW;
-  send_message(socket, reply, sizeof(reply));
+  DATALENGTH reply_len = 1;
+    send_nb_message(message, reply, reply_len);
 }
 
-static void handle_unknown(void *socket, unsigned char *data)
+static void nb_handle_is_running(GKSTerm *gksterm, char *data, struct message* message)
+{
+  (void)data;
+  char reply[1];
+  reply[0] = GKSTERM_FUNCTION_IS_RUNNING;
+  DATALENGTH reply_len = 1;
+  send_nb_message(message, reply, reply_len);
+}
+
+static void nb_handle_unknown(char *data, struct message* message)
 {
   (void)data;
   char reply[1];
   reply[0] = GKSTERM_FUNCTION_UNKNOWN;
-  NSLog(@"ZeroMQ message with unknown function code");
-  send_message(socket, reply, sizeof(reply));
+  DATALENGTH reply_len = 1;
+  NSLog(@"message with unknown function code");
+  send_nb_message(message, reply, reply_len);
 }
 
-static void handle_message(GKSTerm *gksterm, void *socket)
-{
-  zmq_msg_t message;
-  zmq_msg_init(&message);
-  zmq_msg_recv(&message, socket, 0);
-  unsigned char *data = (unsigned char *)zmq_msg_data(&message);
-  switch (data[0])
+GKSTerm* gksterm;
+void nb_handle_message(struct message* message){
+    
+    char request_type = ((char*)(message->data))[0];
+    char* data = ((char*)message->data)+1;
+    
+    switch (request_type)
     {
     case GKSTERM_FUNCTION_CREATE_WINDOW:
-      handle_create_window(gksterm, socket, data + 1);
-      break;
+        //printf("Request: GKSTERM_FUNCTION_CREATE_WINDOW\n");
+        nb_handle_create_window(gksterm, data, message);
+        break;
     case GKSTERM_FUNCTION_DRAW:
-      handle_draw(gksterm, socket, data + 1);
-      break;
+        //printf("Request: GKSTERM_FUNCTION_DRAW\n");
+        nb_handle_draw(gksterm, data, message);
+        break;
     case GKSTERM_FUNCTION_IS_ALIVE:
-      handle_is_alive(gksterm, socket, data + 1);
-      break;
+        //printf("Request: GKSTERM_FUNCTION_IS_ALIVE\n");
+        nb_handle_is_alive(gksterm, data, message);
+        break;
     case GKSTERM_FUNCTION_CLOSE_WINDOW:
-      handle_close_window(gksterm, socket, data + 1);
-      break;
+        //printf("Request: GKSTERM_FUNCTION_CLOSE_WINDOW\n");
+        nb_handle_close_window(gksterm, data, message);
+        break;
     case GKSTERM_FUNCTION_IS_RUNNING:
-      handle_is_running(gksterm, socket, data + 1);
-      break;
+        //printf("Request: GKSTERM_FUNCTION_IS_RUNNING\n");
+        nb_handle_is_running(gksterm, data, message);
+        break;
     default:
-      handle_unknown(socket, data + 1);
-      break;
-    }
-  zmq_msg_close(&message);
-}
-
-static void forward_message(void *input_socket, void *output_socket)
-{
-  // Forward a multipart message from one zeromq socket to another.
-  zmq_msg_t messages[3];
-  int more = 1;
-  int num_parts = 0;
-  for (int part = 0; part < 3 && more; part++)
-    {
-      zmq_msg_init(&messages[part]);
-      zmq_msg_recv(&messages[part], input_socket, 0);
-      more = zmq_msg_more(&messages[part]);
-      num_parts++;
-    }
-  // Return IS_RUNNING messages to ROUTER
-  if (zmq_msg_size(&messages[num_parts - 1]) > 0)
-    {
-      unsigned char *data = (unsigned char *)zmq_msg_data(&messages[num_parts - 1]);
-      if (data[0] == GKSTERM_FUNCTION_IS_RUNNING)
-        {
-          output_socket = input_socket;
-        }
-    }
-  for (int part = 0; part < num_parts; part++)
-    {
-      zmq_msg_send(&messages[part], output_socket, (part + 1 < num_parts) ? ZMQ_SNDMORE : 0);
-      zmq_msg_close(&messages[part]);
+        nb_handle_unknown(data, message);
+        break;
     }
 }
 
-@implementation GKSNetworkingForwarderThread
-+ (void)run:(GKSTerm *)gksterm
-{
-  // Handle requests incoming via ZeroMQ
-  void *frontend = zmq_socket(context, ZMQ_ROUTER);
-  void *backend = zmq_socket(context, ZMQ_DEALER);
-  zmq_bind(frontend, "ipc:///tmp/GKSTerm.sock");
-  zmq_bind(backend, "inproc://:gksterm:");
+struct context_object* nb_context = NULL; /*nb context*/
 
-  zmq_pollitem_t items[] = {{frontend, 0, ZMQ_POLLIN, 0}, {backend, 0, ZMQ_POLLIN, 0}};
-  while (YES)
-    {
-      zmq_poll(items, 2, -1);
-      if (items[0].revents & ZMQ_POLLIN)
-        {
-          forward_message(frontend, backend);
-        }
-      if (items[1].revents & ZMQ_POLLIN)
-        {
-          forward_message(backend, frontend);
-        }
-    }
-  zmq_close(frontend);
-  zmq_close(backend);
+void init_nb_context(struct context_object* nb_context, int port, char* accepted_clients, time_t diff, time_t limit){
+        nb_context = init_context(port, NULL, diff, limit);
 }
-@end
-
-
-@implementation GKSNetworkingWorkerThread
-+ (void)run:(GKSTerm *)gksterm
-{
-  void *worker = zmq_socket(context, ZMQ_REP);
-  zmq_connect(worker, "inproc://:gksterm:");
-
-  zmq_pollitem_t items[] = {{worker, 0, ZMQ_POLLIN, 0}};
-  while (YES)
-    {
-      zmq_poll(items, 1, -1);
-      if (items[0].revents & ZMQ_POLLIN)
-        {
-          handle_message(gksterm, worker);
-        }
-    }
-  zmq_close(worker);
-}
-@end
-
 
 static bool initialized = NO;
 
@@ -232,14 +157,16 @@ static bool initialized = NO;
 
   if (!initialized)
     {
-      // Start networking threads
-      context = zmq_ctx_new();
-      [NSThread detachNewThreadSelector:@selector(run:) toTarget:[GKSNetworkingForwarderThread class] withObject:self];
-      [NSThread detachNewThreadSelector:@selector(run:) toTarget:[GKSNetworkingWorkerThread class] withObject:self];
+    int port = 7020;
+    time_t diff = 50000;
+    time_t limit = 100000;
+    init_context(port, nb_handle_message, diff, limit);
 
-      num_windows = 0;
-      curr_win_id = 0;
-      for (win = 0; win < MAX_WINDOWS; win++) window[win] = nil;
+    gksterm = self;
+
+    num_windows = 0;
+    curr_win_id = 0;
+    for (win = 0; win < MAX_WINDOWS; win++) window[win] = nil;
     }
 }
 
