@@ -778,6 +778,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[indices[i]];
           vertex_fpp[1] = &vertices_fp[indices[i + 1]];
           vertex_fpp[2] = &vertices_fp[indices[i + 2]];
+          /* TODO Zeichnefall kanten */
           draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
                         arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
         }
@@ -796,10 +797,10 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].c.g = colors[index + 1];
               vertices_fp[j].c.b = colors[index + 2];
               vertices_fp[j].c.a = 1.0f;
-              vertices_fp[j].normal.x = normals[index] / arg->scales[0];
-              vertices_fp[j].normal.y = normals[index + 1] / arg->scales[1];
-              vertices_fp[j].normal.z = normals[index + 2] / arg->scales[2];
-              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
+              vertices_fp[j].normal.x = normals[index];// / arg->scales[0];
+              vertices_fp[j].normal.y = normals[index + 1];// / arg->scales[1];
+              vertices_fp[j].normal.z = normals[index + 2];// / arg->scales[2];
+              /* mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal); */
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
               vertices_fp[j].z = vertices[index + 2];
@@ -876,7 +877,6 @@ static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int 
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01)
 {
-    /* Markierung 2 */
   float invslope_short_1 = (v_fp_sorted[1]->x - v_fp_sorted[0]->x) / (v_fp_sorted[1]->y - v_fp_sorted[0]->y);
   float invslope_short_2 = (v_fp_sorted[2]->x - v_fp_sorted[1]->x) / (v_fp_sorted[2]->y - v_fp_sorted[1]->y);
   float invslope_long = (v_fp_sorted[2]->x - v_fp_sorted[0]->x) / (v_fp_sorted[2]->y - v_fp_sorted[0]->y);
@@ -890,7 +890,6 @@ static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int 
   int curx, dif, first_x = 0;
   float w0 = 0, w1 = 0, w2 = 0, sum_inv = 0;
   int lim = (int)v_fp_sorted[2]->y > height - 1 ? height - 1 : (int)v_fp_sorted[2]->y;
-
   for (scanlineY = starty; scanlineY <= lim; scanlineY++)
     {
       if (scanlineY < (int)(v_fp_sorted[1]->y))
@@ -990,12 +989,12 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
       depth = (w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z) * sum_inv;
       if (depth < dep_buf[y * width + x])
         {
-          vector diff_vec_1 = {x-v_fp[0]->x, y-v_fp[0]->y, depth-v_fp[0]->z};
-          vector diff_vec_2 = {x-v_fp[1]->x, y-v_fp[1]->y, depth-v_fp[1]->z};
-          vector diff_vec_3 = {x-v_fp[2]->x, y-v_fp[2]->y, depth-v_fp[2]->z};
-          vector edge_1 = {v_fp[0]->x-v_fp[1]->x, v_fp[0]->y-v_fp[1]->y, v_fp[0]->z-v_fp[1]->z};
-          vector edge_2 = {v_fp[1]->x-v_fp[2]->x, v_fp[1]->y-v_fp[2]->y, v_fp[1]->z-v_fp[2]->z};
-          vector edge_3 = {v_fp[2]->x-v_fp[0]->x, v_fp[2]->y-v_fp[0]->y, v_fp[2]->z-v_fp[0]->z};
+          vector diff_vec_1 = {x-v_fp[0]->x, y-v_fp[0]->y,0}; //depth-v_fp[0]->z};
+          vector diff_vec_2 = {x-v_fp[1]->x, y-v_fp[1]->y,0}; //depth-v_fp[1]->z};
+          vector diff_vec_3 = {x-v_fp[2]->x, y-v_fp[2]->y,0}; //depth-v_fp[2]->z};
+          vector edge_1 = {v_fp[0]->x-v_fp[1]->x, v_fp[0]->y-v_fp[1]->y,0}; //v_fp[0]->z-v_fp[1]->z};
+          vector edge_2 = {v_fp[1]->x-v_fp[2]->x, v_fp[1]->y-v_fp[2]->y,0}; //v_fp[1]->z-v_fp[2]->z};
+          vector edge_3 = {v_fp[2]->x-v_fp[0]->x, v_fp[2]->y-v_fp[0]->y,0}; //v_fp[2]->z-v_fp[0]->z};
           vector vec1, vec2, vec3;
           cross_product(&diff_vec_1, &edge_1, &vec1);
           cross_product(&diff_vec_2, &edge_2, &vec2);
@@ -1003,8 +1002,11 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
           double d1 = sqrt(dot_vector(&vec1, &vec1))/sqrt(dot_vector(&edge_1, &edge_1));
           double d2 = sqrt(dot_vector(&vec2, &vec2))/sqrt(dot_vector(&edge_2, &edge_2));
           double d3 = sqrt(dot_vector(&vec3, &vec3))/sqrt(dot_vector(&edge_3, &edge_3));
-          double eps = 0.5;
-          if(d1 < eps || d2 < eps || d3 < eps) {
+          int color_pix = 0;
+          if(d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x) {
+            color_pix = 1;
+          }
+          if(color_pix){
               col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
               color_pixel(pixels, dep_buf, depth, width, x, y, &col);
           }else{
@@ -1329,7 +1331,7 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
                                       GR3_DrawList_t_ *draw, int draw_id)
 {
   int thread_idx, i, j, numtri, tri_per_thread, index_start_end[MAX_NUM_THREADS + 1], rest, rest_distributed;
-  matrix model_mat, view_mat, view_model, perspective, perspective_view_model, viewport;
+    matrix model_mat, view_mat, view_model, perspective, perspective_view_model, viewport;
   matrix3x3 model_mat_3x3, view_mat_3x3, model_view_mat_3x3;
   vector light_dir;
   color_float c_tmp;
@@ -1384,8 +1386,7 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
       vector normal_vector;
       draw->vertices_fp[draw_id] = malloc(sizeof(vertex_fp) * context_struct_.mesh_list_[mesh].data.number_of_indices);
       vertices_fp = draw->vertices_fp[draw_id];
-      for (i = 0; i < num_vertices * 3; i += 3)
-        {
+      for (i = 0; i < num_vertices * 3; i += 3) {
           c_tmp.r = colors[i];
           c_tmp.g = colors[i + 1];
           c_tmp.b = colors[i + 2];
@@ -1396,20 +1397,22 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           tmp_v.w = 1.0;
           tmp_v.w_div = 1.0;
           tmp_v.c = c_tmp;
-          normal_vector.x = normals[i] / scales[0];
-          normal_vector.y = normals[i + 1] / scales[1];
-          normal_vector.z = normals[i + 2] / scales[2];
+          /*TODO*/
+          normal_vector.x = normals[i];// / scales[0];
+          normal_vector.y = normals[i + 1];// / scales[1];
+          normal_vector.z = normals[i + 2];// / scales[2];
           tmp_v.normal = normal_vector;
-          index = (int)(i / 3);
+          index = (int) (i / 3);
           vertices_fp[index] = tmp_v;
-        }
+      }
       for (i = 0; i < num_vertices; i++)
         {
           mat_vec_mul_4x1(&perspective_view_model, &vertices_fp[i]);
           divide_by_w(&vertices_fp[i]);
           mat_vec_mul_4x1(&viewport, &vertices_fp[i]);
-          mat_vec_mul_3x1(&model_view_mat_3x3, &vertices_fp[i].normal);
+          // mat_vec_mul_3x1(&model_view_mat_3x3, &vertices_fp[i].normal); //TODO
         }
+
       numtri = context_struct_.mesh_list_[mesh].data.number_of_indices / 3;
       tri_per_thread = numtri / context_struct_.num_threads;
       index_start_end[0] = 0;

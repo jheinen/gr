@@ -13,7 +13,7 @@ UNAME := $(shell uname)
      PNGLIBS = $(THIRDPARTYDIR)/lib/libpng.a
     JPEGLIBS = $(THIRDPARTYDIR)/lib/libjpeg.a
        ZLIBS = $(THIRDPARTYDIR)/lib/libz.a
-      CFLAGS = -O3 -Wall -Wextra -pedantic -fPIC -pthread -DGRDIR=\"$(GRDIR)\" $(EXTRA_CFLAGS)
+      CFLAGS = -g -Wall -Wextra -pedantic -fPIC -pthread -DGRDIR=\"$(GRDIR)\" $(EXTRA_CFLAGS)
         OBJS = gr3.o gr3_convenience.o gr3_html.o gr3_povray.o gr3_png.o \
                gr3_jpeg.o gr3_gr.o gr3_mc.o gr3_slices.o gr3_sr.o
 

@@ -128,7 +128,6 @@ GR3API int gr3_init(int *attrib_list)
   char *renderpath_string = "gr3";
   char *software_renderer;
   software_renderer = getenv("GR3_USE_SR");
-  printf("init\n");
 #ifdef NO_GL
   software_renderer = "True";
 #endif
