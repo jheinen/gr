@@ -11,7 +11,7 @@ UNAME := $(shell uname)
 
       GROBJS = gr.o text.o contour.o spline.o gridit.o strlib.o io.o image.o \
                delaunay.o interp2.o md5.o import.o shade.o grforbnd.o \
-               contourf.o boundary.o mathtex2.o mathtex2.tab.o
+               contourf.o boundary.o mathtex2.o mathtex2.tab.o threadpool.o
       GSDEFS =
      DEFINES = $(GSDEFS)
     INCLUDES = -I../gks -I$(THIRDPARTYDIR)/include
@@ -112,7 +112,7 @@ clean:
 depend:
 	makedepend -Y -- gr.c text.c contour.c spline.c gridit.c strlib.c io.c \
 	image.c delaunay.c interp2.c md5.c import.c shade.c grforbnd.c \
-        2> /dev/null
+    threadpool.c    2> /dev/null
 
 .FORCE:
 
@@ -137,3 +137,4 @@ grforbnd.o: gr.h
 boundary.o: boundary.h
 mathtex2.o: mathtex2.h tempbuffer.inl
 mathtex2.tab.o: mathtex2.h
+threadpool.o: threadpool.h

@@ -19,6 +19,13 @@ extern "C" {
 #define GR_PROJECTION_ORTHOGRAPHIC 1
 #define GR_PROJECTION_PERSPECTIVE 2
 
+#define GR_VOLUME_WITHOUT_BORDER 0
+#define GR_VOLUME_WITH_BORDER 1
+
+#define GR_VOLUME_EMISSION 0
+#define GR_VOLUME_ABSORPTION 1
+#define GR_VOLUME_MIP 2
+
 typedef struct
 {
   double x, y;
@@ -207,6 +214,11 @@ DLLEXPORT void gr_settextencoding(int);
 DLLEXPORT void gr_inqtextencoding(int *);
 DLLEXPORT void gr_loadfont(char *, int *);
 DLLEXPORT void gr_setcallback(char *(*)(const char *));
+DLLEXPORT void gr_setthreadnumber(int);
+DLLEXPORT void gr_setpicturesizeforvolume(int, int);
+DLLEXPORT void gr_setvolumebordercalculation(int);
+DLLEXPORT void gr_inqvolumeflags(int *, int *, int *, int *);
+DLLEXPORT void gr_cpubasedvolume(int, int, int, double *, int, double *, double *, double *, double *);
 
 #ifdef __cplusplus
 }
