@@ -116,7 +116,7 @@ int main(void)
   }
   gr3_deletemesh(mesh);
   free(data);*/
-	float angle;
+  float angle;
   int ix;
   int iy;
   int nx = 100;
@@ -142,13 +142,13 @@ int main(void)
     }
   angle = 50;
   gr_clearws();
-  gr3_setbackgroundcolor(1.0,1.0,1.0,0.0);
+  gr3_setbackgroundcolor(1.0, 1.0, 1.0, 0.0);
   gr_setfillcolorind(0);
-  //gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
+  // gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
   gr_setviewport(0, 1, 0, 1);
   gr_setwindow(-2, 2, -2, 3);
   gr_setspace(-8, 8, angle, 45);
-  gr3_surface(nx, ny, px, py, pz, 0);
+  gr3_surface(nx, ny, px, py, pz, 2);
   /*nx = 2;
   ny = 2;
   float px_2[2] = {-1.0f, 1.0f};
@@ -156,7 +156,7 @@ int main(void)
   gr3_surface(nx, ny, px_2, px_2, pz_2, 4);*/
   gr3_export("gr3_surface_demo_single_picture_export.png", 4000, 4000);
   gr_updatews();
-  //getchar();
+  // getchar();
   free(px);
   free(py);
   free(pz);
