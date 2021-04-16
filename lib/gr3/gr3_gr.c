@@ -288,294 +288,334 @@ static float gr3_transform_(float x, trans_t tx)
  */
 GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py, float *pz, int option)
 {
-    double xmin, xmax, ymin, ymax, zmin, zmax;
-    int rotation, tilt;
-    int i, j;
-    int num_vertices;
-    float *vertices, *normals, *colors;
-    int num_indices;
-    int *indices;
-    int result;
-    int scale;
-    int cmap;
-    int first_color = DEFAULT_FIRST_COLOR, last_color = DEFAULT_LAST_COLOR;
-    int projection_type;
-    trans_t tx, ty, tz;
+  double xmin, xmax, ymin, ymax, zmin, zmax;
+  int rotation, tilt;
+  int i, j;
+  int num_vertices;
+  float *vertices, *normals, *colors;
+  int num_indices;
+  int *indices;
+  int result;
+  int scale;
+  int cmap;
+  int first_color = DEFAULT_FIRST_COLOR, last_color = DEFAULT_LAST_COLOR;
+  int projection_type;
+  trans_t tx, ty, tz;
 
-    gr_inqprojectiontype(&projection_type);
+  gr_inqprojectiontype(&projection_type);
 
-    num_vertices = nx * ny;
-    vertices = malloc(num_vertices * 3 * sizeof(float));
-    if (!vertices)
+  num_vertices = nx * ny;
+  vertices = malloc(num_vertices * 3 * sizeof(float));
+  if (!vertices)
     {
-        RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
     }
-    normals = malloc(num_vertices * 3 * sizeof(float));
-    if (!normals)
+  normals = malloc(num_vertices * 3 * sizeof(float));
+  if (!normals)
     {
-        free(vertices);
-        RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      free(vertices);
+      RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
     }
-    colors = malloc(num_vertices * 3 * sizeof(float));
-    if (!colors)
+  colors = malloc(num_vertices * 3 * sizeof(float));
+  if (!colors)
     {
-        free(vertices);
-        free(normals);
-        RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      free(vertices);
+      free(normals);
+      RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
     }
-    num_indices = (nx - 1) * (ny - 1) * 6; /* 2 triangles per square */
-    indices = malloc(num_indices * sizeof(int));
-    if (!indices)
+  num_indices = (nx - 1) * (ny - 1) * 6; /* 2 triangles per square */
+  indices = malloc(num_indices * sizeof(int));
+  if (!indices)
     {
-        free(vertices);
-        free(normals);
-        free(colors);
-        RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      free(vertices);
+      free(normals);
+      free(colors);
+      RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
     }
 
-    if (option & GR3_SURFACE_GRTRANSFORM)
+  if (option & GR3_SURFACE_GRTRANSFORM)
     {
-        if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+      if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
         {
-            gr_inqwindow3d(&xmin, &xmax, &ymin, &ymax, &zmin, &zmax);
+          gr_inqwindow3d(&xmin, &xmax, &ymin, &ymax, &zmin, &zmax);
         }
-        else
+      else
         {
-            gr_inqwindow(&xmin, &xmax, &ymin, &ymax);
-            gr_inqspace(&zmin, &zmax, &rotation, &tilt);
+          gr_inqwindow(&xmin, &xmax, &ymin, &ymax);
+          gr_inqspace(&zmin, &zmax, &rotation, &tilt);
         }
-        gr_inqscale(&scale);
+      gr_inqscale(&scale);
     }
-    else
+  else
     {
-        xmin = px[0];
-        xmax = px[nx - 1];
-        ymin = py[0];
-        ymax = py[ny - 1];
-        zmin = pz[0];
-        zmax = pz[0];
-        for (i = 1; i < nx * ny; i++)
+      xmin = px[0];
+      xmax = px[nx - 1];
+      ymin = py[0];
+      ymax = py[ny - 1];
+      zmin = pz[0];
+      zmax = pz[0];
+      for (i = 1; i < nx * ny; i++)
         {
-            if (pz[i] < zmin) zmin = pz[i];
-            if (pz[i] > zmax) zmax = pz[i];
+          if (pz[i] < zmin) zmin = pz[i];
+          if (pz[i] > zmax) zmax = pz[i];
         }
-        scale = 0;
+      scale = 0;
     }
-    if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
+  if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
     {
-        gr_inqcolormap(&cmap);
-        if (abs(cmap) >= 100)
+      gr_inqcolormap(&cmap);
+      if (abs(cmap) >= 100)
         {
-            first_color = 1000;
-            last_color = 1255;
+          first_color = 1000;
+          last_color = 1255;
         }
-        else
+      else
         {
-            first_color = DEFAULT_FIRST_COLOR;
-            last_color = DEFAULT_LAST_COLOR;
+          first_color = DEFAULT_FIRST_COLOR;
+          last_color = DEFAULT_LAST_COLOR;
         }
     }
 
-    gr3_ndctrans_(xmin, xmax, &tx, scale & OPTION_X_LOG, scale & OPTION_FLIP_X);
-    /* flip because y-axis is projected to the negative z-axis */
-    gr3_ndctrans_(ymin, ymax, &ty, scale & OPTION_Y_LOG, !(scale & OPTION_FLIP_Y));
-    gr3_ndctrans_(zmin, zmax, &tz, scale & OPTION_Z_LOG, scale & OPTION_FLIP_Z);
+  gr3_ndctrans_(xmin, xmax, &tx, scale & OPTION_X_LOG, scale & OPTION_FLIP_X);
+  /* flip because y-axis is projected to the negative z-axis */
+  gr3_ndctrans_(ymin, ymax, &ty, scale & OPTION_Y_LOG, !(scale & OPTION_FLIP_Y));
+  gr3_ndctrans_(zmin, zmax, &tz, scale & OPTION_Z_LOG, scale & OPTION_FLIP_Z);
 
-    for (j = 0; j < ny; j++)
+  for (j = 0; j < ny; j++)
     {
-        for (i = 0; i < nx; i++)
+      for (i = 0; i < nx; i++)
         {
-            int k = j * nx + i;
-            float *v = vertices + 3 * k;
-            float *n = normals + 3 * k;
-            float *c = colors + 3 * k;
-            float zvalue;
+          int k = j * nx + i;
+          float *v = vertices + 3 * k;
+          float *n = normals + 3 * k;
+          float *c = colors + 3 * k;
+          float zvalue;
 
-            if (projection_type == GR_PROJECTION_ORTHOGRAPHIC || projection_type == GR_PROJECTION_PERSPECTIVE)
+          if (projection_type == GR_PROJECTION_ORTHOGRAPHIC || projection_type == GR_PROJECTION_PERSPECTIVE)
             {
-                v[0] = px[i];
-                zvalue = pz[k];
-                v[1] = py[j];
+              v[0] = px[i];
+              zvalue = pz[k];
+              v[1] = py[j];
             }
-            else
+          else
             {
-                v[0] = gr3_transform_(px[i], tx);
-                zvalue = gr3_transform_(pz[k], tz);
-                v[2] = gr3_transform_(py[j], ty);
+              v[0] = gr3_transform_(px[i], tx);
+              zvalue = gr3_transform_(pz[k], tz);
+              v[2] = gr3_transform_(py[j], ty);
             }
 
-            if (option & GR3_SURFACE_FLAT)
+          if (option & GR3_SURFACE_FLAT)
             {
-                v[1] = 0.0f;
+              v[1] = 0.0f;
             }
-            else
+          else
             {
-                if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+              if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
                 {
-                    v[2] = zvalue;
+                  v[2] = zvalue;
                 }
-                else
+              else
                 {
-                    v[1] = zvalue;
+                  v[1] = zvalue;
                 }
             }
 
-            if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+          if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
             {
-                zvalue = gr3_transform_(pz[k], tz);
+              zvalue = gr3_transform_(pz[k], tz);
             }
 
-            if (option & GR3_SURFACE_FLAT || !(option & GR3_SURFACE_NORMALS))
+          if (option & GR3_SURFACE_FLAT || !(option & GR3_SURFACE_NORMALS))
             {
-                n[0] = 0.0f;
-                n[1] = 1.0f;
-                n[2] = 0.0f;
+              n[0] = 0.0f;
+              n[1] = 1.0f;
+              n[2] = 0.0f;
             }
 
-            if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
+          if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
             {
-                int color, rgb;
+              int color, rgb;
 
-                if (option & GR3_SURFACE_GRZSHADED)
-                    color = (int)pz[k] + first_color;
-                else
-                    color = (int)(zvalue * (last_color - first_color) + first_color);
-                if (color < first_color)
-                    color = first_color;
-                else if (color > last_color)
-                    color = last_color;
+              if (option & GR3_SURFACE_GRZSHADED)
+                color = (int)pz[k] + first_color;
+              else
+                color = (int)(zvalue * (last_color - first_color) + first_color);
+              if (color < first_color)
+                color = first_color;
+              else if (color > last_color)
+                color = last_color;
 
-                gr_inqcolor(color, &rgb);
-                c[0] = (float)(rgb & 0xff) / 255;
-                c[1] = (float)((rgb >> 8) & 0xff) / 255;
-                c[2] = (float)((rgb >> 16) & 0xff) / 255;
+              gr_inqcolor(color, &rgb);
+              c[0] = (float)(rgb & 0xff) / 255;
+              c[1] = (float)((rgb >> 8) & 0xff) / 255;
+              c[2] = (float)((rgb >> 16) & 0xff) / 255;
             }
-            else
+          else
             {
-                c[0] = 1.0;
-                c[1] = 1.0;
-                c[2] = 1.0;
+              c[0] = 1.0;
+              c[1] = 1.0;
+              c[2] = 1.0;
             }
         }
     }
 
-    /* interpolate normals from the gradient */
-    if (option & GR3_SURFACE_NORMALS && !(option & GR3_SURFACE_FLAT))
+  /* interpolate normals from the gradient */
+  if (option & GR3_SURFACE_NORMALS && !(option & GR3_SURFACE_FLAT))
     {
-        int dirx = 3, diry = 3 * nx;
+      int dirx = 3, diry = 3 * nx;
 
-        for (j = 0; j < ny; j++)
+      for (j = 0; j < ny; j++)
         {
-            for (i = 0; i < nx; i++)
+          for (i = 0; i < nx; i++)
             {
-                int k = j * nx + i;
-                float *v = vertices + 3 * k;
-                float *n = normals + 3 * k;
-                float dx, dy;
+              int k = j * nx + i;
+              float *v = vertices + 3 * k;
+              float *n = normals + 3 * k;
+              float dx, dy;
 
-                if (i == 0)
+              if (i == 0)
                 {
-                    dx = (v[dirx + 1] - v[1]) / (v[dirx + 0] - v[0]);
+                  dx = (v[dirx + 1] - v[1]) / (v[dirx + 0] - v[0]);
                 }
-                else if (i == nx - 1)
+              else if (i == nx - 1)
                 {
-                    dx = (v[1] - v[-dirx + 1]) / (v[0] - v[-dirx + 0]);
+                  dx = (v[1] - v[-dirx + 1]) / (v[0] - v[-dirx + 0]);
                 }
-                else
+              else
                 {
-                    dx = ((v[1] - v[-dirx + 1]) / (v[0] - v[-dirx + 0]) + (v[dirx + 1] - v[1]) / (v[dirx + 0] - v[0])) /
-                         2.0;
-                }
-
-                if (j == 0)
-                {
-                    dy = (v[diry + 1] - v[1]) / (v[diry + 2] - v[2]);
-                }
-                else if (j == ny - 1)
-                {
-                    dy = (v[1] - v[-diry + 1]) / (v[2] - v[-diry + 2]);
-                }
-                else
-                {
-                    dy = ((v[1] - v[-diry + 1]) / (v[2] - v[-diry + 2]) + (v[diry + 1] - v[1]) / (v[diry + 2] - v[2])) /
-                         2.0;
+                  dx = ((v[1] - v[-dirx + 1]) / (v[0] - v[-dirx + 0]) + (v[dirx + 1] - v[1]) / (v[dirx + 0] - v[0])) /
+                       2.0;
                 }
 
-                n[0] = -dx;
-                n[1] = 1.0f;
-                n[2] = -dy;
-                gr3_normalize_(n);
+              if (j == 0)
+                {
+                  dy = (v[diry + 1] - v[1]) / (v[diry + 2] - v[2]);
+                }
+              else if (j == ny - 1)
+                {
+                  dy = (v[1] - v[-diry + 1]) / (v[2] - v[-diry + 2]);
+                }
+              else
+                {
+                  dy = ((v[1] - v[-diry + 1]) / (v[2] - v[-diry + 2]) + (v[diry + 1] - v[1]) / (v[diry + 2] - v[2])) /
+                       2.0;
+                }
+
+              n[0] = -dx;
+              n[1] = 1.0f;
+              n[2] = -dy;
+              gr3_normalize_(n);
             }
         }
     }
-    int new_num_vertices = num_indices;
-    float *new_vertices, *new_normals, *new_colors;
-    if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH) {
-        new_vertices = malloc(new_num_vertices * 3 * sizeof(float));
-        if (!new_vertices) {
-            RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+  int new_num_vertices = num_indices;
+  float *new_vertices, *new_normals, *new_colors;
+  if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+    {
+      new_vertices = malloc(new_num_vertices * 3 * sizeof(float));
+      if (!new_vertices)
+        {
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
-        new_normals = malloc(new_num_vertices * 3 * sizeof(float));
-        if (!new_normals) {
-            free(new_vertices);
-            RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      new_normals = malloc(new_num_vertices * 3 * sizeof(float));
+      if (!new_normals)
+        {
+          free(new_vertices);
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
-        new_colors = malloc(new_num_vertices * 3 * sizeof(float));
-        if (!new_colors) {
-            free(new_vertices);
-            free(new_normals);
-            RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+      new_colors = malloc(new_num_vertices * 3 * sizeof(float));
+      if (!new_colors)
+        {
+          free(new_vertices);
+          free(new_normals);
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
     }
-    int new_idx = 0, l=0;
-    float linewidth = 1;
-    for (j = 0; j < ny - 1; j++) {
-        for (i = 0; i < nx - 1; i++) {
-            /* unroll */
-            int k = j * nx + i;
-            if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH) {
-                for(l=0; l<3; l++) {
-                    new_vertices[new_idx + l] = vertices[k * 3 + l];
-                    new_vertices[new_idx + 3 + l] = vertices[(k + 1) * 3 + l];
-                    new_vertices[new_idx + 6 + l] = vertices[(k + nx) * 3 + l];
-                    new_vertices[new_idx + 9 + l] = vertices[(k + nx) * 3 + l];
-                    new_vertices[new_idx + 12 + l] = vertices[(k + 1) * 3 + l];
-                    new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
+  int new_idx = 0, l = 0;
+  float linewidth_y = 3;
+  float linewidth_x = linewidth_y;
+  if (context_struct_.option == OPTION_LINES)
+    {
+      linewidth_x = 0;
+    }
+  for (j = 0; j < ny - 1; j++)
+    {
+      for (i = 0; i < nx - 1; i++)
+        {
+          /* unroll */
+          int k = j * nx + i;
+          if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+            {
+              for (l = 0; l < 3; l++)
+                {
+                  new_vertices[new_idx + l] = vertices[k * 3 + l];
+                  new_vertices[new_idx + 3 + l] = vertices[(k + 1) * 3 + l];
+                  new_vertices[new_idx + 6 + l] = vertices[(k + nx) * 3 + l];
+                  new_vertices[new_idx + 9 + l] = vertices[(k + nx) * 3 + l];
+                  new_vertices[new_idx + 12 + l] = vertices[(k + 1) * 3 + l];
+                  new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
                 }
-                new_normals[new_idx + 3] = 0;
-                new_normals[new_idx + 6] = linewidth; //1 horizontale linie
-                new_normals[new_idx + 9] = 0;
-                new_normals[new_idx + 12] = linewidth; //1 horizontale linie
-                new_normals[new_idx] = linewidth; //1 vertikale linie
-                new_normals[new_idx + 15] = linewidth;//1 vertikale linie
-                if(j==0) { //rand links
-                    new_normals[new_idx] = 2*linewidth;
-                }else if(i==0){ //unterseite oben links
-                    new_normals[new_idx + 6] = 2*linewidth;
-                }else if(j==ny-2){ //Unterseite unten rechts
-                    if(i==nx-2){
-                        new_normals[new_idx+12] = 2*linewidth;
+              // neuer zu verschiebender Punkt: Punkt mit idx 0, also k
+              new_normals[new_idx] = linewidth_y; // 1 vertikale linie
+              new_normals[new_idx + 3] = 0;
+              new_normals[new_idx + 6] = linewidth_x; // 1 horizontale linie
+              new_normals[new_idx + 9] = 0;
+              new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
+              new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
+
+              // TODO
+              new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
+              new_normals[new_idx + 2] = vertices[(k + nx + 1) * 3 + 1];
+              new_normals[new_idx + 4] = vertices[(k + nx + 1) * 3 + 2];
+              new_normals[new_idx + 5] = linewidth_y;
+
+              new_normals[new_idx + 10] = vertices[k * 3];
+              new_normals[new_idx + 11] = vertices[k * 3 + 1];
+              new_normals[new_idx + 13] = vertices[k * 3 + 2];
+              new_normals[new_idx + 14] = -linewidth_y;
+              //
+              if (j == 0)
+                { // rand links
+                  new_normals[new_idx] = 2 * linewidth_y;
+                }
+              else if (i == 0)
+                { // unterseite oben links
+                  new_normals[new_idx + 6] = 2 * linewidth_y;
+                }
+              else if (j == ny - 2)
+                { // Unterseite unten rechts
+                  if (i == nx - 2)
+                    {
+                      new_normals[new_idx + 12] = 2 * linewidth_y;
                     }
-                    new_normals[new_idx + 15] = 2*linewidth;
-                }else if(i==nx-2){ // seite ganz rechts
-                    new_normals[new_idx + 12] = 2*linewidth;
+                  new_normals[new_idx + 15] = 2 * linewidth_y;
                 }
-                new_idx += 18;
-            }else{
-                int *idx = indices + 6 * (j * (nx - 1) + i);
-                idx[0] = k;
-                idx[1] = k + 1;
-                idx[2] = k + nx;
-                idx[3] = k + nx;
-                idx[4] = k + 1;
-                idx[5] = k + nx + 1;
+              else if (i == nx - 2)
+                { // seite ganz rechts
+                  new_normals[new_idx + 12] = 2 * linewidth_y;
+                }
+              new_idx += 18;
+            }
+          else
+            {
+              int *idx = indices + 6 * (j * (nx - 1) + i);
+              idx[0] = k;
+              idx[1] = k + 1;
+              idx[2] = k + nx;
+              idx[3] = k + nx;
+              idx[4] = k + 1;
+              idx[5] = k + nx + 1;
             }
         }
     }
-    if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH){
-        result = gr3_createmesh_nocopy(mesh, new_num_vertices, new_vertices, new_normals, new_colors); //mit den neuen daten
-    } else {
-        result = gr3_createindexedmesh_nocopy(mesh, num_vertices, vertices, normals, colors, num_indices, indices);
+  if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+    {
+      result =
+          gr3_createmesh_nocopy(mesh, new_num_vertices, new_vertices, new_normals, new_colors); // mit den neuen daten
+    }
+  else
+    {
+      result = gr3_createindexedmesh_nocopy(mesh, num_vertices, vertices, normals, colors, num_indices, indices);
     }
   if (result != GR3_ERROR_NONE && result != GR3_ERROR_OPENGL_ERR)
     {
@@ -754,7 +794,8 @@ GR3API void gr3_drawsurface(int mesh)
  */
 GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int option)
 {
-  if (option == OPTION_Z_SHADED_MESH || option == OPTION_COLORED_MESH || (context_struct_.use_software_renderer && option <= OPTION_FILLED_MESH)) // 3 oder 4
+  if (option == OPTION_Z_SHADED_MESH || option == OPTION_COLORED_MESH ||
+      (context_struct_.use_software_renderer && option <= OPTION_FILLED_MESH)) // 3 oder 4
     {
       int mesh;
       double xmin, xmax, ymin, ymax;
@@ -1107,10 +1148,11 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
 
   gr3_getrenderpathstring(); /* Initializes GR3 if it is not initialized yet */
 
-  if (context_struct_.use_software_renderer) {
+  if (context_struct_.use_software_renderer)
+    {
       fprintf(stderr, "gr_volume requires OpenGL, but the GR3 software renderer is in use.\n");
       return;
-  }
+    }
   int base_resolution = 1000;
   gr_inqprojectiontype(&projection_type);
   if (projection_type == GR_PROJECTION_DEFAULT)

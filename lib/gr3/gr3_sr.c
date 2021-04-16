@@ -24,7 +24,7 @@
 #endif
 
 /* the following macro enables BACKFACE_CULLING */
-/* #define BACKFACE_CULLING*/
+/*#define BACKFACE_CULLING*/
 
 static int queue_destroy(queue *queue);
 static queue *queue_new(void);
@@ -43,7 +43,7 @@ static matrix3x3 mat_mul_3x3(matrix3x3 *a, matrix3x3 *b);
 static void mat_vec_mul_4x1(matrix *a, vertex_fp *b);
 static void mat_vec_mul_3x1(matrix3x3 *a, vector *b);
 static void divide_by_w(vertex_fp *v_fp);
-static void cross_product(vector* a, vector* b, vector* res);
+static void cross_product(vector *a, vector *b, vector *res);
 vector VECTOR3x1_INIT_NUL = {0, 0, 0};
 matrix MAT4x4_INIT_NUL = {{0}};
 matrix3x3 MAT3x3_INIT_NUL = {{0}};
@@ -100,10 +100,11 @@ static pthread_cond_t wait_after_merge;
 #endif
 
 
-static void cross_product(vector* a, vector* b, vector* res){
-    res->x = a->y * b->z - a->z * b->y;
-    res->y = a->z * b->x - a->x * b->z;
-    res->z = a->x * b->y - a->y * b->x;
+static void cross_product(vector *a, vector *b, vector *res)
+{
+  res->x = a->y * b->z - a->z * b->y;
+  res->y = a->z * b->x - a->x * b->z;
+  res->z = a->x * b->y - a->y * b->x;
 }
 
 /* Every thread has its own queue containing equal sized parts of every mesh that has to be drawn. The main
@@ -789,16 +790,18 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_0 = 0;
       float div_1 = 0;
       float div_2 = 0;
-      if(arg->scales != NULL) {
+      if (arg->scales != NULL)
+        {
           div_0 = arg->scales[0];
           div_1 = arg->scales[1];
           div_2 = arg->scales[2];
-          if (context_struct_.option <= 2) {
+          if (context_struct_.option <= 2)
+            {
               div_0 = 1;
               div_1 = 1;
               div_2 = 1;
-          }
-      }
+            }
+        }
       vertex_fp vertices_fp[3];
       vertex_fp *vertex_fpp[3];
       for (i = arg->idxstart; i < arg->idxend; i++)
@@ -814,7 +817,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].normal.x = normals[index] / div_0;
               vertices_fp[j].normal.y = normals[index + 1] / div_1;
               vertices_fp[j].normal.z = normals[index + 2] / div_2;
-              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
+              // mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
               vertices_fp[j].z = vertices[index + 2];
@@ -824,6 +827,21 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               divide_by_w(&vertices_fp[j]);
               mat_vec_mul_4x1(&arg->viewport, &vertices_fp[j]);
             }
+          //
+          if (arg->scales != NULL)
+            {
+              if (context_struct_.option <= 2 && (vertices_fp[1].normal.z >= 0.5 || vertices_fp[1].normal.z <= -0.5))
+                {
+                  vertex_fp tmp = {vertices_fp[0].normal.y, vertices_fp[0].normal.z, vertices_fp[1].normal.y, 1.0};
+                  mat_vec_mul_4x1(&arg->model_view_perspective, &tmp);
+                  divide_by_w(&tmp);
+                  mat_vec_mul_4x1(&arg->viewport, &tmp);
+                  vertices_fp[0].normal.y = tmp.x;
+                  vertices_fp[0].normal.z = tmp.y;
+                  vertices_fp[1].normal.y = tmp.z;
+                }
+            }
+          //
           vertex_fpp[0] = &vertices_fp[0];
           vertex_fpp[1] = &vertices_fp[1];
           vertex_fpp[2] = &vertices_fp[2];
@@ -1000,37 +1018,121 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
         }
 #endif
       depth = (w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z) * sum_inv;
-      if (depth < dep_buf[y * width + x]) {
-          if (context_struct_.option <= 2) {
-              vector diff_vec_1 = {x - v_fp[0]->x, y - v_fp[0]->y, 0}; //depth-v_fp[0]->z};
-              vector diff_vec_2 = {x - v_fp[1]->x, y - v_fp[1]->y, 0}; //depth-v_fp[1]->z};
-              vector diff_vec_3 = {x - v_fp[2]->x, y - v_fp[2]->y, 0}; //depth-v_fp[2]->z};
-              vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; //v_fp[0]->z-v_fp[1]->z};
-              vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0}; //v_fp[1]->z-v_fp[2]->z};
-              vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; //v_fp[2]->z-v_fp[0]->z};
-              vector vec1, vec2, vec3;
+      if (depth < dep_buf[y * width + x])
+        {
+          if (context_struct_.option <= 2)
+            {
+              /*TODO Abstandsberechnung in 2D umwandeln */
+              vector diff_vec_1 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};               //, depth-v_fp[0]->z};
+              vector diff_vec_2 = {x - v_fp[1]->x, y - v_fp[1]->y, 0};               //, depth-v_fp[1]->z};
+              vector diff_vec_3 = {x - v_fp[2]->x, y - v_fp[2]->y, 0};               //, depth-v_fp[2]->z};
+              vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; //, v_fp[0]->z-v_fp[1]->z};
+              vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
+              vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; // v_fp[2]->z-v_fp[0]->z};
+              vector vec1, vec2, vec3, vec4;
               cross_product(&diff_vec_1, &edge_1, &vec1);
               cross_product(&diff_vec_2, &edge_2, &vec2);
               cross_product(&diff_vec_3, &edge_3, &vec3);
               double d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
               double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
               double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
-              if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x) {
-                  col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
-                  color_pixel(pixels, dep_buf, depth, width, x, y, &col);
-              }else{
-                  color col;
-                  col.r = (unsigned char) (context_struct_.background_color[0] * 255);
-                  col.g = (unsigned char) (context_struct_.background_color[1] * 255);
-                  col.b = (unsigned char) (context_struct_.background_color[2] * 255);
-                  col.a = (unsigned char) (context_struct_.background_color[3] * 255);
-                  color_pixel(pixels, dep_buf, depth, width, x, y, &col);
-              }
-          } else {
+              double d4 = 0.0;
+              if (v_fp[1]->normal.z >= 0.5)
+                {
+                  vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
+                  cross_product(&diff_vec_3, &edge_4, &vec4);
+                  d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                }
+              if (v_fp[1]->normal.z <= -0.5)
+                {
+                  vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
+                  cross_product(&diff_vec_2, &edge_4, &vec4);
+                  d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                }
+              if (x >= 2365 && x <= 2365 && y >= 2462 && y <= 2462)
+                {
+                  printf("relevanter pixel\n");
+                  printf("Koordinaten: %d %d\n", x, y);
+                  printf("%f %f %f\n", d1, d2, d3);
+                  printf("%f %f %f\n", v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x);
+                  printf("tri\n");
+                  printf("(%f|%f), \n", v_fp[0]->x, v_fp[0]->y);
+                  printf("(%f|%f), \n", v_fp[1]->x, v_fp[1]->y);
+                  printf("(%f|%f) \n", v_fp[2]->x, v_fp[2]->y);
+                  printf("Neuer Punkt: %f %f %f\n", v_fp[0]->normal.y, v_fp[0]->normal.z, v_fp[1]->normal.y);
+                  printf("%f %f %f\n", w0, w1, w2);
+                  printf("=========================\n");
+                }
+              // x_programm = x_gimp, y_programm = 5000-y_gimp-1
+              // PIXELFEHLER 2. BILD = (2522|2436)  /*(w0>0 && w1>0 && w2> 0) && */
+              // PIXELFEHLER 1. Bild = (2365|2462)
+              if ((d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x) ||
+                  (v_fp[1]->normal.z >= 0.5 && d4 < v_fp[1]->normal.z) ||
+                  (v_fp[1]->normal.z <= -0.5 && d4 < -v_fp[1]->normal.z))
+                {
+                  if (x == 2522 && y == 2436)
+                    { // 2365 und 2462 alter punkt
+                      color tmp = {255, 0, 0, 255};
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
+                      // printf("mashallah\n");
+                    }
+                  else
+                    {
+                      col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+                    }
+                }
+              else
+                {
+                  if (x == 2522 && y == 2436)
+                    {
+                      color tmp = {0, 255, 0, 255};
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
+                      // printf("mashallah\n");
+                    }
+                  else
+                    {
+                      color col;
+                      col.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                      col.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                      col.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                      col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+                    }
+                }
+            }
+          else
+            {
               col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
               color_pixel(pixels, dep_buf, depth, width, x, y, &col);
-          }
-      }
+            }
+          /*if(context_struct_.option == 0){
+              if(v_fp[0]->normal.x > 0){
+                  float d_pt_1 = sqrt((x-v_fp[1]->x)*(x-v_fp[1]->x) + (y-v_fp[1]->y)*(y-v_fp[1]->y));
+                  float d_pt_2 = sqrt((x-v_fp[2]->x)*(x-v_fp[2]->x) + (y-v_fp[2]->y)*(y-v_fp[2]->y));
+                  if(d_pt_1 < 2*v_fp[0]->normal.x || d_pt_2 < 2*v_fp[0]->normal.x){
+                      color tmp = {0,0,0,255};
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
+                  }
+              }
+              if(v_fp[1]->normal.x > 0){
+                  float d_pt_0 = sqrt((x-v_fp[0]->x)*(x-v_fp[0]->x) + (y-v_fp[0]->y)*(y-v_fp[0]->y));
+                  float d_pt_2 = sqrt((x-v_fp[2]->x)*(x-v_fp[2]->x) + (y-v_fp[2]->y)*(y-v_fp[2]->y));
+                  if(d_pt_0 < 2*v_fp[1]->normal.x || d_pt_2 < 2*v_fp[1]->normal.x){
+                      color tmp = {0,0,0,255};
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
+                  }
+              }
+              if(v_fp[2]->normal.x > 0){
+                  float d_pt_1 = sqrt((x-v_fp[1]->x)*(x-v_fp[1]->x) + (y-v_fp[1]->y)*(y-v_fp[1]->y));
+                  float d_pt_0 = sqrt((x-v_fp[0]->x)*(x-v_fp[0]->x) + (y-v_fp[0]->y)*(y-v_fp[0]->y));
+                  if(d_pt_1 < 2*v_fp[2]->normal.x || d_pt_0 < 2*v_fp[2]->normal.x){
+                      color tmp = {0,0,0,255};
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
+                  }
+              }
+          }*/
+        }
       w0 += A12;
       w1 += A20;
       w2 += A01;
@@ -1344,7 +1446,7 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
                                       GR3_DrawList_t_ *draw, int draw_id)
 {
   int thread_idx, i, j, numtri, tri_per_thread, index_start_end[MAX_NUM_THREADS + 1], rest, rest_distributed;
-    matrix model_mat, view_mat, view_model, perspective, perspective_view_model, viewport;
+  matrix model_mat, view_mat, view_model, perspective, perspective_view_model, viewport;
   matrix3x3 model_mat_3x3, view_mat_3x3, model_view_mat_3x3;
   vector light_dir;
   color_float c_tmp;
@@ -1372,11 +1474,14 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           view_mat_3x3.mat[i * 3 + j] = view_mat.mat[i * 4 + j];
         }
     }
-    if(context_struct_.option <= 2){
-        matrix3x3 id = {{1,0,0, 0,1,0, 0,0,1}};
-        model_view_mat_3x3 = id;
-    }else{
-        model_view_mat_3x3 = mat_mul_3x3(&view_mat_3x3, &model_mat_3x3);
+  if (context_struct_.option <= 2)
+    {
+      matrix3x3 id = {{1, 0, 0, 0, 1, 0, 0, 0, 1}};
+      model_view_mat_3x3 = id;
+    }
+  else
+    {
+      model_view_mat_3x3 = mat_mul_3x3(&view_mat_3x3, &model_mat_3x3);
     }
   light_dir.x = context_struct_.light_dir[0];
   light_dir.y = context_struct_.light_dir[1];
@@ -1404,7 +1509,8 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
       vector normal_vector;
       draw->vertices_fp[draw_id] = malloc(sizeof(vertex_fp) * context_struct_.mesh_list_[mesh].data.number_of_indices);
       vertices_fp = draw->vertices_fp[draw_id];
-      for (i = 0; i < num_vertices * 3; i += 3) {
+      for (i = 0; i < num_vertices * 3; i += 3)
+        {
           c_tmp.r = colors[i];
           c_tmp.g = colors[i + 1];
           c_tmp.b = colors[i + 2];
@@ -1419,9 +1525,9 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           normal_vector.y = normals[i + 1] / scales[1];
           normal_vector.z = normals[i + 2] / scales[2];
           tmp_v.normal = normal_vector;
-          index = (int) (i / 3);
+          index = (int)(i / 3);
           vertices_fp[index] = tmp_v;
-      }
+        }
       for (i = 0; i < num_vertices; i++)
         {
           mat_vec_mul_4x1(&perspective_view_model, &vertices_fp[i]);
