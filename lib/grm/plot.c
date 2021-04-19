@@ -1808,6 +1808,10 @@ void plot_post_subplot(grm_args_t *subplot_args)
           plot_draw_pie_legend(subplot_args);
         }
     }
+  if (strcmp(kind, "barplot") == 0)
+    {
+      plot_draw_axes(subplot_args, 2);
+    }
 }
 
 error_t plot_get_args_in_hierarchy(grm_args_t *args, const char **hierarchy_name_start_ptr, const char *key,
@@ -2671,22 +2675,64 @@ error_t plot_barplot(grm_args_t *subplot_args)
               y2 = y[i];
             }
           gr_drawrect(x1, x2, y1, y2);
+        }
 
-          if (ylabels != NULL && ylabels_left > 0)
+      pos_vertical_change = 0;
+      neg_vertical_change = 0;
+      /* Draw ylabels */
+      if (ylabels != NULL)
+        {
+          for (i = 0; i < y_length; i++)
             {
-              x1 = (x1 + x2) / 2;
-              x2 = (y1 + y2) / 2;
-              gr_wctondc(&x1, &x2);
-              if (y_lightness[i] < 0.4)
+              if (strcmp(style, "default") == 0)
                 {
-                  gr_settextcolorind(0);
+                  x1 = i + 1 - 0.5 * bar_width;
+                  x2 = i + 1 + 0.5 * bar_width;
+                  y1 = 0;
+                  y2 = y[i];
                 }
-              else
+              if (strcmp(style, "stacked") == 0)
                 {
-                  gr_settextcolorind(1);
+                  x1 = series_index + 1 - 0.5 * bar_width;
+                  x2 = series_index + 1 + 0.5 * bar_width;
+                  if (y[i] > 0)
+                    {
+                      y1 = 0 + pos_vertical_change;
+                      y2 = y[i] + pos_vertical_change;
+                      pos_vertical_change += y[i];
+                    }
+                  else
+                    {
+                      y1 = 0 + neg_vertical_change;
+                      y2 = y[i] + neg_vertical_change;
+                      neg_vertical_change += y[i];
+                    }
                 }
-              gr_textext(x1, x2, ylabels[i]);
-              --ylabels_left;
+              if (strcmp(style, "lined") == 0)
+                {
+                  bar_width = wfac / y_length;
+                  x1 = series_index + 1 - 0.5 * wfac + bar_width * i;
+                  x2 = series_index + 1 - 0.5 * wfac + bar_width + bar_width * i;
+                  y1 = 0;
+                  y2 = y[i];
+                }
+
+              if (ylabels_left > 0)
+                {
+                  x1 = (x1 + x2) / 2;
+                  x2 = (y1 + y2) / 2;
+                  gr_wctondc(&x1, &x2);
+                  if (y_lightness[i] < 0.4)
+                    {
+                      gr_settextcolorind(0);
+                    }
+                  else
+                    {
+                      gr_settextcolorind(1);
+                    }
+                  gr_textext(x1, x2, ylabels[i]);
+                  --ylabels_left;
+                }
             }
         }
 
@@ -2725,13 +2771,20 @@ error_t plot_barplot(grm_args_t *subplot_args)
               cleanup_and_set_error_if(inner_c_length != y_length, ERROR_PLOT_COMPONENT_LENGTH_MISMATCH);
             }
           if (args_first_value(inner_series[inner_series_index], "c", "D", &inner_c_rgb, &inner_c_rgb_length))
-            if (ylabels == NULL)
-              {
-                args_first_value(inner_series[inner_series_index], "ylabels", "nS", &ylabels, &ylabels_length);
-                ylabels_left = ylabels_length;
-                y_lightness_to_get = ylabels_length;
-                y_lightness = (double *)malloc(sizeof(double) * y_lightness_to_get);
-              }
+            {
+              cleanup_and_set_error_if((inner_c_rgb_length < y_length * 3), ERROR_PLOT_COMPONENT_LENGTH_MISMATCH);
+              for (i = 0; i < y_length * 3; i++)
+                {
+                  cleanup_and_set_error_if((inner_c_rgb[i] > 1 || inner_c_rgb[i] < 0), ERROR_PLOT_OUT_OF_RANGE);
+                }
+            }
+          if (ylabels == NULL)
+            {
+              args_first_value(inner_series[inner_series_index], "ylabels", "nS", &ylabels, &ylabels_length);
+              ylabels_left = ylabels_length;
+              y_lightness_to_get = ylabels_length;
+              y_lightness = (double *)malloc(sizeof(double) * y_lightness_to_get);
+            }
           for (i = 0; i < y_length; i++)
             {
               if (inner_c != NULL)
@@ -2767,7 +2820,6 @@ error_t plot_barplot(grm_args_t *subplot_args)
                 }
               gr_fillrect(x1, x2, y1, y2);
             }
-          y_length = 0;
           pos_vertical_change = 0;
           neg_vertical_change = 0;
 
@@ -2797,8 +2849,6 @@ error_t plot_barplot(grm_args_t *subplot_args)
                 }
             }
 
-          args_first_value(inner_series[inner_series_index], "y", "D", &y, &y_length);
-          bar_width = wfac / fixed_y_length;
           for (i = 0; i < y_length; i++)
             {
               gr_setfillcolorind(std_colors[inner_series_index % len_std_colors]);
@@ -2817,27 +2867,52 @@ error_t plot_barplot(grm_args_t *subplot_args)
                   neg_vertical_change += y[i];
                 }
               gr_drawrect(x1, x2, y1, y2);
+            }
+          pos_vertical_change = 0;
+          neg_vertical_change = 0;
 
-              if (ylabels != NULL && ylabels_left > 0)
+          /* Draw ynotations from inner_series */
+          if (ylabels != NULL)
+            {
+              for (i = 0; i < y_length; i++)
                 {
-                  x1 = (x1 + x2) / 2;
-                  x2 = (y1 + y2) / 2;
-                  gr_wctondc(&x1, &x2);
-                  if (y_lightness[ylabels_length - ylabels_left] < 0.4)
+                  x1 = series_index + 1 - 0.5 * wfac + bar_width * inner_series_index;
+                  x2 = series_index + 1 - 0.5 * wfac + bar_width + bar_width * inner_series_index;
+                  if (y[i] > 0)
                     {
-                      gr_settextcolorind(0);
+                      y1 = 0 + pos_vertical_change;
+                      y2 = y[i] + pos_vertical_change;
+                      pos_vertical_change += y[i];
                     }
                   else
                     {
-                      gr_settextcolorind(1);
+                      y1 = 0 + neg_vertical_change;
+                      y2 = y[i] + neg_vertical_change;
+                      neg_vertical_change += y[i];
                     }
-                  gr_textext(x1, x2, ylabels[ylabels_length - ylabels_left]);
-                  --ylabels_left;
+
+                  if (ylabels_left > 0)
+                    {
+                      x1 = (x1 + x2) / 2;
+                      x2 = (y1 + y2) / 2;
+                      gr_wctondc(&x1, &x2);
+                      if (y_lightness[ylabels_length - ylabels_left] < 0.4)
+                        {
+                          gr_settextcolorind(0);
+                        }
+                      else
+                        {
+                          gr_settextcolorind(1);
+                        }
+                      gr_textext(x1, x2, ylabels[ylabels_length - ylabels_left]);
+                      --ylabels_left;
+                    }
                 }
             }
           y_length = 0;
           pos_vertical_change = 0;
           neg_vertical_change = 0;
+
           if (use_y_notations_from_inner_series)
             {
               free(y_lightness);
@@ -2854,6 +2929,7 @@ error_t plot_barplot(grm_args_t *subplot_args)
       series_index++;
       ++current_series;
     }
+
 
 cleanup:
   if (pos_ind_bar_color != NULL)
@@ -5049,7 +5125,10 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
         }
       if (!str_equals_any(kind, 1, "shade"))
         {
-          gr_grid(x_grid ? x_tick : 0, y_grid ? y_tick : 0, 0, 0, x_major_count, y_major_count);
+          if (pass == 1 || strcmp(kind, "barplot") != 0)
+            {
+              gr_grid(x_grid ? x_tick : 0, y_grid ? y_tick : 0, 0, 0, x_major_count, y_major_count);
+            }
         }
       gr_axes(x_tick, y_tick, x_org_low, y_org_low, x_major_count, y_major_count, ticksize);
       gr_axes(x_tick, y_tick, x_org_high, y_org_high, -x_major_count, -y_major_count, -ticksize);
@@ -5089,7 +5168,7 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
           gr_restorestate();
         }
     }
-  if (strcmp("barplot", kind) == 0)
+  if (strcmp("barplot", kind) == 0 && pass == 2)
     {
       /* xticklabels */
       grm_args_t **current_series;
