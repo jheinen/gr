@@ -558,13 +558,13 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               // neuer zu verschiebender Punkt: Punkt mit idx 0, also k
               new_normals[new_idx] = linewidth_y; // 1 vertikale linie
               new_normals[new_idx + 3] = 0;
-              new_normals[new_idx + 6] = linewidth_x; // 1 horizontale linie
+              // new_normals[new_idx + 6] = 1; // 1 horizontale linie
               new_normals[new_idx + 9] = 0;
-              new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
-              new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
+              // new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
+              // new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
 
               // TODO
-              new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
+              /*new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
               new_normals[new_idx + 2] = vertices[(k + nx + 1) * 3 + 1];
               new_normals[new_idx + 4] = vertices[(k + nx + 1) * 3 + 2];
               new_normals[new_idx + 5] = linewidth_y;
@@ -572,9 +572,9 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               new_normals[new_idx + 10] = vertices[k * 3];
               new_normals[new_idx + 11] = vertices[k * 3 + 1];
               new_normals[new_idx + 13] = vertices[k * 3 + 2];
-              new_normals[new_idx + 14] = -linewidth_y;
+              new_normals[new_idx + 14] = -linewidth_y;*/
               //
-              if (j == 0)
+              /*if (j == 0)
                 { // rand links
                   new_normals[new_idx] = 2 * linewidth_y;
                 }
@@ -593,7 +593,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               else if (i == nx - 2)
                 { // seite ganz rechts
                   new_normals[new_idx + 12] = 2 * linewidth_y;
-                }
+                }*/
               new_idx += 18;
             }
           else
