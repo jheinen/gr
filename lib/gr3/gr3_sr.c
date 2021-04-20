@@ -58,6 +58,7 @@ static void normalize_vector(vector *v);
 static float dot_vector(vector *v1, vector *v2);
 static vector linearcombination(vector *v1, vector *v2, vector *v3, float fac1, float fac2, float fac3);
 static float triangle_surface_2d(float dif_a_b_x, float dif_a_b_y, float cy, float cx, float ay, float ax);
+static int point_inside_tri(vertex_fp s, vertex_fp a, vertex_fp b, vertex_fp c);
 
 static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective, matrix viewport,
                         matrix3x3 model_view_3x3, vector light_dir, const float *colors, const float *scales, int width,
@@ -675,6 +676,20 @@ static float triangle_surface_2d(float dif_a_b_x, float dif_a_b_y, float ay, flo
   return dif_a_b_x * (cy - ay) - dif_a_b_y * (cx - ax);
 }
 
+static int point_inside_tri(vertex_fp s, vertex_fp a, vertex_fp b, vertex_fp c)
+{
+  int as_x = s.x - a.x;
+  int as_y = s.y - a.y;
+
+  int s_ab = (b.x - a.x) * as_y - (b.y - a.y) * as_x > 0;
+
+  if ((c.x - a.x) * as_y - (c.y - a.y) * as_x > 0 == s_ab) return 0;
+
+  if ((c.x - b.x) * (s.y - b.y) - (c.y - b.y) * (s.x - b.x) > 0 != s_ab) return 0;
+
+  return 1;
+}
+
 /*!
  * This initialises the software-renderer. It determines the number of available cores on a system, so that the
  * number of threads drawing the image is equal to the number of cores minus one. This is the most efficient
@@ -1001,6 +1016,7 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
   color col;
   int x;
   float depth;
+  startx -= 3;
   if (startx < 0)
     {
       int dif = -startx;
@@ -1037,19 +1053,37 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
               double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
               double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
               double d4 = 0.0;
-              if (v_fp[1]->normal.z >= 0.5)
+              int color_point = 1;
+              /*if (v_fp[1]->normal.z >= 0.5)
                 {
                   vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
                   cross_product(&diff_vec_3, &edge_4, &vec4);
                   d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                  color_point = 1;
                 }
               if (v_fp[1]->normal.z <= -0.5)
                 {
-                  vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
-                  cross_product(&diff_vec_2, &edge_4, &vec4);
-                  d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
-                }
-              if (x >= 2365 && x <= 2365 && y >= 2462 && y <= 2462)
+                   ersetzen des Punktes mit idx 0
+                  if(x == 1908 && y == 1911) {
+                      d4=100;
+                  }else{
+                      vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
+                      cross_product(&diff_vec_2, &edge_4, &vec4);
+                      d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                      float min_y = v_fp[0]->normal.z < v_fp[1]->y ? v_fp[0]->normal.z : v_fp[1]->y;
+                      float max_y = v_fp[0]->normal.z > v_fp[1]->y ? v_fp[0]->normal.z : v_fp[1]->y;
+                      float min_x = v_fp[0]->normal.y < v_fp[1]->x ? v_fp[0]->normal.y : v_fp[1]->x;
+                      float max_x = v_fp[0]->normal.y > v_fp[1]->x ? v_fp[0]->normal.y : v_fp[1]->x;
+                      int hat_lot = (min_y < y && y < max_y) || (min_x < x && x < max_x);
+                      float d_new_1 = sqrt((x-v_fp[1]->x)*(x-v_fp[1]->x) + (y-v_fp[1]->y)*(y-v_fp[1]->y));
+                      float d_new_2 = sqrt((v_fp[0]->normal.y-x)*(v_fp[0]->normal.y-x) +
+              (v_fp[0]->normal.z-y)*(v_fp[0]->normal.z-y)); color_point = d_new_1 < 1.5 || d_new_2 < 1.5 || hat_lot;
+                      if(x==1906 && y==1910){
+                          printf("NEU: %f %f %d\n", d_new_1, d_new_2, hat_lot);
+                      }
+                  }
+                }*/
+              if (x >= 1906 && x <= 1908 && y >= 1909 && y <= 1911)
                 {
                   printf("relevanter pixel\n");
                   printf("Koordinaten: %d %d\n", x, y);
@@ -1060,21 +1094,24 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
                   printf("(%f|%f), \n", v_fp[1]->x, v_fp[1]->y);
                   printf("(%f|%f) \n", v_fp[2]->x, v_fp[2]->y);
                   printf("Neuer Punkt: %f %f %f\n", v_fp[0]->normal.y, v_fp[0]->normal.z, v_fp[1]->normal.y);
+                  printf("Erlaubter Abstand zu neuer Kante %f\n", v_fp[1]->normal.z);
+                  printf("Ist der neue Punkt in dem entstehenden Dreieck? %d\n", color_point);
                   printf("%f %f %f\n", w0, w1, w2);
                   printf("=========================\n");
                 }
-              // x_programm = x_gimp, y_programm = 5000-y_gimp-1
-              // PIXELFEHLER 2. BILD = (2522|2436)  /*(w0>0 && w1>0 && w2> 0) && */
+              // x_programm = x_gimp, y_programm = 4000-y_gimp-1
+              // PIXELFEHLER 2. Bild = (2522|2436)  /*(w0>0 && w1>0 && w2> 0) && */
               // PIXELFEHLER 1. Bild = (2365|2462)
-              if ((d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x) ||
-                  (v_fp[1]->normal.z >= 0.5 && d4 < v_fp[1]->normal.z) ||
-                  (v_fp[1]->normal.z <= -0.5 && d4 < -v_fp[1]->normal.z))
+              // PIXELFEHLER 3. Bild = (1907|1910)
+              if ((d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x)) /*||
+                  (v_fp[1]->normal.z >= 0.5 && d4 < v_fp[1]->normal.z && color_point) ||
+                  (v_fp[1]->normal.z <= -0.5 && d4 < -v_fp[1]->normal.z && color_point)) //v_fp[0]->normal.y > x */
                 {
-                  if (x == 2522 && y == 2436)
-                    { // 2365 und 2462 alter punkt
+                  if (x == 1907 && y == 1910)
+                    {
                       color tmp = {255, 0, 0, 255};
                       color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
-                      // printf("mashallah\n");
+                      printf("mashallah\n");
                     }
                   else
                     {
@@ -1084,7 +1121,7 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
                 }
               else
                 {
-                  if (x == 2522 && y == 2436)
+                  if (x == 1907 && y == 1910)
                     {
                       color tmp = {0, 255, 0, 255};
                       color_pixel(pixels, dep_buf, depth, width, x, y, &tmp);
