@@ -517,7 +517,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
         {
           RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
-      new_normals = malloc(new_num_vertices * 3 * sizeof(float));
+      new_normals = calloc(new_num_vertices * 3, sizeof(float));
       if (!new_normals)
         {
           free(new_vertices);
@@ -536,7 +536,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   float linewidth_x = linewidth_y;
   if (context_struct_.option == OPTION_LINES)
     {
-      linewidth_x = 0;
+      linewidth_x = linewidth_y; // todo
     }
   for (j = 0; j < ny - 1; j++)
     {
@@ -556,12 +556,12 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
                   new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
                 }
               // neuer zu verschiebender Punkt: Punkt mit idx 0, also k
-              // new_normals[new_idx] = linewidth_y; // 1 vertikale linie
-              // new_normals[new_idx + 3] = 0;
-              // new_normals[new_idx + 6] = 1; // 1 horizontale linie
-              // new_normals[new_idx + 9] = 0;
-              // new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
-              // new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
+              new_normals[new_idx] = linewidth_y; // 1 vertikale linie
+              new_normals[new_idx + 3] = 0;
+              new_normals[new_idx + 6] = linewidth_x; // 1 horizontale linie
+              new_normals[new_idx + 9] = 0;
+              new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
+              new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
 
               // TODO
               /*new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
@@ -574,7 +574,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               new_normals[new_idx + 13] = vertices[k * 3 + 2];
               new_normals[new_idx + 14] = -linewidth_y;*/
               //
-              /*if (j == 0)
+              if (j == 0)
                 { // rand links
                   new_normals[new_idx] = 2 * linewidth_y;
                 }
@@ -593,7 +593,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               else if (i == nx - 2)
                 { // seite ganz rechts
                   new_normals[new_idx + 12] = 2 * linewidth_y;
-                }*/
+                }
               new_idx += 18;
             }
           else

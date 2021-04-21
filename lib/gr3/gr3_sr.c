@@ -22,6 +22,11 @@
 #else
 #include <unistd.h>
 #endif
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MINTHREE(a, b, c) MIN(MIN(a, b), c)
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MAXTHREE(a, b, c) MAX(MAX(a, b), c)
 
 /* the following macro enables BACKFACE_CULLING */
 /*#define BACKFACE_CULLING*/
@@ -65,6 +70,7 @@ static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective,
 static void *draw_triangle_indexbuffer(void *v_arguments);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir);
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3]);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01);
@@ -831,7 +837,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].normal.x = normals[index] / div_0;
               vertices_fp[j].normal.y = normals[index + 1] / div_1;
               vertices_fp[j].normal.z = normals[index + 2] / div_2;
-              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
+              // mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal); todo
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
               vertices_fp[j].z = vertices[index + 2];
@@ -851,11 +857,91 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
             }
           else
             {
+              draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
+                                       context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
+                                       vertex_fpp);
             }
         }
     }
   return NULL;
 }
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3])
+{
+  int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
+  int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
+  int x_max = floor(MAXTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
+  int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
+  int x;
+  int y;
+  int off = 3.0;
+  for (x = x_min - off; x <= x_max + off; x++)
+    {
+      for (y = y_min - off; y <= y_max + off; y++)
+        {
+          vector v0 = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
+          vector v1 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+          vector v2 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+          float d00 = dot_vector(&v0, &v0);
+          float d01 = dot_vector(&v0, &v1);
+          float d11 = dot_vector(&v1, &v1);
+          float d20 = dot_vector(&v2, &v0);
+          float d21 = dot_vector(&v2, &v1);
+          float denom = d00 * d11 - d01 * d01;
+          float w0 = (d11 * d20 - d01 * d21) / denom;
+          float w1 = (d00 * d21 - d01 * d20) / denom;
+          float w2 = 1.0f - w0 - w1;
+          float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
+          if (depth < dep_buf[y * width + x])
+            {
+              // printf("%f %f %f\n", w0, w1, w2);
+              vector diff_vec_1 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};               // depth-v_fp[0]->z};
+              vector diff_vec_2 = {x - v_fp[1]->x, y - v_fp[1]->y, 0};               // depth-v_fp[1]->z};
+              vector diff_vec_3 = {x - v_fp[2]->x, y - v_fp[2]->y, 0};               // depth-v_fp[2]->z};
+              vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; // v_fp[0]->z-v_fp[1]->z};
+              vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0}; // v_fp[1]->z-v_fp[2]->z};
+              vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; // v_fp[2]->z-v_fp[0]->z};
+              vector vec1, vec2, vec3;
+              cross_product(&diff_vec_1, &edge_1, &vec1);
+              cross_product(&diff_vec_2, &edge_2, &vec2);
+              cross_product(&diff_vec_3, &edge_3, &vec3);
+              double d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
+              double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
+              double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
+              if (x == 2090 && y == 2116)
+                {
+                  printf("=================\n");
+                  printf("Abstaende: %f, %f, %f\n", d1, d2, d3);
+                  printf("Normale: %f, %f, %f\n", v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x);
+                  printf("Gewichte: %f %f %f\n", w0, w1, w2);
+                  printf("(%f|%f)\n", v_fp[0]->x, v_fp[0]->y);
+                  printf("(%f|%f)\n", v_fp[1]->x, v_fp[1]->y);
+                  printf("(%f|%f)\n", v_fp[2]->x, v_fp[2]->y);
+                }
+              if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x)
+                {
+                  color black = {0, 0, 0, 255};
+                  if (x == 2090 && y == 2116)
+                    {
+                      black.r = 255;
+                    }
+                  color_pixel(pixels, dep_buf, depth, width, x, y, &black);
+                }
+              else if ((w0 > 0 && w1 > 0 && w2 > 0))
+                {
+                  color col;
+                  col.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                  col.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                  col.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                  col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                  color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+                }
+              /*color col = {255, 0, 0, 255};
+              color_pixel(pixels, dep_buf, depth, width, x, y, &col);*/
+            }
+        }
+    }
+}
+
 /*!
  * This method sorts the three vertices by y-coordinate ascending so v1 is the topmost vertex.
  * After that it sets ups values to calculate barycentrical coordinates for interpolation of normals
