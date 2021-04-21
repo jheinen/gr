@@ -63,16 +63,15 @@ static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective,
                         matrix3x3 model_view_3x3, vector light_dir, const float *colors, const float *scales, int width,
                         int height, int id, int idxstart, int idxend, vertex_fp *vertices_fp);
 static void *draw_triangle_indexbuffer(void *v_arguments);
-static void draw_edge(int *edge_buffer, int width, int height, float startx, float starty, float endx, float endy,
-                      float z1, float z2);
+static void draw_edge(float *edge_buffer, int width, int height, vertex_fp *v_fp[3], int idx_1, int idx_2);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                          const float *colors, vector light_dir, int *edge_buffer);
+                          const float *colors, vector light_dir, float *edge_buffer);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
-                          float B12, float B20, float B01, int *edge_buffer);
+                          float B12, float B20, float B01, float *edge_buffer);
 static void draw_line(unsigned char *pixels, float *dep_buf, int width, const float *colors, vector light_dir,
                       int startx, int y, int endx, vertex_fp *v_fp[3], float A12, float A20, float A01, float w0,
-                      float w1, float w2, float sum_inv, int *edge_buffer);
+                      float w1, float w2, float sum_inv, float *edge_buffer);
 static void color_pixel(unsigned char *pixels, float *depth_buffer, float depth, int width, int x, int y, color *col);
 static color calc_colors(color_float col_one, color_float col_two, color_float col_three, float fac_one, float fac_two,
                          float fac_three, vertex_fp *v_fp[3], const float *colors, vector light_dir);
@@ -787,7 +786,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
   float *vertices = context_struct_.mesh_list_[arg->mesh].data.vertices;
   int num_indices = context_struct_.mesh_list_[arg->mesh].data.number_of_indices;
   int *indices = context_struct_.mesh_list_[arg->mesh].data.indices;
-  int *edge_buffer = calloc(4000 * 4000, sizeof(int)); // todo
+  float *edge_buffer = calloc(4000 * 4000, sizeof(float)); // todo
   if (num_indices != 0)
     {
       vertex_fp *vertices_fp = arg->vertices_fp;
@@ -851,18 +850,15 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertex_fpp[2] = &vertices_fp[2];
               if (vertices_fp[0].normal.x > 0.5)
                 {
-                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp[0]->x, vertex_fpp[0]->y, vertex_fpp[1]->x,
-                            vertex_fpp[1]->y, vertex_fpp[0]->z, vertex_fpp[1]->z);
+                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp, 0, 1);
                 }
               else if (vertices_fp[1].normal.x > 0.5)
                 {
-                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp[1]->x, vertex_fpp[1]->y, vertex_fpp[2]->x,
-                            vertex_fpp[2]->y, vertex_fpp[1]->z, vertex_fpp[2]->z);
+                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp, 1, 2);
                 }
               else if (vertices_fp[2].normal.x > 0.5)
                 {
-                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp[2]->x, vertex_fpp[2]->y, vertex_fpp[0]->x,
-                            vertex_fpp[0]->y, vertex_fpp[2]->z, vertex_fpp[0]->z);
+                  draw_edge(edge_buffer, arg->width, arg->height, vertex_fpp, 2, 0);
                 }
             }
         }
@@ -899,9 +895,42 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
   return NULL;
 }
 
-static void draw_edge(int *edge_buffer, int width, int height, float x1, float y1, float x2, float y2, float z1,
-                      float z2)
+static void draw_edge(float *edge_buffer, int width, int height, vertex_fp *v_fp[3], int idx_1, int idx_2)
 {
+  vertex_fp *v_fp_sorted_y[3];
+  float A12, A20, A01, B12, B20, B01;
+  int ind[3] = {0, 0, 0};
+  if (v_fp[0]->y > v_fp[1]->y)
+    {
+      ind[0]++;
+    }
+  else
+    {
+      ind[1]++;
+    }
+  if (v_fp[0]->y > v_fp[2]->y)
+    {
+      ind[0]++;
+    }
+  else
+    {
+      ind[2]++;
+    }
+  if (v_fp[1]->y > v_fp[2]->y)
+    {
+      ind[1]++;
+    }
+  else
+    {
+      ind[2]++;
+    }
+  v_fp_sorted_y[ind[0]] = v_fp[0];
+  v_fp_sorted_y[ind[1]] = v_fp[1];
+  v_fp_sorted_y[ind[2]] = v_fp[2];
+  float x1 = v_fp[idx_1]->x;
+  float y1 = v_fp[idx_1]->y;
+  float x2 = v_fp[idx_2]->x;
+  float y2 = v_fp[idx_2]->y;
   printf("============\n");
   printf("Startpunkt: (%f|%f)\n", x1, y1);
   printf("Endpunkt: (%f|%f)\n", x2, y2);
@@ -916,6 +945,7 @@ static void draw_edge(int *edge_buffer, int width, int height, float x1, float y
     {
       step = fabs(dy);
     }
+  int scanlineY = ceil(v_fp_sorted_y[0]->y) > 0 ? ceil(v_fp_sorted_y[0]->y) : 0;
   dx = dx / step;
   dy = dy / step;
   float x = x1;
@@ -930,11 +960,14 @@ static void draw_edge(int *edge_buffer, int width, int height, float x1, float y
       B12 = v_fp[2]->x - v_fp[1]->x;
       B20 = v_fp[0]->x - v_fp[2]->x;
       B01 = v_fp[1]->x - v_fp[0]->x;
-      float w0 = triangle_surface_2d(B12, -A12, v_fp[1]->y, v_fp[1]->x, scanlineY, first_x);
-      float w1 = triangle_surface_2d(B20, -A20, v_fp[2]->y, v_fp[2]->x, scanlineY, first_x);
-      float w2 = triangle_surface_2d(B01, -A01, v_fp[0]->y, v_fp[0]->x, scanlineY, first_x);
-      sum_inv = 1 / (w0 + w1 + w2);
-      edge_buffer[(int)y * width + (int)x] = 1;
+      float w0 = triangle_surface_2d(B12, -A12, v_fp[1]->y, v_fp[1]->x, (int)y, (int)x);
+      float w1 = triangle_surface_2d(B20, -A20, v_fp[2]->y, v_fp[2]->x, (int)y, (int)x);
+      float w2 = triangle_surface_2d(B01, -A01, v_fp[0]->y, v_fp[0]->x, (int)y, (int)x);
+      printf("w0: %f w1: %f w2: %f\n", w0, w1, w2);
+      float sum_inv = 1 / (w0 + w1 + w2);
+      float depth = (w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z) * sum_inv;
+      edge_buffer[(int)y * width + (int)x] = depth;
+      printf("Tiefe: %f\n", depth);
       x = x + dx;
       y = y + dy;
       i = i + 1;
@@ -946,7 +979,7 @@ static void draw_edge(int *edge_buffer, int width, int height, float x1, float y
  * and colors.
  */
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                          const float *colors, vector light_dir, int *edge_buffer)
+                          const float *colors, vector light_dir, float *edge_buffer)
 {
   vertex_fp *v_fp_sorted_y[3];
   float A12, A20, A01, B12, B20, B01;
@@ -995,7 +1028,7 @@ static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int 
  */
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
-                          float B12, float B20, float B01, int *edge_buffer)
+                          float B12, float B20, float B01, float *edge_buffer)
 {
   float invslope_short_1 = (v_fp_sorted[1]->x - v_fp_sorted[0]->x) / (v_fp_sorted[1]->y - v_fp_sorted[0]->y);
   float invslope_short_2 = (v_fp_sorted[2]->x - v_fp_sorted[1]->x) / (v_fp_sorted[2]->y - v_fp_sorted[1]->y);
@@ -1085,7 +1118,7 @@ static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int 
  */
 static void draw_line(unsigned char *pixels, float *dep_buf, int width, const float *colors, vector light_dir,
                       int startx, int y, int endx, vertex_fp *v_fp[3], float A12, float A20, float A01, float w0,
-                      float w1, float w2, float sum_inv, int *edge_buffer)
+                      float w1, float w2, float sum_inv, float *edge_buffer)
 {
   color col;
   int x;
@@ -1117,8 +1150,9 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
         {
           if (depth < dep_buf[y * width + x])
             {
-              if (edge_buffer[y * width + x] == 1)
+              if (depth < edge_buffer[y * width + x])
                 {
+                  printf("Depth %f vs edge_buffer %f\n", depth, edge_buffer[y * width + x]);
                   color black = {0, 0, 0, 255};
                   color_pixel(pixels, dep_buf, depth, width, x, y, &black);
                 }
