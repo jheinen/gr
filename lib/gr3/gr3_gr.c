@@ -556,10 +556,10 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
                   new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
                 }
               // neuer zu verschiebender Punkt: Punkt mit idx 0, also k
-              new_normals[new_idx] = linewidth_y; // 1 vertikale linie
-              new_normals[new_idx + 3] = 0;
+              // new_normals[new_idx] = linewidth_y; // 1 vertikale linie
+              // new_normals[new_idx + 3] = 0;
               // new_normals[new_idx + 6] = 1; // 1 horizontale linie
-              new_normals[new_idx + 9] = 0;
+              // new_normals[new_idx + 9] = 0;
               // new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
               // new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
 

@@ -796,7 +796,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[2] = &vertices_fp[indices[i + 2]];
           /* TODO Zeichnefall kanten */
           draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
-                        arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir, edge_buffer);
+                        arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
         }
     }
   else
@@ -831,7 +831,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].normal.x = normals[index] / div_0;
               vertices_fp[j].normal.y = normals[index + 1] / div_1;
               vertices_fp[j].normal.z = normals[index + 2] / div_2;
-              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal); // todo
+              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
               vertices_fp[j].z = vertices[index + 2];
@@ -1005,7 +1005,6 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
   color col;
   int x;
   float depth;
-  startx -= 3;
   if (startx < 0)
     {
       int dif = -startx;
