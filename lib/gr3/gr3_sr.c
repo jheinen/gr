@@ -975,6 +975,8 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
               vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0}; // depth-v_fp[2]->z};
               vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+              vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
+              vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
 
               vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; // v_fp[0]->z-v_fp[1]->z};
               vector edge_1_inv = {-edge_1.x, -edge_1.y, 0};
@@ -1005,8 +1007,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                 {
                   vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
-                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
                   winkel_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
                   winkel_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
                   cross_product(&diff_vec_3, &edge_4, &vec4);
@@ -1016,8 +1016,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                 {
                   vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
-                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
                   winkel_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
                   winkel_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
                   cross_product(&diff_vec_2, &edge_4, &vec4);
@@ -1029,51 +1027,51 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               // 1840, 2057
               // 1856, 210;
               // 2672, 1843
-              int color_pix = 0;
+              int color_pix = 1;
               if (winkel_01_1 < 0)
                 {
                   color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < v_fp[0]->normal.x;
                 }
               if (winkel_01_2 < 0)
                 {
-                  color_pix = sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < v_fp[0]->normal.x;
+                  color_pix |= sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < v_fp[0]->normal.x;
                 }
 
               if (winkel_12_1 < 0)
                 {
-                  color_pix = sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < v_fp[1]->normal.x;
+                  color_pix |= sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < v_fp[1]->normal.x;
                 }
               if (winkel_12_2 < 0)
                 {
-                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[1]->normal.x;
+                  color_pix |= sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[1]->normal.x;
                 }
 
               if (winkel_20_1 < 0)
                 {
-                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[2]->normal.x;
+                  color_pix |= sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[2]->normal.x;
                 }
               if (winkel_20_2 < 0)
                 {
-                  color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < v_fp[2]->normal.x;
+                  color_pix |= sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < v_fp[2]->normal.x;
                 }
 
-              /*if (winkel_23_1 < 0)
-              {
-                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[1]->normal.z;
-              }
+              if (winkel_23_1 < 0)
+                {
+                  color_pix |= sqrt(dot_vector(&diff_vec_4, &diff_vec_4)) < v_fp[1]->normal.z;
+                }
               if (winkel_23_2 < 0)
-              {
-                  color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < v_fp[1]->normal.z;
-              }
+                {
+                  color_pix |= sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < v_fp[1]->normal.z;
+                }
 
               if (winkel_13_1 < 0)
-              {
-                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < -v_fp[1]->normal.z;
-              }
+                {
+                  color_pix |= sqrt(dot_vector(&diff_vec_4, &diff_vec_4)) < -v_fp[1]->normal.z;
+                }
               if (winkel_13_2 < 0)
-              {
-                  color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < -v_fp[1]->normal.z;
-              }*/
+                {
+                  color_pix |= sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < -v_fp[1]->normal.z;
+                }
 
               if (((d1 < v_fp[0]->normal.x && (winkel_01_1 > 0 && winkel_01_2 > 0)) ||
                    (d2 < v_fp[1]->normal.x && (winkel_12_1 > 0 && winkel_12_2 > 0)) ||

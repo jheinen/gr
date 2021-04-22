@@ -536,7 +536,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   float linewidth_x = linewidth_y;
   if (context_struct_.option == OPTION_LINES)
     {
-      linewidth_x = linewidth_y; // todo
+      linewidth_x = 3; // todo
     }
   for (j = 0; j < ny - 1; j++)
     {
