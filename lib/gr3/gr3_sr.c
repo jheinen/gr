@@ -873,7 +873,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x;
   int y;
-  int off = 3.0;
+  int off = 5;
   for (x = x_min - off; x <= x_max + off; x++)
     {
       for (y = y_min - off; y <= y_max + off; y++)
@@ -894,12 +894,20 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           if (depth < dep_buf[y * width + x])
             {
               // printf("%f %f %f\n", w0, w1, w2);
-              vector diff_vec_1 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};               // depth-v_fp[0]->z};
-              vector diff_vec_2 = {x - v_fp[1]->x, y - v_fp[1]->y, 0};               // depth-v_fp[1]->z};
-              vector diff_vec_3 = {x - v_fp[2]->x, y - v_fp[2]->y, 0};               // depth-v_fp[2]->z};
+              vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
+              vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
+              vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};   // depth-v_fp[1]->z};
+              vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+              vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0}; // depth-v_fp[2]->z};
+              vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+
               vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; // v_fp[0]->z-v_fp[1]->z};
+              vector edge_1_inv = {-edge_1.x, -edge_1.y, 0};
               vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0}; // v_fp[1]->z-v_fp[2]->z};
+              vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
               vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; // v_fp[2]->z-v_fp[0]->z};
+              vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
+
               vector vec1, vec2, vec3;
               cross_product(&diff_vec_1, &edge_1, &vec1);
               cross_product(&diff_vec_2, &edge_2, &vec2);
@@ -907,20 +915,35 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               double d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
               double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
               double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
-              if (x == 2090 && y == 2116)
+
+              float winkel_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+              float winkel_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
+
+              float winkel_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
+              float winkel_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
+
+              float winkel_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
+              float winkel_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
+              // 2090, 2116
+              // 2016, 2037
+              // 1840, 2057
+              if (x == 1840 && y == 2057)
                 {
                   printf("=================\n");
+                  printf("%f %f\n", winkel_12_1, winkel_12_2);
                   printf("Abstaende: %f, %f, %f\n", d1, d2, d3);
                   printf("Normale: %f, %f, %f\n", v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x);
-                  printf("Gewichte: %f %f %f\n", w0, w1, w2);
+                  printf("Gewichte: %f %f %f %f\n", w0, w1, w2, denom);
                   printf("(%f|%f)\n", v_fp[0]->x, v_fp[0]->y);
                   printf("(%f|%f)\n", v_fp[1]->x, v_fp[1]->y);
                   printf("(%f|%f)\n", v_fp[2]->x, v_fp[2]->y);
                 }
-              if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x)
+              if ((d1 < v_fp[0]->normal.x && (winkel_01_1 > 0 && winkel_01_2 > 0)) ||
+                  (d2 < v_fp[1]->normal.x && (winkel_12_1 > 0 && winkel_12_2 > 0)) ||
+                  (d3 < v_fp[2]->normal.x && (winkel_20_1 > 0 && winkel_20_2 > 0)))
                 {
                   color black = {0, 0, 0, 255};
-                  if (x == 2090 && y == 2116)
+                  if (x == 1840 && y == 2057)
                     {
                       black.r = 255;
                     }
