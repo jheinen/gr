@@ -923,21 +923,39 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           float c_2 = sqrt(dot_vector(&p_2, &p_2));
 
           float s_0 = (a_0 + b_1 + a) / 2; // Semiperimeter
-          float area_0 = sqrt(s_0 * (s_0 - a_0) * (s_0 - b_1) * (s_0 - a));
+          float tmp_0 = s_0 * (s_0 - a_0) * (s_0 - b_1) * (s_0 - a);
+          if (tmp_0 < 0)
+            {
+              tmp_0 = 0;
+            }
+          float area_0 = sqrt(tmp_0);
 
           float s_1 = (b_1 + c_2 + b) / 2; // Semiperimeter
-          float area_1 = sqrt(s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b));
+          float tmp_1 = s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b);
+          if (tmp_1 < 0)
+            {
+              tmp_1 = 0;
+            }
+          float area_1 = sqrt(tmp_1);
 
           float s_2 = (c_2 + a_0 + c) / 2; // Semiperimeter
-          float area_2 = sqrt(s_2 * (s_2 - c_2) * (s_2 - a_0) * (s_2 - c));
-
+          float tmp_2 = s_2 * (s_2 - c_2) * (s_2 - a_0) * (s_2 - c);
+          if (tmp_2 < 0)
+            {
+              tmp_2 = 0;
+            }
+          float area_2 = sqrt(tmp_2);
           float sum_area = area_0 + area_1 + area_2;
           // float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
           float depth =
               area_0 / sum_area * v_fp[0]->z + area_1 / sum_area * v_fp[1]->z + area_2 / sum_area * v_fp[2]->z;
-          if (x >= 1856 && x <= 1856 && y <= 2108 && y >= 2108)
+          if (x == 2672 && y == 1843)
             {
               printf("=================\n");
+              printf("Rechnung: %f\n", s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b));
+              printf("%f %f %f\n", area_0, area_1, area_2);
+              printf("%f %f %f %f\n", s_1, b_1, c_2, b);
+              printf("Sum_area: %f\n", sum_area);
               printf("x: %d, y: %d\n", x, y);
               /*printf("%f %f\n", winkel_12_1, winkel_12_2);
               printf("Abstaende: %f, %f, %f\n", d1, d2, d3);*/
@@ -1010,6 +1028,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               // 2016, 2037
               // 1840, 2057
               // 1856, 210;
+              // 2672, 1843
               int color_pix = 0;
               if (winkel_01_1 < 0)
                 {
@@ -1064,6 +1083,10 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   color_pix)
                 {
                   color black = {0, 0, 0, 255};
+                  /*if(x==2672 && y==1843){
+                      black.g = 255;
+                      black.a = 255;
+                  }*/
                   color_pixel(pixels, dep_buf, depth, width, x, y, &black);
                 }
               else if ((w0 > 0 && w1 > 0 && w2 > 0))
@@ -1073,6 +1096,11 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   col.g = (unsigned char)(context_struct_.background_color[1] * 255);
                   col.b = (unsigned char)(context_struct_.background_color[2] * 255);
                   col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                  if (x == 2672 && y == 1843)
+                    {
+                      col.r = 255;
+                      col.a = 255;
+                    }
                   color_pixel(pixels, dep_buf, depth, width, x, y, &col);
                 }
               /*color col = {255, 0, 0, 255};
