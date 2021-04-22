@@ -867,17 +867,19 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
 }
 static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3])
 {
+  // printf("%f\n",dep_buf[1840 + width * 2057]);
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x_max = floor(MAXTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x;
   int y;
-  int off = 5;
+  int off = 10;
   for (x = x_min - off; x <= x_max + off; x++)
     {
       for (y = y_min - off; y <= y_max + off; y++)
         {
+          /* baryzentrische Koordinaten mit Internetformel */
           vector v0 = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
           vector v1 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
           vector v2 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
@@ -890,10 +892,39 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           float w0 = (d11 * d20 - d01 * d21) / denom;
           float w1 = (d00 * d21 - d01 * d20) / denom;
           float w2 = 1.0f - w0 - w1;
-          float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
+
+          /* Baryzentrische Koordinaten mit flaecheninhalt */
+          vector v_0_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0};
+          vector v_1_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
+          vector v_2_0 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+          float a = sqrt(dot_vector(&v_0_1, &v_0_1));
+          float b = sqrt(dot_vector(&v_1_2, &v_1_2));
+          float c = sqrt(dot_vector(&v_2_0, &v_2_0));
+          float s = (a + b + c) / 2; // Semiperimeter
+          float area = sqrt(s * (s - a) * (s - b) * (s - c));
+
+          vector p_0 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+          vector p_1 = {x - v_fp[1]->x, y - v_fp[1]->y, 0};
+          vector p_2 = {x - v_fp[2]->x, y - v_fp[2]->y, 0};
+          float a_0 = sqrt(dot_vector(&p_0, &p_0));
+          float b_1 = sqrt(dot_vector(&p_1, &p_1));
+          float c_2 = sqrt(dot_vector(&p_2, &p_2));
+
+          float s_0 = (a_0 + b_1 + a) / 2; // Semiperimeter
+          float area_0 = sqrt(s_0 * (s_0 - a_0) * (s_0 - b_1) * (s_0 - a));
+
+          float s_1 = (b_1 + c_2 + b) / 2; // Semiperimeter
+          float area_1 = sqrt(s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b));
+
+          float s_2 = (c_2 + a_0 + c) / 2; // Semiperimeter
+          float area_2 = sqrt(s_2 * (s_2 - c_2) * (s_2 - a_0) * (s_2 - c));
+
+          float sum_area = area_0 + area_1 + area_2;
+          // float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
+          float depth =
+              area_0 / sum_area * v_fp[0]->z + area_1 / sum_area * v_fp[1]->z + area_2 / sum_area * v_fp[2]->z;
           if (depth < dep_buf[y * width + x])
             {
-              // printf("%f %f %f\n", w0, w1, w2);
               vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
               vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
               vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};   // depth-v_fp[1]->z};
@@ -927,23 +958,53 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               // 2090, 2116
               // 2016, 2037
               // 1840, 2057
-              if (x == 1840 && y == 2057)
+              // 1856, 210;
+              if (x >= 1856 && x <= 1856 && y <= 2108 && y >= 2108)
                 {
                   printf("=================\n");
+                  printf("x: %d, y: %d\n", x, y);
                   printf("%f %f\n", winkel_12_1, winkel_12_2);
                   printf("Abstaende: %f, %f, %f\n", d1, d2, d3);
                   printf("Normale: %f, %f, %f\n", v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x);
                   printf("Gewichte: %f %f %f %f\n", w0, w1, w2, denom);
+                  printf("Neue Gewichte:%f %f %f\n", area_0 / sum_area, area_1 / sum_area, area_2 / sum_area);
+                  printf("Tiefen: %f %f %f %f %f\n", v_fp[0]->z, v_fp[1]->z, v_fp[2]->z, depth, dep_buf[y * width + x]);
                   printf("(%f|%f)\n", v_fp[0]->x, v_fp[0]->y);
                   printf("(%f|%f)\n", v_fp[1]->x, v_fp[1]->y);
                   printf("(%f|%f)\n", v_fp[2]->x, v_fp[2]->y);
                 }
-              if ((d1 < v_fp[0]->normal.x && (winkel_01_1 > 0 && winkel_01_2 > 0)) ||
-                  (d2 < v_fp[1]->normal.x && (winkel_12_1 > 0 && winkel_12_2 > 0)) ||
-                  (d3 < v_fp[2]->normal.x && (winkel_20_1 > 0 && winkel_20_2 > 0)))
+              int color_pix = 0;
+              if (winkel_01_1 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < d1 / 2;
+                }
+              if (winkel_01_2 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < d1 / 2;
+                }
+              if (winkel_12_1 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_2, &diff_vec_2)) < d2 / 2;
+                }
+              if (winkel_12_2 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < d2 / 2;
+                }
+              if (winkel_20_1 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_3, &diff_vec_3)) < d3 / 2;
+                }
+              if (winkel_20_2 < 0)
+                {
+                  color_pix = sqrt(dot_vector(&diff_vec_1, &diff_vec_1)) < d3 / 2;
+                }
+
+              if (((d1 < v_fp[0]->normal.x && (winkel_01_1 > 0 && winkel_01_2 > 0)) ||
+                   (d2 < v_fp[1]->normal.x && (winkel_12_1 > 0 && winkel_12_2 > 0)) ||
+                   (d3 < v_fp[2]->normal.x && (winkel_20_1 > 0 && winkel_20_2 > 0)))) // || color_pix)
                 {
                   color black = {0, 0, 0, 255};
-                  if (x == 1840 && y == 2057)
+                  if (x >= 1855 && x <= 1857 && y <= 2109 && y >= 2107)
                     {
                       black.r = 255;
                     }
@@ -956,6 +1017,12 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   col.g = (unsigned char)(context_struct_.background_color[1] * 255);
                   col.b = (unsigned char)(context_struct_.background_color[2] * 255);
                   col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                  if (x >= 1855 && x <= 1857 && y <= 2109 && y >= 2107)
+                    {
+                      printf("rooot\n");
+                      col.r = 255;
+                      col.a = 255;
+                    }
                   color_pixel(pixels, dep_buf, depth, width, x, y, &col);
                 }
               /*color col = {255, 0, 0, 255};
