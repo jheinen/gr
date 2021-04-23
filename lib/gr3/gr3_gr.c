@@ -532,8 +532,8 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
         }
     }
   int new_idx = 0, l = 0;
-  float linewidth_y = 3;
-  float linewidth_x = 0;
+  float linewidth_y = 0.5;
+  float linewidth_x = 0.5;
   if (context_struct_.option == OPTION_LINES)
     {
       // linewidth_x = linewidth_y; // todo
@@ -575,7 +575,11 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               new_normals[new_idx + 14] = -linewidth_y;
               //
               if (j == 0)
-                {                                     // rand links
+                { // rand links
+                  if (i == 0)
+                    {
+                      new_normals[new_idx + 6] = linewidth_y;
+                    }
                   new_normals[new_idx] = linewidth_y; // 2*
                 }
               else if (i == 0)

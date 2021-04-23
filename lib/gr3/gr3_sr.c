@@ -792,7 +792,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
   float *vertices = context_struct_.mesh_list_[arg->mesh].data.vertices;
   int num_indices = context_struct_.mesh_list_[arg->mesh].data.number_of_indices;
   int *indices = context_struct_.mesh_list_[arg->mesh].data.indices;
-  printf("%d %d\n", arg->width, arg->height);
   float *edge_buffer = malloc(arg->width * arg->height * sizeof(float)); // todo
   memset(edge_buffer, 127, arg->width * arg->height);
   if (num_indices != 0)
@@ -886,7 +885,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
 static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                                      float *edge_buffer)
 {
-  // printf("%f\n",dep_buf[1840 + width * 2057]);
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x_max = floor(MAXTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
@@ -954,7 +952,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           // float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
           float depth =
               area_0 / sum_area * v_fp[1]->z + area_1 / sum_area * v_fp[2]->z + area_2 / sum_area * v_fp[0]->z;
-          if (x == 1810 && y == 2108)
+          /*if (x >= 899 && x<=899 && y >=2017 && y<= 2017)
             {
               vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
               vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
@@ -994,8 +992,8 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               printf("(%f|%f)\n", v_fp[0]->x, v_fp[0]->y);
               printf("(%f|%f)\n", v_fp[1]->x, v_fp[1]->y);
               printf("(%f|%f)\n", v_fp[2]->x, v_fp[2]->y);
-            }
-          if (depth < dep_buf[y * width + x] || edge_buffer[y * width + x] < depth)
+            }*/
+          if (depth < dep_buf[y * width + x]) //|| edge_buffer[y * width + x] < depth)
             {
               vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
               vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
@@ -1058,6 +1056,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               // 2672, 1843
               // 1820, 1916
               // 1810, 2108
+              // 899, 2017
               if (winkel_01_1 < 0)
                 {
                   d1 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
@@ -1109,11 +1108,11 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   d4 < v_fp[1]->normal.z || d5 < -v_fp[1]->normal.z)
                 {
                   color black = {0, 0, 0, 255};
-                  if (x == 1810 && y == 2108)
+                  /*if (x == 899 && y == 2017)
                     {
                       black.g = 255;
                       black.a = 255;
-                    }
+                    }*/
                   color_pixel(pixels, dep_buf, depth, width, x, y, &black);
                 }
               else if ((w0 > 0 && w1 > 0 && w2 > 0))
@@ -1123,13 +1122,13 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   col.g = (unsigned char)(context_struct_.background_color[1] * 255);
                   col.b = (unsigned char)(context_struct_.background_color[2] * 255);
                   col.a = (unsigned char)(context_struct_.background_color[3] * 255);
-                  if (x == 1810 && y == 2108)
+                  /*if (x == 899 && y == 2017)
                     {
                       col.r = 255;
                       col.a = 255;
-                    }
+                    }*/
                   color_pixel(pixels, dep_buf, depth, width, x, y, &col);
-                  edge_buffer[y * width + x] = depth;
+                  // edge_buffer[y * width + x] = depth;
                 }
               /*color col = {255, 0, 0, 255};
               color_pixel(pixels, dep_buf, depth, width, x, y, &col);*/
