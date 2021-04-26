@@ -144,7 +144,7 @@ int main(void)
   gr_clearws();
   gr3_setbackgroundcolor(1.0, 1.0, 1.0, 0.0);
   gr_setfillcolorind(0);
-  // gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
+  gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
   gr_setviewport(0, 1, 0, 1);
   gr_setwindow(-2, 2, -2, 3);
   gr_setspace(-8, 8, angle, 45);

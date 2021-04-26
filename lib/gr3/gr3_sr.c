@@ -70,8 +70,7 @@ static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective,
 static void *draw_triangle_indexbuffer(void *v_arguments);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir);
-static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                                     float *edge_buffer);
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3]);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01);
@@ -792,8 +791,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
   float *vertices = context_struct_.mesh_list_[arg->mesh].data.vertices;
   int num_indices = context_struct_.mesh_list_[arg->mesh].data.number_of_indices;
   int *indices = context_struct_.mesh_list_[arg->mesh].data.indices;
-  float *edge_buffer = malloc(arg->width * arg->height * sizeof(float)); // todo
-  memset(edge_buffer, 127, arg->width * arg->height);
   if (num_indices != 0)
     {
       vertex_fp *vertices_fp = arg->vertices_fp;
@@ -840,7 +837,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].normal.x = normals[index] / div_0;
               vertices_fp[j].normal.y = normals[index + 1] / div_1;
               vertices_fp[j].normal.z = normals[index + 2] / div_2;
-              // mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal); todo
+              mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
               vertices_fp[j].z = vertices[index + 2];
@@ -862,8 +859,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
             {
               if (arg->scales != NULL)
                 {
-                  if (context_struct_.option <= 2 &&
-                      (vertices_fp[1].normal.z >= 0.5 || vertices_fp[1].normal.z <= -0.5))
+                  if (context_struct_.option <= 2 && (vertices_fp[1].normal.z > 0.0 || vertices_fp[1].normal.z < 0))
                     {
                       vertex_fp tmp = {vertices_fp[0].normal.y, vertices_fp[0].normal.z, vertices_fp[1].normal.y, 1.0};
                       mat_vec_mul_4x1(&arg->model_view_perspective, &tmp);
@@ -876,14 +872,13 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
                 }
               draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
                                        context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
-                                       vertex_fpp, edge_buffer);
+                                       vertex_fpp);
             }
         }
     }
   return NULL;
 }
-static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                                     float *edge_buffer)
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3])
 {
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
@@ -891,198 +886,127 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x;
   int y;
-  int off = 3;
+  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x));
   for (x = x_min - off; x <= x_max + off; x++)
     {
       for (y = y_min - off; y <= y_max + off; y++)
         {
-          /* baryzentrische Koordinaten mit Internetformel */
-          vector v0 = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
-          vector v1 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
-          vector v2 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
-          float d00 = dot_vector(&v0, &v0);
-          float d01 = dot_vector(&v0, &v1);
-          float d11 = dot_vector(&v1, &v1);
-          float d20 = dot_vector(&v2, &v0);
-          float d21 = dot_vector(&v2, &v1);
-          float denom = d00 * d11 - d01 * d01;
-          float w0 = (d11 * d20 - d01 * d21) / denom;
-          float w1 = (d00 * d21 - d01 * d20) / denom;
-          float w2 = 1.0f - w0 - w1;
-
-          /* Baryzentrische Koordinaten mit flaecheninhalt */
-          vector v_0_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0};
-          vector v_1_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
-          vector v_2_0 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
-          float a = sqrt(dot_vector(&v_0_1, &v_0_1));
-          float b = sqrt(dot_vector(&v_1_2, &v_1_2));
-          float c = sqrt(dot_vector(&v_2_0, &v_2_0));
-
-          vector p_0 = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
-          vector p_1 = {x - v_fp[1]->x, y - v_fp[1]->y, 0};
-          vector p_2 = {x - v_fp[2]->x, y - v_fp[2]->y, 0};
-          float a_0 = sqrt(dot_vector(&p_0, &p_0));
-          float b_1 = sqrt(dot_vector(&p_1, &p_1));
-          float c_2 = sqrt(dot_vector(&p_2, &p_2));
-
-          float s_0 = (a_0 + b_1 + a) / 2; // Semiperimeter
-          float tmp_0 = s_0 * (s_0 - a_0) * (s_0 - b_1) * (s_0 - a);
+          /* calculate depth with interpolation/extrapolation by calculating the area of the sub triangles */
+          float len_v_0_1 = sqrt((v_fp[0]->x - v_fp[1]->x) * (v_fp[0]->x - v_fp[1]->x) +
+                                 (v_fp[0]->y - v_fp[1]->y) * (v_fp[0]->y - v_fp[1]->y));
+          float len_v_1_2 = sqrt((v_fp[1]->x - v_fp[2]->x) * (v_fp[1]->x - v_fp[2]->x) +
+                                 (v_fp[1]->y - v_fp[2]->y) * (v_fp[1]->y - v_fp[2]->y));
+          float len_v_2_0 = sqrt((v_fp[2]->x - v_fp[0]->x) * (v_fp[2]->x - v_fp[0]->x) +
+                                 (v_fp[2]->y - v_fp[0]->y) * (v_fp[2]->y - v_fp[0]->y));
+          float len_p_0 = sqrt((x - v_fp[0]->x) * (x - v_fp[0]->x) + (y - v_fp[0]->y) * (y - v_fp[0]->y));
+          float len_p_1 = sqrt((x - v_fp[1]->x) * (x - v_fp[1]->x) + (y - v_fp[1]->y) * (y - v_fp[1]->y));
+          float len_p_2 = sqrt((x - v_fp[2]->x) * (x - v_fp[2]->x) + (y - v_fp[2]->y) * (y - v_fp[2]->y));
+          float s_0 = (len_p_0 + len_p_1 + len_v_0_1) / 2; // Semiperimeter
+          float tmp_0 = s_0 * (s_0 - len_p_0) * (s_0 - len_p_1) * (s_0 - len_v_0_1);
           if (tmp_0 < 0)
             {
               tmp_0 = 0;
             }
           float area_0 = sqrt(tmp_0);
-
-          float s_1 = (b_1 + c_2 + b) / 2; // Semiperimeter
-          float tmp_1 = s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b);
+          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2; // Semiperimeter
+          float tmp_1 = s_1 * (s_1 - len_p_1) * (s_1 - len_p_2) * (s_1 - len_v_1_2);
           if (tmp_1 < 0)
             {
               tmp_1 = 0;
             }
           float area_1 = sqrt(tmp_1);
-
-          float s_2 = (c_2 + a_0 + c) / 2; // Semiperimeter
-          float tmp_2 = s_2 * (s_2 - c_2) * (s_2 - a_0) * (s_2 - c);
+          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2; // Semiperimeter
+          float tmp_2 = s_2 * (s_2 - len_p_2) * (s_2 - len_p_0) * (s_2 - len_v_2_0);
           if (tmp_2 < 0)
             {
               tmp_2 = 0;
             }
           float area_2 = sqrt(tmp_2);
-          float sum_area = area_0 + area_1 + area_2;
-          // float depth = w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z;
           float depth =
-              area_0 / sum_area * v_fp[1]->z + area_1 / sum_area * v_fp[2]->z + area_2 / sum_area * v_fp[0]->z;
-          /*if (x >= 899 && x<=899 && y >=2017 && y<= 2017)
+              (area_0 * v_fp[1]->z + area_1 * v_fp[2]->z + area_2 * v_fp[0]->z) * (1 / (area_0 + area_1 + area_2));
+          if (depth < dep_buf[y * width + x])
             {
-              vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
-              vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
-              vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};   // depth-v_fp[1]->z};
-              vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
-              vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0}; // depth-v_fp[2]->z};
-              vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
-              vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
-              vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
-
-              vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; // v_fp[0]->z-v_fp[1]->z};
-              vector edge_1_inv = {-edge_1.x, -edge_1.y, 0};
-              vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0}; // v_fp[1]->z-v_fp[2]->z};
-              vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
-              vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; // v_fp[2]->z-v_fp[0]->z};
-              vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
-
-              vector vec1, vec2, vec3, vec4;
-              cross_product(&diff_vec_1, &edge_1, &vec1);
-              cross_product(&diff_vec_2, &edge_2, &vec2);
-              cross_product(&diff_vec_3, &edge_3, &vec3);
-              double d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
-              double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
-              double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
-              printf("=================\n");
-              printf("Rechnung: %f\n", s_1 * (s_1 - b_1) * (s_1 - c_2) * (s_1 - b));
-              printf("%f %f %f\n", area_0, area_1, area_2);
-              printf("%f %f %f %f\n", s_1, b_1, c_2, b);
-              printf("Sum_area: %f\n", sum_area);
-              printf("x: %d, y: %d\n", x, y);
-              // printf("%f %f\n", winkel_12_1, winkel_12_2);
-              printf("Abstaende: %f, %f, %f\n", d1, d2, d3);
-              printf("Normale: %f, %f, %f\n", v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x);
-              printf("Gewichte: %f %f %f %f\n", w0, w1, w2, denom);
-              printf("Neue Gewichte:%f %f %f\n", area_0 / sum_area, area_1 / sum_area, area_2 / sum_area);
-              printf("Tiefen: %f %f %f %f %f\n", v_fp[0]->z, v_fp[1]->z, v_fp[2]->z, depth, dep_buf[y * width + x]);
-              printf("(%f|%f)\n", v_fp[0]->x, v_fp[0]->y);
-              printf("(%f|%f)\n", v_fp[1]->x, v_fp[1]->y);
-              printf("(%f|%f)\n", v_fp[2]->x, v_fp[2]->y);
-            }*/
-          if (depth < dep_buf[y * width + x]) //|| edge_buffer[y * width + x] < depth)
-            {
-              vector diff_vec_1 = {v_fp[0]->x - x, v_fp[0]->y - y, 0};
-              vector diff_vec_1_inv = {-diff_vec_1.x, -diff_vec_1.y, 0}; // depth-v_fp[0]->z};
-              vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};   // depth-v_fp[1]->z};
-              vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
-              vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0}; // depth-v_fp[2]->z};
-              vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
-              vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
-              vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
-
-              vector edge_1 = {v_fp[0]->x - v_fp[1]->x, v_fp[0]->y - v_fp[1]->y, 0}; // v_fp[0]->z-v_fp[1]->z};
-              vector edge_1_inv = {-edge_1.x, -edge_1.y, 0};
-              vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0}; // v_fp[1]->z-v_fp[2]->z};
-              vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
-              vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0}; // v_fp[2]->z-v_fp[0]->z};
-              vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
-
-              vector vec1, vec2, vec3, vec4;
-              cross_product(&diff_vec_1, &edge_1, &vec1);
-              cross_product(&diff_vec_2, &edge_2, &vec2);
-              cross_product(&diff_vec_3, &edge_3, &vec3);
-              double d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
-              double d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
-              double d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
-
-              float winkel_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
-              float winkel_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
-
-              float winkel_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
-              float winkel_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
-
-              float winkel_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
-              float winkel_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
-              float winkel_23_1, winkel_23_2, winkel_13_1, winkel_13_2;
-              float d4 = 100; // todo
-              float d5 = 100;
-              if (v_fp[1]->normal.z >= 0.5)
+              /* calculate barycentric coordinates*/
+              double d1 = off + 1, d2 = off + 1, d3 = off + 1, d4 = off + 1, d5 = off + 1;
+              if (v_fp[0]->normal.x > 0)
                 {
+                  vector vec1;
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
+                  vector edge_1 = {-edge_1_inv.x, -edge_1_inv.y, 0};
+                  cross_product(&diff_vec_1, &edge_1, &vec1);
+                  d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
+                  float winkel_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+                  float winkel_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
+                  if (winkel_01_1 < 0)
+                    {
+                      d1 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
+                    }
+                  else if (winkel_01_2 < 0)
+                    {
+                      d1 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                }
+              if (v_fp[1]->normal.x > 0)
+                {
+                  vector vec2;
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
+                  vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
+                  cross_product(&diff_vec_2, &edge_2, &vec2);
+                  d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
+                  float winkel_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
+                  float winkel_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
+                  if (winkel_12_1 < 0)
+                    {
+                      d2 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  else if (winkel_12_2 < 0)
+                    {
+                      d2 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                }
+              if (v_fp[2]->normal.x > 0)
+                {
+                  vector vec3;
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+                  vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
+                  cross_product(&diff_vec_3, &edge_3, &vec3);
+                  d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
+                  float winkel_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
+                  float winkel_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
+                  if (winkel_20_1 < 0)
+                    {
+                      d3 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                  else if (winkel_20_2 < 0)
+                    {
+                      d3 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
+                    }
+                }
+              if (v_fp[1]->normal.z > 0.0)
+                {
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
+                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
+                  vector vec4;
                   vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  winkel_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
-                  winkel_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
+                  float winkel_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float winkel_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
                   cross_product(&diff_vec_3, &edge_4, &vec4);
                   d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
-                }
-              if (v_fp[1]->normal.z <= -0.5)
-                {
-                  vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
-                  vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  winkel_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
-                  winkel_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
-                  cross_product(&diff_vec_2, &edge_4, &vec4);
-                  d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
-                  // v_fp[1]->normal.z = -v_fp[1]->normal.z;
-                }
-              // 2090, 2116
-              // 2016, 2037
-              // 1840, 2057
-              // 1856, 210;
-              // 2672, 1843
-              // 1820, 1916
-              // 1810, 2108
-              // 899, 2017
-              if (winkel_01_1 < 0)
-                {
-                  d1 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
-                }
-              else if (winkel_01_2 < 0)
-                {
-                  d1 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
-                }
-              if (winkel_12_1 < 0)
-                {
-                  d2 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
-                }
-              else if (winkel_12_2 < 0)
-                {
-                  d2 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
-                }
-              if (winkel_20_1 < 0)
-                {
-                  d3 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
-                }
-              else if (winkel_20_2 < 0)
-                {
-                  d3 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
-                }
-              if (v_fp[1]->normal.z >= 0.5)
-                {
                   if (winkel_23_1 < 0)
                     {
                       d4 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
@@ -1092,9 +1016,19 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                       d4 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
                     }
                 }
-              else if (v_fp[1]->normal.z <= -0.5)
+              if (v_fp[1]->normal.z < 0.0)
                 {
-                  // v_fp[1]->normal.z = -v_fp[1]->normal.z;
+                  vector vec4;
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
+                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
+                  vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
+                  vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
+                  float winkel_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float winkel_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
+                  cross_product(&diff_vec_2, &edge_4, &vec4);
+                  d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                   if (winkel_13_1 < 0)
                     {
                       d5 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
@@ -1104,34 +1038,38 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                       d5 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
                     }
                 }
+
               if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x ||
                   d4 < v_fp[1]->normal.z || d5 < -v_fp[1]->normal.z)
                 {
                   color black = {0, 0, 0, 255};
-                  /*if (x == 899 && y == 2017)
-                    {
-                      black.g = 255;
-                      black.a = 255;
-                    }*/
                   color_pixel(pixels, dep_buf, depth, width, x, y, &black);
                 }
-              else if ((w0 > 0 && w1 > 0 && w2 > 0))
+              else
                 {
-                  color col;
-                  col.r = (unsigned char)(context_struct_.background_color[0] * 255);
-                  col.g = (unsigned char)(context_struct_.background_color[1] * 255);
-                  col.b = (unsigned char)(context_struct_.background_color[2] * 255);
-                  col.a = (unsigned char)(context_struct_.background_color[3] * 255);
-                  /*if (x == 899 && y == 2017)
+                  /* todo find something more efficicent */
+                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+                  float d00 = dot_vector(&edge_1_inv, &edge_1_inv);
+                  float d01 = dot_vector(&edge_1_inv, &edge_3);
+                  float d11 = dot_vector(&edge_3, &edge_3);
+                  float d20 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+                  float d21 = dot_vector(&diff_vec_1_inv, &edge_3);
+                  float denom = d00 * d11 - d01 * d01;
+                  float w0 = (d11 * d20 - d01 * d21) / denom;
+                  float w1 = (d00 * d21 - d01 * d20) / denom;
+                  float w2 = 1.0f - w0 - w1;
+                  if ((w0 > 0 && w1 > 0 && w2 > 0))
                     {
-                      col.r = 255;
-                      col.a = 255;
-                    }*/
-                  color_pixel(pixels, dep_buf, depth, width, x, y, &col);
-                  // edge_buffer[y * width + x] = depth;
+                      color col;
+                      col.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                      col.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                      col.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                      col.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+                    }
                 }
-              /*color col = {255, 0, 0, 255};
-              color_pixel(pixels, dep_buf, depth, width, x, y, &col);*/
             }
         }
     }

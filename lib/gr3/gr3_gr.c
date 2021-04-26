@@ -532,17 +532,20 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
         }
     }
   int new_idx = 0, l = 0;
-  float linewidth_y = 0.5;
-  float linewidth_x = 0.5;
+  float linewidth_y = 2;
+  float linewidth_x = 1;
   if (context_struct_.option == OPTION_LINES)
     {
-      // linewidth_x = linewidth_y; // todo
+      linewidth_x = 0; /* set to zero to not be drawn */
     }
   for (j = 0; j < ny - 1; j++)
     {
       for (i = 0; i < nx - 1; i++)
         {
-          /* unroll */
+          /* Unroll the indexbuffer for the software-renderer, if the edges should be drawn (cf Options).
+           * The idea is to store a linewidth in the normals x value of every vertex.
+           * The normals x-value of the first vertex determines the width of edge 0-1, the seconds vertex normals x
+           * coordinate to the edge 1-2 and the last one to 2-0.*/
           int k = j * nx + i;
           if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
             {
@@ -555,15 +558,19 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
                   new_vertices[new_idx + 12 + l] = vertices[(k + 1) * 3 + l];
                   new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
                 }
-              // neuer zu verschiebender Punkt: Punkt mit idx 0, also k
-              new_normals[new_idx] = linewidth_y; // 1 vertikale linie
+              new_normals[new_idx] = linewidth_y; /* vertical line */
               new_normals[new_idx + 3] = 0;
-              new_normals[new_idx + 6] = linewidth_x; // 1 horizontale linie
+              new_normals[new_idx + 6] = linewidth_x; /* horizontal line */
               new_normals[new_idx + 9] = 0;
-              new_normals[new_idx + 12] = linewidth_x; // 1 horizontale linie
-              new_normals[new_idx + 15] = linewidth_y; // 1 vertikale linie
+              new_normals[new_idx + 12] = linewidth_x; /* horizontal line */
+              new_normals[new_idx + 15] = linewidth_y; /* vertical line */
 
-              // TODO
+              /* If the edges have to be drawn forming a square shape, every triangle must additionaly have
+               * information about the vertex that is missing to make the triangle a square, because
+               * all the edges of the square have to be rasterized. Thus the coordinates are passed by
+               * storing them in the normals, because those arent needed. There are two cases depending on
+               * which vertex is left out in the square to form a triangle, and to keep them apart
+               * the linewidth is passed with a negative sign in one case.*/
               new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
               new_normals[new_idx + 2] = vertices[(k + nx + 1) * 3 + 1];
               new_normals[new_idx + 4] = vertices[(k + nx + 1) * 3 + 2];
@@ -573,30 +580,21 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               new_normals[new_idx + 11] = vertices[k * 3 + 1];
               new_normals[new_idx + 13] = vertices[k * 3 + 2];
               new_normals[new_idx + 14] = -linewidth_y;
-              //
-              if (j == 0)
-                { // rand links
-                  if (i == 0)
-                    {
-                      new_normals[new_idx + 6] = linewidth_y;
-                    }
-                  new_normals[new_idx] = linewidth_y; // 2*
+              if (j == 0) /*left border*/
+                {
+                  new_normals[new_idx] = linewidth_y;
                 }
-              else if (i == 0)
-                {                                         // unterseite oben links
-                  new_normals[new_idx + 6] = linewidth_y; // 2*
+              if (i == 0)
+                {
+                  new_normals[new_idx + 6] = linewidth_y;
                 }
-              else if (j == ny - 2)
-                { // Unterseite unten rechts
-                  if (i == nx - 2)
-                    {
-                      new_normals[new_idx + 12] = linewidth_y; // 2*
-                    }
-                  new_normals[new_idx + 15] = linewidth_y; // 2*
+              if (j == ny - 2) /*right border*/
+                {
+                  new_normals[new_idx + 15] = linewidth_y;
                 }
-              else if (i == nx - 2)
-                {                                          // seite ganz rechts
-                  new_normals[new_idx + 12] = linewidth_y; // 2*
+              if (i == nx - 2)
+                {
+                  new_normals[new_idx + 12] = linewidth_y;
                 }
               new_idx += 18;
             }
