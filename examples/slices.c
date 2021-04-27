@@ -150,7 +150,7 @@ int main(void)
   gr_setviewport(0, 1, 0, 1);
   gr_setwindow(-2, 2, -2, 3);
   gr_setspace(-8, 8, angle, 45);
-  gr3_surface(nx, ny, px, py, pz, 3);
+  gr3_surface(nx, ny, px, py, pz, 2);
   /*nx = 2;
   ny = 2;
   float px_2[2] = {-1.0f, 1.0f};

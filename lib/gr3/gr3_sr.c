@@ -810,7 +810,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_0 = 0;
       float div_1 = 0;
       float div_2 = 0;
-      color_float line_color_f;
       color triangle_color;
       color line_color;
       if (arg->scales != NULL)
@@ -827,10 +826,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               double r, g, b;
               gks_inq_pline_color_index(&errind, &color);
               gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
-              line_color_f.r = (float)r;
-              line_color_f.g = (float)g;
-              line_color_f.b = (float)b;
-              line_color_f.a = 1.0;
+              color_float line_color_f = {r, g, b, 1.0};
               line_color = color_float_to_color(line_color_f);
               if (context_struct_.option < 2)
                 {
@@ -841,10 +837,10 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
                 }
               else
                 {
-                  triangle_color.r = 255;
-                  triangle_color.g = 255;
-                  triangle_color.b = 255;
-                  triangle_color.a = 255;
+                  gks_inq_fill_color_index(&errind, &color);
+                  gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
+                  color_float triangle_color_f = {r, g, b, 1.0};
+                  triangle_color = color_float_to_color(triangle_color_f);
                 }
             }
         }
