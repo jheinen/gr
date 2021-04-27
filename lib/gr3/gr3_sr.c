@@ -811,7 +811,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_1 = 0;
       float div_2 = 0;
       color_float line_color_f;
-      color background_color;
+      color triangle_color;
       color line_color;
       if (arg->scales != NULL)
         {
@@ -832,10 +832,20 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               line_color_f.b = (float)b;
               line_color_f.a = 1.0;
               line_color = color_float_to_color(line_color_f);
-              background_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
-              background_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
-              background_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
-              background_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
+              if (context_struct_.option < 2)
+                {
+                  triangle_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                  triangle_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                  triangle_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                  triangle_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                }
+              else
+                {
+                  triangle_color.r = 255;
+                  triangle_color.g = 255;
+                  triangle_color.b = 255;
+                  triangle_color.a = 255;
+                }
             }
         }
       vertex_fp vertices_fp[3];
@@ -866,7 +876,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[0];
           vertex_fpp[1] = &vertices_fp[1];
           vertex_fpp[2] = &vertices_fp[2];
-          if (context_struct_.option >= 0 && context_struct_.option >= 2)
+          if (context_struct_.option > 2)
             {
               draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
                             arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
@@ -888,7 +898,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
                 }
               draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
                                        context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
-                                       vertex_fpp, line_color, background_color);
+                                       vertex_fpp, line_color, triangle_color);
             }
         }
     }

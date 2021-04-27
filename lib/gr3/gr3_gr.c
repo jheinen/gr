@@ -631,6 +631,12 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
       free(colors);
       free(normals);
       free(vertices);
+      if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+        {
+          free(new_normals);
+          free(new_vertices);
+          free(new_colors);
+        }
     }
 
   return result;
