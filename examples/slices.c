@@ -50,17 +50,17 @@ int main(void)
               }
           }
       }
-  }*/
-  /*gr_setviewport(0, 1, 0, 1);
+  }
+  gr_setviewport(0, 1, 0, 1);
   gr_setcolormap(1);
-  gr3_init(NULL);*/
-  /*float px[3] = {0,0,1};
+  gr3_init(NULL);
+  float px[3] = {0,0,1};
   float py[3] = {1,0,0};
   float pz[9] = {0.5,0.5,0.5, 0.5,0.5,0.5, 0.5,0.5,0.5};
   gr3_surface(3, 3, px, py, pz, 0);
   gr3_drawimage(0, 1, 0, 1, 500, 500, GR3_DRAWABLE_GKS);
-  gr_updatews();*/
-  /*gr3_createisosurfacemesh(&mesh, data, 40000, nx, ny, nz, stride_x, stride_y, stride_z, step_x, step_y, step_z,
+  gr_updatews();
+  gr3_createisosurfacemesh(&mesh, data, 40000, nx, ny, nz, stride_x, stride_y, stride_z, step_x, step_y, step_z,
                            offset_x, offset_y, offset_z);
   gr3_cameralookat(-3, 3, -4, 0, 0, 0, -1, 0, 0);
   {
@@ -141,25 +141,27 @@ int main(void)
         }
     }
   angle = 50;
+  gr_setlinewidth(0.5);
+  gr_setlinecolorind(0);
   gr_clearws();
   gr3_setbackgroundcolor(1.0, 1.0, 1.0, 0.0);
   gr_setfillcolorind(0);
-  gr3_setquality(GR3_QUALITY_OPENGL_2X_SSAA);
+  // gr3_setquality(GR3_QUALITY_OPENGL_4X_SSAA);
   gr_setviewport(0, 1, 0, 1);
   gr_setwindow(-2, 2, -2, 3);
   gr_setspace(-8, 8, angle, 45);
-  gr3_surface(nx, ny, px, py, pz, 0);
+  gr3_surface(nx, ny, px, py, pz, 1);
   /*nx = 2;
   ny = 2;
   float px_2[2] = {-1.0f, 1.0f};
   float pz_2[4] = {1.0f, 1.0f, 1.0f, 1.0f};
   gr3_surface(nx, ny, px_2, px_2, pz_2, 4);*/
-  gr3_export("gr3_surface_demo_single_picture_export.png", 4000, 4000);
+  gr3_export("gr3_surface_demo_single_picture_export.png", 2400, 2400);
   gr_updatews();
   // getchar();
-  free(px);
+  /*free(px);
   free(py);
-  free(pz);
+  free(pz);*/
   gr3_terminate();
   gr_emergencyclosegks();
   return 0;

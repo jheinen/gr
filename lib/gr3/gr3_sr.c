@@ -8,6 +8,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "gks.h"
 #ifdef _MSC_VER
 #define NO_THREADS 1
 #endif
@@ -70,7 +71,8 @@ static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective,
 static void *draw_triangle_indexbuffer(void *v_arguments);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir);
-static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3]);
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
+                                     color line_color, color background_color);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01);
@@ -736,7 +738,6 @@ GR3API int gr3_initSR_()
 
   if (context_struct_.num_threads <= 0)
     {
-
       context_struct_.num_threads = 1;
     }
 #else
@@ -800,7 +801,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[indices[i]];
           vertex_fpp[1] = &vertices_fp[indices[i + 1]];
           vertex_fpp[2] = &vertices_fp[indices[i + 2]];
-          /* TODO Zeichnefall kanten */
           draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
                         arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
         }
@@ -810,16 +810,32 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_0 = 0;
       float div_1 = 0;
       float div_2 = 0;
+      color_float line_color_f;
+      color background_color;
+      color line_color;
       if (arg->scales != NULL)
         {
           div_0 = arg->scales[0];
           div_1 = arg->scales[1];
           div_2 = arg->scales[2];
-          if (context_struct_.option <= 2)
+          if (context_struct_.option >= 0 && context_struct_.option <= 2)
             {
               div_0 = 1;
               div_1 = 1;
               div_2 = 1;
+              int color, errind;
+              double r, g, b;
+              gks_inq_pline_color_index(&errind, &color);
+              gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
+              line_color_f.r = (float)r;
+              line_color_f.g = (float)g;
+              line_color_f.b = (float)b;
+              line_color_f.a = 1.0;
+              line_color = color_float_to_color(line_color_f);
+              background_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
+              background_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
+              background_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
+              background_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
             }
         }
       vertex_fp vertices_fp[3];
@@ -850,7 +866,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[0];
           vertex_fpp[1] = &vertices_fp[1];
           vertex_fpp[2] = &vertices_fp[2];
-          if (context_struct_.option >= 2)
+          if (context_struct_.option >= 0 && context_struct_.option >= 2)
             {
               draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
                             arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
@@ -859,7 +875,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
             {
               if (arg->scales != NULL)
                 {
-                  if (context_struct_.option <= 2 && (vertices_fp[1].normal.z > 0.0 || vertices_fp[1].normal.z < 0))
+                  if (vertices_fp[1].normal.z > 0.0 || vertices_fp[1].normal.z < 0)
                     {
                       vertex_fp tmp = {vertices_fp[0].normal.y, vertices_fp[0].normal.z, vertices_fp[1].normal.y, 1.0};
                       mat_vec_mul_4x1(&arg->model_view_perspective, &tmp);
@@ -872,13 +888,14 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
                 }
               draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
                                        context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
-                                       vertex_fpp);
+                                       vertex_fpp, line_color, background_color);
             }
         }
     }
   return NULL;
 }
-static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3])
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
+                                     color line_color, color background_color)
 {
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
@@ -886,10 +903,14 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x;
   int y;
-  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x)) + 3;
-  for (x = x_min - off; x <= x_max + off; x++)
+  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x));
+  int x_lim_lower = x_min - off < 0 ? 0 : x_min - off;
+  int x_lim_upper = x_max + off > width - 1 ? width - 1 : x_max + off;
+  int y_lim_lower = y_min - off < 0 ? 0 : y_min - off;
+  int y_lim_upper = y_max + off > height - 1 ? height - 1 : y_max + off;
+  for (x = x_lim_lower; x <= x_lim_upper; x++)
     {
-      for (y = y_min - off; y <= y_max + off; y++)
+      for (y = y_lim_lower; y <= y_lim_upper; y++)
         {
           /* calculate depth with interpolation/extrapolation by calculating the area of the sub triangles */
           float len_v_0_1 = sqrt((v_fp[0]->x - v_fp[1]->x) * (v_fp[0]->x - v_fp[1]->x) +
@@ -1042,12 +1063,10 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x ||
                   d4 < v_fp[1]->normal.z || d5 < -v_fp[1]->normal.z)
                 {
-                  color black = {0, 0, 0, 255};
-                  color_pixel(pixels, dep_buf, depth, width, x, y, &black);
+                  color_pixel(pixels, dep_buf, depth, width, x, y, &line_color);
                 }
               else
                 {
-                  /* todo find something more efficicent */
                   vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
                   vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
                   vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
@@ -1062,12 +1081,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   float w2 = 1.0f - w0 - w1;
                   if ((w0 > 0 && w1 > 0 && w2 > 0))
                     {
-                      color col;
-                      col.r = (unsigned char)(context_struct_.background_color[0] * 255);
-                      col.g = (unsigned char)(context_struct_.background_color[1] * 255);
-                      col.b = (unsigned char)(context_struct_.background_color[2] * 255);
-                      col.a = (unsigned char)(context_struct_.background_color[3] * 255);
-                      color_pixel(pixels, dep_buf, depth, width, x, y, &col);
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &background_color);
                     }
                 }
             }
@@ -1241,7 +1255,7 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
         }
 #endif
       depth = (w0 * v_fp[0]->z + w1 * v_fp[1]->z + w2 * v_fp[2]->z) * sum_inv;
-      if (depth < dep_buf[y * width + x] && context_struct_.option > 2)
+      if (depth < dep_buf[y * width + x])
         {
           col = calc_colors(v_fp[0]->c, v_fp[1]->c, v_fp[2]->c, w0, w1, w2, v_fp, colors, light_dir);
           color_pixel(pixels, dep_buf, depth, width, x, y, &col);
@@ -1587,7 +1601,7 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           view_mat_3x3.mat[i * 3 + j] = view_mat.mat[i * 4 + j];
         }
     }
-  if (context_struct_.option <= 2)
+  if (context_struct_.option >= 0 && context_struct_.option <= 2)
     {
       matrix3x3 id = {{1, 0, 0, 0, 1, 0, 0, 0, 1}};
       model_view_mat_3x3 = id;

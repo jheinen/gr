@@ -294,21 +294,13 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
-				HEADER_SEARCH_PATHS = (
-					/usr/X11/include,
-					/usr/X11/include/freetype2,
-				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
 				"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				"OTHER_CFLAGS[arch=*]" = "-DXFT";
-				OTHER_LDFLAGS = (
-					"-L/usr/X11/lib",
-					"-lfreetype",
-					"-lc++",
-				);
+				"OTHER_CFLAGS[arch=*]" = "-DNO_FT";
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_NAME = GKSTerm;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = YES;
@@ -325,21 +317,13 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = GKSTerm_Prefix.pch;
-				HEADER_SEARCH_PATHS = (
-					/usr/X11/include,
-					/usr/X11/include/freetype2,
-				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = $SRCROOT/../../../3rdparty/build/lib;
 				"LIBRARY_SEARCH_PATHS[arch=*]" = $SRCROOT/../../../3rdparty/build/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
-				"OTHER_CFLAGS[arch=*]" = "-DXFT";
-				OTHER_LDFLAGS = (
-					"-L/usr/X11/lib",
-					"-lfreetype",
-					"-lc++",
-				);
+				"OTHER_CFLAGS[arch=*]" = "-DNO_FT";
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_NAME = GKSTerm;
 				WRAPPER_EXTENSION = app;
 			};

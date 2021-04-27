@@ -8,7 +8,7 @@ endif
 
 UNAME := $(shell uname)
 
-    INCLUDES = -I$(THIRDPARTYDIR)/include -I../gr
+    INCLUDES = -I$(THIRDPARTYDIR)/include -I../gr -I../gks
       GRLIBS = -L../gr -lGR
      PNGLIBS = $(THIRDPARTYDIR)/lib/libpng.a
     JPEGLIBS = $(THIRDPARTYDIR)/lib/libjpeg.a

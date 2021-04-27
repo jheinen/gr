@@ -13,6 +13,7 @@ extern float __cdecl sqrtf(float);
 #include "gr.h"
 #include "gr3.h"
 #include "gr3_internals.h"
+#include "gks.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -531,13 +532,19 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
           RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
     }
-  int new_idx = 0, l = 0;
-  float linewidth_y = 2;
-  float linewidth_x = 1;
+  int new_idx = 0, l = 0, errind;
+  double linewidth_y;
+  gks_inq_pline_linewidth(&errind, &linewidth_y);
+  if (errind != GKS_K_NO_ERROR)
+    {
+      RETURN_ERROR(errind);
+    }
+  float linewidth_x = linewidth_y;
   if (context_struct_.option == OPTION_LINES)
     {
       linewidth_x = 0; /* set to zero to not be drawn */
     }
+  /* create triangles */
   for (j = 0; j < ny - 1; j++)
     {
       for (i = 0; i < nx - 1; i++)
