@@ -542,9 +542,9 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
     {
       for (i = 0; i < nx - 1; i++)
         {
-          /* Unroll the indexbuffer for the software-renderer, if the edges should be drawn (cf Options).
+          /* Unroll the indexbuffer for the software-renderer, if the edges should be drawn (cf Options in gr3_surface).
            * The idea is to store a linewidth in the normals x value of every vertex.
-           * The normals x-value of the first vertex determines the width of edge 0-1, the seconds vertex normals x
+           * The normals x-value of the first vertex determines the width of edge 0-1, the second vertex normal's x
            * coordinate to the edge 1-2 and the last one to 2-0.*/
           int k = j * nx + i;
           if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
@@ -565,10 +565,10 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
               new_normals[new_idx + 12] = linewidth_x; /* horizontal line */
               new_normals[new_idx + 15] = linewidth_y; /* vertical line */
 
-              /* If the edges have to be drawn forming a square shape, every triangle must additionaly have
+              /* If the edges have to be drawn forming a square shape, every triangle must additionally have
                * information about the vertex that is missing to make the triangle a square, because
                * all the edges of the square have to be rasterized. Thus the coordinates are passed by
-               * storing them in the normals, because those arent needed. There are two cases depending on
+               * storing them in the normals, because those aren't needed. There are two cases depending on
                * which vertex is left out in the square to form a triangle, and to keep them apart
                * the linewidth is passed with a negative sign in one case.*/
               new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
@@ -612,8 +612,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
     }
   if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
     {
-      result =
-          gr3_createmesh_nocopy(mesh, new_num_vertices, new_vertices, new_normals, new_colors); // mit den neuen daten
+      result = gr3_createmesh_nocopy(mesh, new_num_vertices, new_vertices, new_normals, new_colors);
     }
   else
     {
@@ -797,7 +796,7 @@ GR3API void gr3_drawsurface(int mesh)
 GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int option)
 {
   if (option == OPTION_Z_SHADED_MESH || option == OPTION_COLORED_MESH ||
-      (context_struct_.use_software_renderer && option <= OPTION_FILLED_MESH)) // 3 oder 4
+      (context_struct_.use_software_renderer && option <= OPTION_FILLED_MESH))
     {
       int mesh;
       double xmin, xmax, ymin, ymax;

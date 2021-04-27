@@ -886,7 +886,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x;
   int y;
-  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x));
+  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x)) + 3;
   for (x = x_min - off; x <= x_max + off; x++)
     {
       for (y = y_min - off; y <= y_max + off; y++)
@@ -901,21 +901,21 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           float len_p_0 = sqrt((x - v_fp[0]->x) * (x - v_fp[0]->x) + (y - v_fp[0]->y) * (y - v_fp[0]->y));
           float len_p_1 = sqrt((x - v_fp[1]->x) * (x - v_fp[1]->x) + (y - v_fp[1]->y) * (y - v_fp[1]->y));
           float len_p_2 = sqrt((x - v_fp[2]->x) * (x - v_fp[2]->x) + (y - v_fp[2]->y) * (y - v_fp[2]->y));
-          float s_0 = (len_p_0 + len_p_1 + len_v_0_1) / 2; // Semiperimeter
+          float s_0 = (len_p_0 + len_p_1 + len_v_0_1) / 2;
           float tmp_0 = s_0 * (s_0 - len_p_0) * (s_0 - len_p_1) * (s_0 - len_v_0_1);
           if (tmp_0 < 0)
             {
               tmp_0 = 0;
             }
           float area_0 = sqrt(tmp_0);
-          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2; // Semiperimeter
+          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2;
           float tmp_1 = s_1 * (s_1 - len_p_1) * (s_1 - len_p_2) * (s_1 - len_v_1_2);
           if (tmp_1 < 0)
             {
               tmp_1 = 0;
             }
           float area_1 = sqrt(tmp_1);
-          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2; // Semiperimeter
+          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2;
           float tmp_2 = s_2 * (s_2 - len_p_2) * (s_2 - len_p_0) * (s_2 - len_v_2_0);
           if (tmp_2 < 0)
             {
