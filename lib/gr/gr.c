@@ -8988,6 +8988,8 @@ void gr_setcolormapfromrgb(int n, double *r, double *g, double *b, double *x)
             }
         }
     }
+  first_color = 1000;
+  last_color = 1255;
   for (i = 0; i < n - 1; i++)
     {
       if (x == NULL)
