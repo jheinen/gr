@@ -9013,6 +9013,25 @@ void gr_setcolormapfromrgb(int n, double *r, double *g, double *b, double *x)
     }
 }
 
+/*!
+ * Inquire the color index range of the current colormap.
+ *
+ * \param[out] first_color_ind The color index of the first color
+ * \param[out] last_color_ind The color index of the last color
+ */
+void gr_inqcolormapinds(int *first_color_ind, int *last_color_ind)
+{
+  check_autoinit;
+  if (first_color_ind != NULL)
+    {
+      *first_color_ind = first_color;
+    }
+  if (last_color_ind != NULL)
+    {
+      *last_color_ind = last_color;
+    }
+}
+
 void gr_colorbar(void)
 {
   int errind, halign, valign, clsw, tnr;
@@ -12335,10 +12354,10 @@ static void draw_volume(const double *pixels)
         }
     }
 
-  int *colormap = (int *)gks_malloc(256 * sizeof(int));
-  for (i = 0; i < 256; i++)
+  int *colormap = (int *)gks_malloc((last_color - first_color + 1) * sizeof(int));
+  for (i = first_color; i <= last_color; i++)
     {
-      gr_inqcolor(i + 1000, colormap + i);
+      gr_inqcolor(i, colormap + i - first_color);
     }
 
   for (i = 0; i < vt.picture_width * vt.picture_height; i++)
@@ -12351,7 +12370,7 @@ static void draw_volume(const double *pixels)
             }
           else
             {
-              ipixels[i] = (255u << 24) + colormap[(int)(pixels[i] / dmax * 255)];
+              ipixels[i] = (255u << 24) + colormap[(int)(pixels[i] / dmax * (last_color - first_color))];
             }
         }
     }

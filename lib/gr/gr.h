@@ -124,6 +124,7 @@ DLLEXPORT int gr_hexbin(int, double *, double *, int);
 DLLEXPORT void gr_setcolormap(int);
 DLLEXPORT void gr_inqcolormap(int *);
 DLLEXPORT void gr_setcolormapfromrgb(int n, double *r, double *g, double *b, double *x);
+DLLEXPORT void gr_inqcolormapinds(int *, int *);
 DLLEXPORT void gr_colorbar(void);
 DLLEXPORT void gr_inqcolor(int, int *);
 DLLEXPORT int gr_inqcolorfromrgb(double, double, double);

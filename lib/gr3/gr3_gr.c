@@ -28,9 +28,6 @@ extern float __cdecl sqrtf(float);
 
 #define arc(angle) (M_PI * (angle) / 180.0)
 
-#define DEFAULT_FIRST_COLOR 8
-#define DEFAULT_LAST_COLOR 79
-
 #define OPTION_X_LOG (1 << 0)
 #define OPTION_Y_LOG (1 << 1)
 #define OPTION_Z_LOG (1 << 2)
@@ -302,11 +299,12 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   int result;
   int scale;
   int cmap;
-  int first_color = DEFAULT_FIRST_COLOR, last_color = DEFAULT_LAST_COLOR;
+  int first_color, last_color;
   int projection_type;
   trans_t tx, ty, tz;
 
   gr_inqprojectiontype(&projection_type);
+  gr_inqcolormapinds(&first_color, &last_color);
 
   num_vertices = nx * ny;
   vertices = malloc(num_vertices * 3 * sizeof(float));
@@ -364,20 +362,6 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
           if (pz[i] > zmax) zmax = pz[i];
         }
       scale = 0;
-    }
-  if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
-    {
-      gr_inqcolormap(&cmap);
-      if (abs(cmap) >= 100)
-        {
-          first_color = 1000;
-          last_color = 1255;
-        }
-      else
-        {
-          first_color = DEFAULT_FIRST_COLOR;
-          last_color = DEFAULT_LAST_COLOR;
-        }
     }
 
   gr3_ndctrans_(xmin, xmax, &tx, scale & OPTION_X_LOG, scale & OPTION_FLIP_X);
@@ -945,6 +929,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   double min, max;
   int i;
   int *color_data, *colormap;
+  int first_color, last_color;
   GLfloat fovy, zNear, zFar, aspect, tfov2;
   GLfloat *pixel_data, *fdata;
   GLsizei vertex_shader_source_lines, fragment_shader_source_lines;
@@ -1097,7 +1082,8 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   assert(pixel_data);
   fdata = malloc(nx * ny * nz * sizeof(float));
   assert(fdata);
-  colormap = malloc(256 * sizeof(int));
+  gr_inqcolormapinds(&first_color, &last_color);
+  colormap = malloc((last_color - first_color + 1) * sizeof(int));
   assert(colormap);
   color_data = malloc(width * height * sizeof(int));
   assert(color_data);
@@ -1384,9 +1370,9 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
         }
     }
 
-  for (i = 0; i < 256; i++)
+  for (i = first_color; i <= last_color; i++)
     {
-      gr_inqcolor(i + 1000, colormap + i);
+      gr_inqcolor(i, colormap + i - first_color);
     }
 
   for (i = 0; i < width * height; i++)
@@ -1397,14 +1383,14 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
         }
       else
         {
-          int val = (int)(255 * ((pixel_data[i] - 1) - min) / (max - min));
+          int val = (int)((last_color - first_color) * ((pixel_data[i] - 1) - min) / (max - min));
           if (val < 0)
             {
               val = 0;
             }
-          else if (val > 255)
+          else if (val > last_color - first_color)
             {
-              val = 255;
+              val = last_color - first_color;
             }
           color_data[i] = (255u << 24) + colormap[val];
         }
