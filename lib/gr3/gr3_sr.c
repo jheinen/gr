@@ -73,7 +73,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir);
 static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                                     color line_color, color background_color);
+                                     color line_color, color fill_color);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01);
@@ -797,17 +797,20 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_0 = 0;
       float div_1 = 0;
       float div_2 = 0;
-      color triangle_color;
+      color fill_color;
       color line_color;
       color_float dummy_color = {0, 0, 0, 0};
       vector dummy_vector = {0, 0, 0};
-      if (arg->scales != NULL)
+      if (arg->scales != NULL) /* there is a mesh passed to this function with the intention to finish the rendering
+                                * process and it has all values set to 0/NULL */
         {
           div_0 = arg->scales[0];
           div_1 = arg->scales[1];
           div_2 = arg->scales[2];
           if (context_struct_.option >= 0 && context_struct_.option <= 2)
             {
+              /* If a mesh representation with the lines is demanded, the fill color and the linecolor have
+               * to be determined */
               div_0 = 1;
               div_1 = 1;
               div_2 = 1;
@@ -819,17 +822,17 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               line_color = color_float_to_color(line_color_f);
               if (context_struct_.option < 2)
                 {
-                  triangle_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
-                  triangle_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
-                  triangle_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
-                  triangle_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                  fill_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                  fill_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                  fill_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                  fill_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
                 }
               else
                 {
                   gks_inq_fill_color_index(&errind, &color);
                   gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
-                  color_float triangle_color_f = {r, g, b, 1.0};
-                  triangle_color = color_float_to_color(triangle_color_f);
+                  color_float fill_color_f = {r, g, b, 1.0};
+                  fill_color = color_float_to_color(fill_color_f);
                 }
             }
         }
@@ -861,15 +864,20 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[0];
           vertex_fpp[1] = &vertices_fp[1];
           vertex_fpp[2] = &vertices_fp[2];
+
           if (context_struct_.option > 2)
             {
               draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
                             arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
             }
           else
-            {
+            { /* the mesh should be drawn represented by lines */
               if (arg->scales != NULL)
                 {
+                  /* If one of those values is specified, that means that an extra
+                   * vertex is given to make the triangle a square shape, as square
+                   * shapes are the ones that should be drawn. If an additional vertex
+                   * is given, it must be transformed. */
                   if (vertices_fp[1].normal.z > 0 || vertices_fp[1].normal.z < 0)
                     {
                       vertex_fp tmp = {vertices_fp[0].normal.y,
@@ -889,14 +897,29 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
                 }
               draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
                                        context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
-                                       vertex_fpp, line_color, triangle_color);
+                                       vertex_fpp, line_color, fill_color);
             }
         }
     }
   return NULL;
 }
+
+/*!
+ * If there is an option between zero and 2 specified in the gr3_surface method, a mesh with the edges should be drawn
+ * (cf. gr_surface_option_t in gr3_gr.c). In this case there is a value stored in the normals to refer to the
+ * thickness of the lines in a triangle (normal.x of v_fp[0] refers to edge 0-1, normal.x of v_fp[1] refers to edge 1-2,
+ * and normal.x of v_fp[2] refers to edge 2-0). In the rendering process, the distance bewteen the pixel and the
+ * relevant edge is defined by checking if there is a perpendicular line between these two and otherwise calculating the
+ * distance to the closer vertex of the two vertices forming the edge. If this distance is smaller than the given
+ * linewidth of this edge, the pixel is colored, otherwise it isnt.
+ * Because squares should be drawn, there are coordinates of the vertex making the triangle a square stored in the
+ * normal. (v_fp[0].normal.y, v_fp[0].normal.z, v_fp[1].normal.y). One missing edge forming a square and being relevant
+ * in the represenation is taken into account, calculating the distances, as well.
+ * \param [in] color line_color Color of the line to be drawn
+ * \param [in] color fill_color Color to fill the triangles with
+ */
 static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
-                                     color line_color, color background_color)
+                                     color line_color, color fill_color)
 {
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
@@ -948,7 +971,8 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               (area_0 * v_fp[1]->z + area_1 * v_fp[2]->z + area_2 * v_fp[0]->z) * (1 / (area_0 + area_1 + area_2));
           if (depth < dep_buf[y * width + x])
             {
-              /* calculate barycentric coordinates*/
+              /* initialise distances with values that are definitly bigger than the linewidth so the default
+               * is, that they are not colored in line color */
               double d1 = off + 1, d2 = off + 1, d3 = off + 1, d4 = off + 1, d5 = off + 1;
               if (v_fp[0]->normal.x > 0)
                 {
@@ -958,16 +982,22 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
                   vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
                   vector edge_1 = {-edge_1_inv.x, -edge_1_inv.y, 0};
-                  float winkel_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
-                  float winkel_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
-                  if (winkel_01_1 < 0)
+                  float angle_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+                  float angle_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
+                  /* The two first cases mean, that the nearest point of the relevant edge
+                   * to the pixel, which is questioned to be colored in linecolor, is one
+                   * of the vertices of the relevant edge, so there is no perpedicular line between
+                   * edge and pixel. */
+                  if (angle_01_1 < 0)
                     {
                       d1 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
                     }
-                  else if (winkel_01_2 < 0)
+                  else if (angle_01_2 < 0)
                     {
                       d1 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
                     }
+                  /* there is a perpendicular line between edge and pixel, thus the distance
+                   * can be calculated with the cross product */
                   else
                     {
                       vector vec1;
@@ -984,13 +1014,13 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
                   vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
                   vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
-                  float winkel_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
-                  float winkel_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
-                  if (winkel_12_1 < 0)
+                  float angle_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
+                  float angle_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
+                  if (angle_12_1 < 0)
                     {
                       d2 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
                     }
-                  else if (winkel_12_2 < 0)
+                  else if (angle_12_2 < 0)
                     {
                       d2 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
                     }
@@ -1009,13 +1039,13 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
                   vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
                   vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
-                  float winkel_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
-                  float winkel_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
-                  if (winkel_20_1 < 0)
+                  float angle_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
+                  float angle_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
+                  if (angle_20_1 < 0)
                     {
                       d3 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
                     }
-                  else if (winkel_20_2 < 0)
+                  else if (angle_20_2 < 0)
                     {
                       d3 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
                     }
@@ -1034,13 +1064,13 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector vec4;
                   vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  float winkel_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
-                  float winkel_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
-                  if (winkel_23_1 < 0)
+                  float angle_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float angle_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
+                  if (angle_23_1 < 0)
                     {
                       d4 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
                     }
-                  else if (winkel_23_2 < 0)
+                  else if (angle_23_2 < 0)
                     {
                       d4 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
                     }
@@ -1059,13 +1089,13 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
                   vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
-                  float winkel_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
-                  float winkel_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
-                  if (winkel_13_1 < 0)
+                  float angle_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float angle_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
+                  if (angle_13_1 < 0)
                     {
                       d5 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
                     }
-                  else if (winkel_13_2 < 0)
+                  else if (angle_13_2 < 0)
                     {
                       d5 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
                     }
@@ -1075,7 +1105,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                       d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                     }
                 }
-
+              /* if the pixel has a distance to a line which is smaller than the linewidth, it should be colored */
               if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x ||
                   d4 < v_fp[1]->normal.z || d5 < -v_fp[1]->normal.z)
                 {
@@ -1097,7 +1127,8 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   float w2 = 1.0f - w0 - w1;
                   if ((w0 > 0 && w1 > 0 && w2 > 0))
                     {
-                      color_pixel(pixels, dep_buf, depth, width, x, y, &background_color);
+                      /* the pixel does not belong to a line, but lies inside a triangle => fill color */
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &fill_color);
                     }
                 }
             }
