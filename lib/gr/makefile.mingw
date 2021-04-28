@@ -11,11 +11,11 @@ endif
    QHLIBS = $(THIRDPARTYDIR)/lib/libqhull.a
    FTLIBS = $(THIRDPARTYDIR)/lib/libfreetype.a
   GKSLIBS = -L../gks/ -lGKS
-     LIBS = -lws2_32 -lmsimg32 -lgdi32
+     LIBS = -lws2_32 -lmsimg32 -lgdi32 -lpthread
 
 OBJS = gr.o text.o contour.o spline.o gridit.o strlib.o io.o image.o \
 	delaunay.o interp2.o md5.o import.o shade.o contourf.o boundary.o \
-	mathtex2.o mathtex2.tab.o
+	mathtex2.o mathtex2.tab.o threadpool.o
 
 
 # Only update gr_version.h if it will result in an actual change

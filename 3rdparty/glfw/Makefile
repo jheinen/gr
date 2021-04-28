@@ -2,7 +2,7 @@ ifeq ($(strip $(PREFIX)),)
 override PREFIX = $(abspath $(CURDIR)/../build)
 endif
 
-VERSION = 3.1.1
+VERSION = 3.3.3
 GLFW_EXTRA_CMAKE_FLAGS ?=
 ifeq ($(shell uname),Darwin)
  GLFW_EXTRA_CMAKE_FLAGS += -DCMAKE_OSX_DEPLOYMENT_TARGET=10.11
@@ -60,8 +60,5 @@ $(PREFIX)/lib/libglfw3.a: $(PREFIX)/build/glfw-$(VERSION)/Makefile
 	$(MAKE) -C $(PREFIX)/build/glfw-$(VERSION) install
 
 install: $(PREFIX)/lib/libglfw3.a
-
-$(PREFIX)/bin/cmake:
-	$(MAKE) -C ../cmake PREFIX="$(PREFIX)" install
 
 .PHONY: default install

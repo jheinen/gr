@@ -2865,7 +2865,7 @@ int yylex(void)
                 if (result == LATEXFONT && *cursor == '{' && strncmp(symbol_start, "\\text", 5) == 0)
                   {
                     const char *text_end = strchr(symbol_start, '}');
-                    if (text_end)
+                    if (text_end && (strrchr(text_end, '{') == cursor))
                       {
                         yylval.length = (int)(text_end - symbol_start);
                         cursor = text_end + 1;

@@ -19,14 +19,15 @@ extern float __cdecl sqrtf(float);
 #define M_PI 3.14159265358979323846
 #endif
 
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 #ifndef FLT_MAX
 #define FLT_MAX 1.701411735e+38
 #endif
 
 #define arc(angle) (M_PI * (angle) / 180.0)
-
-#define DEFAULT_FIRST_COLOR 8
-#define DEFAULT_LAST_COLOR 79
 
 #define OPTION_X_LOG (1 << 0)
 #define OPTION_Y_LOG (1 << 1)
@@ -299,11 +300,12 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   int result;
   int scale;
   int cmap;
-  int first_color = DEFAULT_FIRST_COLOR, last_color = DEFAULT_LAST_COLOR;
+  int first_color, last_color;
   int projection_type;
   trans_t tx, ty, tz;
 
   gr_inqprojectiontype(&projection_type);
+  gr_inqcolormapinds(&first_color, &last_color);
 
   num_vertices = nx * ny;
   vertices = malloc(num_vertices * 3 * sizeof(float));
@@ -361,20 +363,6 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
           if (pz[i] > zmax) zmax = pz[i];
         }
       scale = 0;
-    }
-  if (option & (GR3_SURFACE_GRCOLOR | GR3_SURFACE_GRZSHADED))
-    {
-      gr_inqcolormap(&cmap);
-      if (abs(cmap) >= 100)
-        {
-          first_color = 1000;
-          last_color = 1255;
-        }
-      else
-        {
-          first_color = DEFAULT_FIRST_COLOR;
-          last_color = DEFAULT_LAST_COLOR;
-        }
     }
 
   gr3_ndctrans_(xmin, xmax, &tx, scale & OPTION_X_LOG, scale & OPTION_FLIP_X);
@@ -1046,6 +1034,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   double min, max;
   int i;
   int *color_data, *colormap;
+  int first_color, last_color;
   GLfloat fovy, zNear, zFar, aspect, tfov2;
   GLfloat *pixel_data, *fdata;
   GLsizei vertex_shader_source_lines, fragment_shader_source_lines;
@@ -1164,31 +1153,33 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
 
   if (context_struct_.use_software_renderer)
     {
-      fprintf(stderr, "gr_volume requires OpenGL, but the GR3 software renderer is in use.\n");
+      double min_val[3] = {-1, -1, -1};
+      double max_val[3] = {1, 1, 1};
+      gr_cpubasedvolume(nx, ny, nz, data, algorithm, dmin_ptr, dmax_ptr, min_val, max_val);
       return;
-    }
-  int base_resolution = 1000;
-  gr_inqprojectiontype(&projection_type);
-  if (projection_type == GR_PROJECTION_DEFAULT)
-    {
-      aspect = 1.0;
-      height = base_resolution;
-      width = base_resolution;
     }
   else
     {
-      double vpxmin, vpxmax, vpymin, vpymax;
-      gr_inqviewport(&vpxmin, &vpxmax, &vpymin, &vpymax);
-      aspect = fabs((vpxmax - vpxmin) / (vpymax - vpymin));
-      if (aspect > 1)
+      int border, max_threads;
+      gr_inqvolumeflags(&border, &max_threads, &height, &width);
+      gr_inqprojectiontype(&projection_type);
+      if (projection_type == GR_PROJECTION_DEFAULT)
         {
-          width = (int)(base_resolution * aspect);
-          height = base_resolution;
+          aspect = 1.0;
         }
       else
         {
-          width = base_resolution;
-          height = (int)(base_resolution / aspect);
+          double vpxmin, vpxmax, vpymin, vpymax;
+          gr_inqviewport(&vpxmin, &vpxmax, &vpymin, &vpymax);
+          aspect = fabs((vpxmax - vpxmin) / (vpymax - vpymin));
+          if (aspect > 1)
+            {
+              width = (int)(width * aspect);
+            }
+          else
+            {
+              height = (int)(height / aspect);
+            }
         }
     }
 
@@ -1196,7 +1187,8 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   assert(pixel_data);
   fdata = malloc(nx * ny * nz * sizeof(float));
   assert(fdata);
-  colormap = malloc(256 * sizeof(int));
+  gr_inqcolormapinds(&first_color, &last_color);
+  colormap = malloc((last_color - first_color + 1) * sizeof(int));
   assert(colormap);
   color_data = malloc(width * height * sizeof(int));
   assert(color_data);
@@ -1291,15 +1283,16 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       double near, far, fov;
       gr_inqperspectiveprojection(&near, &far, &fov);
 
+      far = max(far, fabs(sqrt(3) / sin(fov * M_PI / 360)) + sqrt(3) * 2);
       if (aspect >= 1)
         {
-          projection_matrix[0 + 0 * 4] = (GLfloat)(cos(fov * M_PI / 180 / 2) / sin(fov * M_PI / 180 / 2) / aspect);
-          projection_matrix[1 + 1 * 4] = (GLfloat)(cos(fov * M_PI / 180 / 2) / sin(fov * M_PI / 180 / 2));
+          projection_matrix[0 + 0 * 4] = (GLfloat)(cos(fov * M_PI / 360) / sin(fov * M_PI / 360) / aspect);
+          projection_matrix[1 + 1 * 4] = (GLfloat)(cos(fov * M_PI / 360) / sin(fov * M_PI / 360));
         }
       else
         {
-          projection_matrix[0 + 0 * 4] = (GLfloat)(cos(fov * M_PI / 180 / 2) / sin(fov * M_PI / 180 / 2));
-          projection_matrix[1 + 1 * 4] = (GLfloat)(cos(fov * M_PI / 180 / 2) / sin(fov * M_PI / 180 / 2) * aspect);
+          projection_matrix[0 + 0 * 4] = (GLfloat)(cos(fov * M_PI / 360) / sin(fov * M_PI / 360));
+          projection_matrix[1 + 1 * 4] = (GLfloat)(cos(fov * M_PI / 360) / sin(fov * M_PI / 360) * aspect);
         }
       projection_matrix[2 + 2 * 4] = (GLfloat)((far + near) / (near - far));
       projection_matrix[2 + 3 * 4] = (GLfloat)(2 * far * near / (near - far));
@@ -1338,6 +1331,13 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       double s_norm = sqrt(s_deri[0] * s_deri[0] + s_deri[1] * s_deri[1] + s_deri[2] * s_deri[2]);
       double s[3] = {s_deri[0] / s_norm, s_deri[1] / s_norm, s_deri[2] / s_norm};
 
+      if (projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+        {
+          double cam_norm = sqrt(pow(camera_pos[0], 2) + pow(camera_pos[1], 2) + pow(camera_pos[2], 2));
+          camera_pos[0] /= cam_norm;
+          camera_pos[1] /= cam_norm;
+          camera_pos[2] /= cam_norm;
+        }
       /* transformation matrix */
       grviewmatrix[0 + 0 * 4] = (GLfloat)s[0];
       grviewmatrix[0 + 1 * 4] = (GLfloat)s[1];
@@ -1475,9 +1475,9 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
         }
     }
 
-  for (i = 0; i < 256; i++)
+  for (i = first_color; i <= last_color; i++)
     {
-      gr_inqcolor(i + 1000, colormap + i);
+      gr_inqcolor(i, colormap + i - first_color);
     }
 
   for (i = 0; i < width * height; i++)
@@ -1488,16 +1488,16 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
         }
       else
         {
-          int val = (int)(255 * ((pixel_data[i] - 1) - min) / (max - min));
+          int val = (int)((last_color - first_color) * ((pixel_data[i] - 1) - min) / (max - min));
           if (val < 0)
             {
               val = 0;
             }
-          else if (val > 255)
+          else if (val > last_color - first_color)
             {
-              val = 255;
+              val = last_color - first_color;
             }
-          color_data[i] = (255 << 24) + colormap[val];
+          color_data[i] = (255u << 24) + colormap[val];
         }
     }
   free(pixel_data);

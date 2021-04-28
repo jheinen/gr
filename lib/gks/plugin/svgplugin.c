@@ -1079,8 +1079,12 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
     {
       if (!in_path)
         {
-          svg_printf(p->stream, "<path clip-path=\"url(#clip%02d%d)\" d=\"M %g %g ", path_id, p->rect_index, start_x,
-                     start_y);
+          if (i != 0)
+            svg_printf(p->stream, "<path clip-path=\"url(#clip%02d%d)\" d=\"M%g %g", path_id, p->rect_index, start_x,
+                       start_y);
+          else
+            svg_printf(p->stream, "<path clip-path=\"url(#clip%02d%d)\" d=\"", path_id, p->rect_index);
+
           in_path = 1;
         }
       switch (codes[i])

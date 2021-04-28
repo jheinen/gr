@@ -774,7 +774,11 @@ static void seg_xform_rel(double *x, double *y) {}
       CGColorSpaceRelease(colorSpace);
       colorSpace = NULL;
     }
-  gks_close_font(fontfile);
+  if (fontfile)
+    {
+      gks_close_font(fontfile);
+      fontfile = 0;
+    }
   if (buffer)
     {
       free(buffer);

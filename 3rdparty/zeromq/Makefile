@@ -2,7 +2,7 @@ ifeq ($(strip $(PREFIX)),)
 override PREFIX = $(abspath $(CURDIR)/../build)
 endif
 
-VERSION = 4.0.4
+VERSION = 4.3.4
 ZEROMQ_EXTRA_CONFIGURE_FLAGS ?=
 
 ifeq ($(DOWNLOAD_CMD),)
@@ -38,14 +38,12 @@ $(PREFIX)/src/zeromq-$(VERSION)/Makefile: $(PREFIX)/src/zeromq-$(VERSION)/config
 		--disable-shared \
 		--with-pic \
 		--disable-dependency-tracking \
+		--enable-curve=no \
 		$(ZEROMQ_EXTRA_CONFIGURE_FLAGS)
-	echo '#ifdef HAVE_CLOCK_GETTIME' >> $(PREFIX)/src/zeromq-$(VERSION)/src/platform.hpp
-	echo '#undef HAVE_CLOCK_GETTIME' >> $(PREFIX)/src/zeromq-$(VERSION)/src/platform.hpp
-	echo '#endif' >> $(PREFIX)/src/zeromq-$(VERSION)/src/platform.hpp
 
 $(PREFIX)/lib/libzmq.a: $(PREFIX)/src/zeromq-$(VERSION)/Makefile
-	MACOSX_DEPLOYMENT_TARGET="10.11" $(MAKE) -C $(PREFIX)/src/zeromq-$(VERSION) -j4 SUBDIRS=src
-	MACOSX_DEPLOYMENT_TARGET="10.11" $(MAKE) -C $(PREFIX)/src/zeromq-$(VERSION) install SUBDIRS=src
+	MACOSX_DEPLOYMENT_TARGET="10.11" $(MAKE) -C $(PREFIX)/src/zeromq-$(VERSION) -j4
+	MACOSX_DEPLOYMENT_TARGET="10.11" $(MAKE) -C $(PREFIX)/src/zeromq-$(VERSION) install
 
 install: $(PREFIX)/lib/libzmq.a
 

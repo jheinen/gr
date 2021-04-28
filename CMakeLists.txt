@@ -85,7 +85,7 @@ find_package(Qhull REQUIRED)
 find_package(Tiff)
 find_package(Ffmpeg 57.48.100)
 find_package(Glfw)
-find_package(Zeromq 4.0 EXACT)
+find_package(Zeromq)
 find_package(Cairo)
 find_package(X11)
 find_package(Fontconfig)
@@ -280,6 +280,7 @@ set(GR_SOURCES
     lib/gr/text.c
     lib/gr/mathtex2.c
     lib/gr/mathtex2.tab.c
+    lib/gr/threadpool.c
     ${CMAKE_CURRENT_BINARY_DIR}/gr_version.h
 )
 
