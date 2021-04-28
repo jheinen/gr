@@ -12842,16 +12842,9 @@ static void ray_casting_thread(void *arg)
                 }
 
               /* set the values */
-              double perspective_scale[3] = {1, 1, 1};
-              if (gpx.projection_type == GR_PROJECTION_PERSPECTIVE)
-                {
-                  perspective_scale[0] = fabs(ray_dir[0]);
-                  perspective_scale[1] = fabs(ray_dir[1]);
-                  perspective_scale[2] = fabs(ray_dir[2]);
-                }
-              ray_length = sqrt(pow((ray_end[0] - ray_start[0]) * x_spacing, 2) * perspective_scale[0] +
-                                pow((ray_end[1] - ray_start[1]) * y_spacing, 2) * perspective_scale[1] +
-                                pow((ray_end[2] - ray_start[2]) * z_spacing, 2) * perspective_scale[2]);
+              ray_length = sqrt(pow((ray_end[0] - ray_start[0]) * x_spacing, 2) +
+                                pow((ray_end[1] - ray_start[1]) * y_spacing, 2) +
+                                pow((ray_end[2] - ray_start[2]) * z_spacing, 2));
               voxel_val = (*start + *end) / 2;
               voxel_influ = voxel_val * ray_length;
 

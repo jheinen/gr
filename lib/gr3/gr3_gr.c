@@ -960,29 +960,26 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       "attribute vec3 position;\n",
       "attribute vec3 normal;\n",
       "varying vec3 vf_tex_coord;\n",
-      "varying vec3 vf_position;\n",
-      "varying float perspective_projection;\n",
       "varying vec3 vf_camera_direction;\n",
       "uniform vec3 camera_direction;\n",
+      "uniform vec3 camera_position;\n",
       "uniform mat4 model;\n",
       "uniform mat4 view;\n",
       "uniform mat4 projection;\n",
       "\n",
       "void main() {\n",
-      "    vf_camera_direction = (transpose(view)*vec4(camera_direction, 0)).xyz;\n",
-      "    vf_position = position;\n",
+      "    vf_camera_direction = float(abs(projection[2][3]) < 0.5) * (transpose(view)*vec4(camera_direction, 0)).xyz ",
+      "    + float(abs(projection[2][3]) > 0.5) * (position - camera_position);\n",
       "    vf_tex_coord = position*0.5+vec3(0.5);\n",
-      "    perspective_projection = float(abs(projection[2][3]) > 0.5);\n",
       "    gl_Position = projection*view*vec4(position, 1.0);\n",
-      "}",
+      "}\n",
   };
 
   const char *fragment_shader_source[] = {
       "#version 120\n",
       "\n",
       "varying vec3 vf_tex_coord;\n",
-      "varying vec3 vf_position;\n",
-      "varying float perspective_projection;\n",
+      "varying vec3 vf_camera_position;\n",
       "varying vec3 vf_camera_direction;\n",
       "\n",
       "uniform int n;\n",
@@ -992,7 +989,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       "float initial_value();\n",
       "\n",
       "void main() {\n",
-      "    vec3 camera_dir = normalize(vf_camera_direction + perspective_projection * vf_position);\n",
+      "    vec3 camera_dir = normalize(vf_camera_direction);\n",
       "\n",
       "    float result = initial_value();\n",
       "    int n_samples = int(max(1000, sqrt(3)*n));\n",
@@ -1001,7 +998,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       "    for (int i = 0; i <= n_samples; i++) {\n",
       "        float tex_val = max(0, texture3D(tex, tex_coord).r);\n",
       "        tex_coord += camera_dir * step_length;\n",
-      "        result = transfer_function(step_length, tex_val, result);",
+      "        result = transfer_function(step_length, tex_val, result);\n",
       "        if (any(greaterThan(tex_coord, vec3(1.0)))) break;\n",
       "        if (any(lessThan(tex_coord, vec3(0.0)))) break;\n",
       "    }\n",
@@ -1040,7 +1037,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
 
   if (algorithm < 0 || algorithm > 2)
     {
-      fprintf(stderr, "Invalid algorithm for gr_volume\n");
+      fprintf(stderr, "Invalid algorithm for gr_volume.\n");
       return;
     }
 
@@ -1098,7 +1095,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   fragment_shader_source_lines = sizeof(fragment_shader_source) / sizeof(fragment_shader_source[0]);
   fragment_shader_source[fragment_shader_source_lines - 1] = transfer_functions[algorithm];
 
-  /* Create and compile shader, link shader program*/
+  /* Create and compile shader, link shader program */
   vertex_shader = glCreateShader(GL_VERTEX_SHADER);
   fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(vertex_shader, vertex_shader_source_lines, vertex_shader_source, NULL);
@@ -1178,7 +1175,6 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       double near, far, fov;
       gr_inqperspectiveprojection(&near, &far, &fov);
 
-      far = max(far, fabs(sqrt(3) / sin(fov * M_PI / 360)) + sqrt(3) * 2);
       if (aspect >= 1)
         {
           projection_matrix[0 + 0 * 4] = (GLfloat)(cos(fov * M_PI / 360) / sin(fov * M_PI / 360) / aspect);
@@ -1195,6 +1191,7 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
     }
 
   /* Create view matrix */
+  double camera_pos[3];
   if (projection_type == GR_PROJECTION_DEFAULT)
     {
       gr_inqspace(&zmin, &zmax, &rotation, &tilt);
@@ -1206,8 +1203,6 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   else if (projection_type == GR_PROJECTION_PERSPECTIVE || projection_type == GR_PROJECTION_ORTHOGRAPHIC)
     {
       memset(grviewmatrix, 0, 16 * sizeof(GLfloat));
-
-      double camera_pos[3];
       double up[3];
       double focus_point[3];
 
@@ -1219,20 +1214,13 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       double norm_func = sqrt(F[0] * F[0] + F[1] * F[1] + F[2] * F[2]);
       double f[3] = {F[0] / norm_func, F[1] / norm_func, F[2] / norm_func};
       double s_deri[3];
-      for (i = 0; i < 3; i++) /*  f cross up */
+      for (i = 0; i < 3; i++) /* f cross up */
         {
           s_deri[i] = f[(i + 1) % 3] * up[(i + 2) % 3] - up[(i + 1) % 3] * f[(i + 2) % 3];
         }
       double s_norm = sqrt(s_deri[0] * s_deri[0] + s_deri[1] * s_deri[1] + s_deri[2] * s_deri[2]);
       double s[3] = {s_deri[0] / s_norm, s_deri[1] / s_norm, s_deri[2] / s_norm};
 
-      if (projection_type == GR_PROJECTION_ORTHOGRAPHIC)
-        {
-          double cam_norm = sqrt(pow(camera_pos[0], 2) + pow(camera_pos[1], 2) + pow(camera_pos[2], 2));
-          camera_pos[0] /= cam_norm;
-          camera_pos[1] /= cam_norm;
-          camera_pos[2] /= cam_norm;
-        }
       /* transformation matrix */
       grviewmatrix[0 + 0 * 4] = (GLfloat)s[0];
       grviewmatrix[0 + 1 * 4] = (GLfloat)s[1];
@@ -1247,6 +1235,13 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
       grviewmatrix[2 + 2 * 4] = (GLfloat)-f[2];
       grviewmatrix[2 + 3 * 4] = (GLfloat)(camera_pos[0] * f[0] + camera_pos[1] * f[1] + camera_pos[2] * f[2]);
       grviewmatrix[3 + 3 * 4] = 1;
+
+      if (projection_type == GR_PROJECTION_PERSPECTIVE)
+        {
+          camera_direction[0] = focus_point[1] - camera_pos[1];
+          camera_direction[1] = focus_point[1] - camera_pos[1];
+          camera_direction[2] = focus_point[2] - camera_pos[2];
+        }
     }
 
   /* Buffer Vertices */
@@ -1310,15 +1305,18 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)NULL);
   glEnableVertexAttribArray(0);
 
-  /* maybe fix camera direcetion */
-  camera_direction[0] = context_struct_.center_x - context_struct_.camera_x;
-  camera_direction[1] = context_struct_.center_y - context_struct_.camera_y;
-  camera_direction[2] = context_struct_.center_z - context_struct_.camera_z;
+  if (projection_type != GR_PROJECTION_PERSPECTIVE)
+    {
+      camera_direction[0] = context_struct_.center_x - context_struct_.camera_x;
+      camera_direction[1] = context_struct_.center_y - context_struct_.camera_y;
+      camera_direction[2] = context_struct_.center_z - context_struct_.camera_z;
+    }
 
   glUniformMatrix4fv(glGetUniformLocation(program, "view"), 1, GL_FALSE, grviewmatrix);
   glUniformMatrix4fv(glGetUniformLocation(program, "projection"), 1, GL_FALSE, projection_matrix);
   glUniform3f(glGetUniformLocation(program, "camera_direction"), camera_direction[0], camera_direction[1],
               camera_direction[2]);
+  glUniform3f(glGetUniformLocation(program, "camera_position"), camera_pos[0], camera_pos[1], camera_pos[2]);
   glUniform1i(glGetUniformLocation(program, "n"), nmax);
 
   glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(vertices[0]));
