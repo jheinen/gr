@@ -817,7 +817,6 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
               color_float line_color_f = {r, g, b, 1.0};
               line_color = color_float_to_color(line_color_f);
-              /* todo: auf error abfragen */
               if (context_struct_.option < 2)
                 {
                   triangle_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
@@ -953,15 +952,12 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
               double d1 = off + 1, d2 = off + 1, d3 = off + 1, d4 = off + 1, d5 = off + 1;
               if (v_fp[0]->normal.x > 0)
                 {
-                  vector vec1;
                   vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
                   vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
+                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
                   vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
                   vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
-                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
                   vector edge_1 = {-edge_1_inv.x, -edge_1_inv.y, 0};
-                  cross_product(&diff_vec_1, &edge_1, &vec1);
-                  d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
                   float winkel_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
                   float winkel_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
                   if (winkel_01_1 < 0)
@@ -971,6 +967,12 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   else if (winkel_01_2 < 0)
                     {
                       d1 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  else
+                    {
+                      vector vec1;
+                      cross_product(&diff_vec_1, &edge_1, &vec1);
+                      d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
                     }
                 }
               if (v_fp[1]->normal.x > 0)
@@ -982,8 +984,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
                   vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
                   vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
-                  cross_product(&diff_vec_2, &edge_2, &vec2);
-                  d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
                   float winkel_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
                   float winkel_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
                   if (winkel_12_1 < 0)
@@ -994,9 +994,14 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                     {
                       d2 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
                     }
+                  else
+                    {
+                      cross_product(&diff_vec_2, &edge_2, &vec2);
+                      d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
+                    }
                 }
               if (v_fp[2]->normal.x > 0)
-                { /* todo: change calculation order and make it an else branch */
+                {
                   vector vec3;
                   vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
                   vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
@@ -1004,8 +1009,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
                   vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
                   vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
-                  cross_product(&diff_vec_3, &edge_3, &vec3);
-                  d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
                   float winkel_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
                   float winkel_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
                   if (winkel_20_1 < 0)
@@ -1018,6 +1021,8 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                     }
                   else
                     {
+                      cross_product(&diff_vec_3, &edge_3, &vec3);
+                      d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
                     }
                 }
               if (v_fp[1]->normal.z > 0.0)
@@ -1031,8 +1036,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
                   float winkel_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
                   float winkel_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
-                  cross_product(&diff_vec_3, &edge_4, &vec4);
-                  d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                   if (winkel_23_1 < 0)
                     {
                       d4 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
@@ -1040,6 +1043,11 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   else if (winkel_23_2 < 0)
                     {
                       d4 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_3, &edge_4, &vec4);
+                      d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                     }
                 }
               if (v_fp[1]->normal.z < 0.0)
@@ -1053,8 +1061,6 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
                   float winkel_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
                   float winkel_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
-                  cross_product(&diff_vec_2, &edge_4, &vec4);
-                  d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                   if (winkel_13_1 < 0)
                     {
                       d5 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
@@ -1062,6 +1068,11 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   else if (winkel_13_2 < 0)
                     {
                       d5 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_2, &edge_4, &vec4);
+                      d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
                     }
                 }
 

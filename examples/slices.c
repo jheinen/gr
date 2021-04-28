@@ -156,7 +156,7 @@ int main(void)
   float px_2[2] = {-1.0f, 1.0f};
   float pz_2[4] = {1.0f, 1.0f, 1.0f, 1.0f};
   gr3_surface(nx, ny, px_2, px_2, pz_2, 4);*/
-  gr3_export("gr3_surface_demo_single_picture_export.png", 4000, 4000);
+  gr3_export("gr3_surface_demo_single_picture_export.png", 2400, 2400);
   gr_updatews();
   // getchar();
   /*free(px);
