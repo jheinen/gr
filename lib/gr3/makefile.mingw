@@ -10,7 +10,7 @@ endif
        OBJS += gr3_win.o
 
     INCLUDES = -I$(THIRDPARTYDIR)/include -I../gr -I../gks
-      GRLIBS = -L../gr -lGR
+      GRLIBS = -L../gr -lGR -lGKS
      PNGLIBS = $(THIRDPARTYDIR)/lib/libpng.a
     JPEGLIBS = $(THIRDPARTYDIR)/lib/libjpeg.a
        ZLIBS = $(THIRDPARTYDIR)/lib/libz.a
