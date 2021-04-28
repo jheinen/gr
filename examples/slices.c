@@ -142,21 +142,21 @@ int main(void)
     }
   angle = 50;
   gr_setlinewidth(0.5);
-  gr_setlinecolorind(5);
+  gr_setlinecolorind(1);
   gr_clearws();
-  gr3_setbackgroundcolor(1.0, 1.0, 1.0, 0.0);
+  gr3_setbackgroundcolor(0.0, 1.0, 1.0, 1.0);
   gr_setfillcolorind(0);
   // gr3_setquality(GR3_QUALITY_OPENGL_4X_SSAA);
   gr_setviewport(0, 1, 0, 1);
   gr_setwindow(-2, 2, -2, 3);
   gr_setspace(-8, 8, angle, 45);
-  gr3_surface(nx, ny, px, py, pz, 2);
+  gr3_surface(nx, ny, px, py, pz, 1);
   /*nx = 2;
   ny = 2;
   float px_2[2] = {-1.0f, 1.0f};
   float pz_2[4] = {1.0f, 1.0f, 1.0f, 1.0f};
   gr3_surface(nx, ny, px_2, px_2, pz_2, 4);*/
-  gr3_export("gr3_surface_demo_single_picture_export.png", 2400, 2400);
+  gr3_export("gr3_surface_demo_single_picture_export.png", 4000, 4000);
   gr_updatews();
   // getchar();
   /*free(px);

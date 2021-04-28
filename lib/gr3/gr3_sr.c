@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "gks.h"
+
 #ifdef _MSC_VER
 #define NO_THREADS 1
 #endif
@@ -683,20 +684,6 @@ static float triangle_surface_2d(float dif_a_b_x, float dif_a_b_y, float ay, flo
   return dif_a_b_x * (cy - ay) - dif_a_b_y * (cx - ax);
 }
 
-static int point_inside_tri(vertex_fp s, vertex_fp a, vertex_fp b, vertex_fp c)
-{
-  int as_x = s.x - a.x;
-  int as_y = s.y - a.y;
-
-  int s_ab = (b.x - a.x) * as_y - (b.y - a.y) * as_x > 0;
-
-  if ((c.x - a.x) * as_y - (c.y - a.y) * as_x > 0 == s_ab) return 0;
-
-  if ((c.x - b.x) * (s.y - b.y) - (c.y - b.y) * (s.x - b.x) > 0 != s_ab) return 0;
-
-  return 1;
-}
-
 /*!
  * This initialises the software-renderer. It determines the number of available cores on a system, so that the
  * number of threads drawing the image is equal to the number of cores minus one. This is the most efficient
@@ -812,6 +799,8 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
       float div_2 = 0;
       color triangle_color;
       color line_color;
+      color_float dummy_color = {0, 0, 0, 0};
+      vector dummy_vector = {0, 0, 0};
       if (arg->scales != NULL)
         {
           div_0 = arg->scales[0];
@@ -828,6 +817,7 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
               color_float line_color_f = {r, g, b, 1.0};
               line_color = color_float_to_color(line_color_f);
+              /* todo: auf error abfragen */
               if (context_struct_.option < 2)
                 {
                   triangle_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
@@ -881,9 +871,15 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
             {
               if (arg->scales != NULL)
                 {
-                  if (vertices_fp[1].normal.z > 0.0 || vertices_fp[1].normal.z < 0)
+                  if (vertices_fp[1].normal.z > 0 || vertices_fp[1].normal.z < 0)
                     {
-                      vertex_fp tmp = {vertices_fp[0].normal.y, vertices_fp[0].normal.z, vertices_fp[1].normal.y, 1.0};
+                      vertex_fp tmp = {vertices_fp[0].normal.y,
+                                       vertices_fp[0].normal.z,
+                                       vertices_fp[1].normal.y,
+                                       1.0,
+                                       1.0,
+                                       dummy_color,
+                                       dummy_vector};
                       mat_vec_mul_4x1(&arg->model_view_perspective, &tmp);
                       divide_by_w(&tmp);
                       mat_vec_mul_4x1(&arg->viewport, &tmp);
@@ -1000,7 +996,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                     }
                 }
               if (v_fp[2]->normal.x > 0)
-                {
+                { /* todo: change calculation order and make it an else branch */
                   vector vec3;
                   vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
                   vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
@@ -1019,6 +1015,9 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
                   else if (winkel_20_2 < 0)
                     {
                       d3 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
+                    }
+                  else
+                    {
                     }
                 }
               if (v_fp[1]->normal.z > 0.0)
