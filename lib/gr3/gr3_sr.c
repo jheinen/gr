@@ -811,11 +811,11 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
             {
               /* If a mesh representation with the lines is demanded, the fill color and the linecolor have
                * to be determined */
+              int color, errind;
+              double r, g, b;
               div_0 = 1;
               div_1 = 1;
               div_2 = 1;
-              int color, errind;
-              double r, g, b;
               gks_inq_pline_color_index(&errind, &color);
               gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
               color_float line_color_f = {r, g, b, 1.0};
@@ -921,12 +921,11 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
 static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                                      color line_color, color fill_color)
 {
+  int x, y;
   int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
   int x_max = floor(MAXTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
   int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
-  int x;
-  int y;
   int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x));
   int x_lim_lower = x_min - off < 0 ? 0 : x_min - off;
   int x_lim_upper = x_max + off > width - 1 ? width - 1 : x_max + off;
@@ -937,6 +936,7 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
       for (y = y_lim_lower; y <= y_lim_upper; y++)
         {
           /* calculate depth with interpolation/extrapolation by calculating the area of the sub triangles */
+          float area_0, area_1, area_2, depth;
           float len_v_0_1 = sqrt((v_fp[0]->x - v_fp[1]->x) * (v_fp[0]->x - v_fp[1]->x) +
                                  (v_fp[0]->y - v_fp[1]->y) * (v_fp[0]->y - v_fp[1]->y));
           float len_v_1_2 = sqrt((v_fp[1]->x - v_fp[2]->x) * (v_fp[1]->x - v_fp[2]->x) +
@@ -948,27 +948,29 @@ static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int 
           float len_p_2 = sqrt((x - v_fp[2]->x) * (x - v_fp[2]->x) + (y - v_fp[2]->y) * (y - v_fp[2]->y));
           float s_0 = (len_p_0 + len_p_1 + len_v_0_1) / 2;
           float tmp_0 = s_0 * (s_0 - len_p_0) * (s_0 - len_p_1) * (s_0 - len_v_0_1);
+
+          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2;
+          float tmp_1 = s_1 * (s_1 - len_p_1) * (s_1 - len_p_2) * (s_1 - len_v_1_2);
+          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2;
+          float tmp_2 = s_2 * (s_2 - len_p_2) * (s_2 - len_p_0) * (s_2 - len_v_2_0);
           if (tmp_0 < 0)
             {
               tmp_0 = 0;
             }
-          float area_0 = sqrt(tmp_0);
-          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2;
-          float tmp_1 = s_1 * (s_1 - len_p_1) * (s_1 - len_p_2) * (s_1 - len_v_1_2);
+          area_0 = sqrt(tmp_0);
+
           if (tmp_1 < 0)
             {
               tmp_1 = 0;
             }
-          float area_1 = sqrt(tmp_1);
-          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2;
-          float tmp_2 = s_2 * (s_2 - len_p_2) * (s_2 - len_p_0) * (s_2 - len_v_2_0);
+          area_1 = sqrt(tmp_1);
+
           if (tmp_2 < 0)
             {
               tmp_2 = 0;
             }
-          float area_2 = sqrt(tmp_2);
-          float depth =
-              (area_0 * v_fp[1]->z + area_1 * v_fp[2]->z + area_2 * v_fp[0]->z) * (1 / (area_0 + area_1 + area_2));
+          area_2 = sqrt(tmp_2);
+          depth = (area_0 * v_fp[1]->z + area_1 * v_fp[2]->z + area_2 * v_fp[0]->z) * (1 / (area_0 + area_1 + area_2));
           if (depth < dep_buf[y * width + x])
             {
               /* initialise distances with values that are definitly bigger than the linewidth so the default

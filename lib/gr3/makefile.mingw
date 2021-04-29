@@ -44,7 +44,7 @@ gr3_jpeg.c: gr3_internals.h
 gr3_gr.c: gr3_internals.h
 gr3_mc.c: gr3.h gr3_mc_data.h
 gr3_slices.c: gr3.h
-gr3_sr.c : gr3_sr.h 
+gr3_sr.c : gr3_sr.h
 
 clean:
 	$(RM) libGR3.dylib*

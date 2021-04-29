@@ -303,6 +303,10 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   int first_color, last_color;
   int projection_type;
   trans_t tx, ty, tz;
+  int new_num_vertices;
+  float *new_vertices, *new_normals, *new_colors;
+  int new_idx, l, errind;
+  double linewidth_y, linewidth_x;
 
   gr_inqprojectiontype(&projection_type);
   gr_inqcolormapinds(&first_color, &last_color);
@@ -497,8 +501,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
             }
         }
     }
-  int new_num_vertices = num_indices;
-  float *new_vertices, *new_normals, *new_colors;
+  new_num_vertices = num_indices;
   if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
     {
       new_vertices = malloc(new_num_vertices * 3 * sizeof(float));
@@ -519,19 +522,18 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
           free(new_normals);
           RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
+      gks_inq_pline_linewidth(&errind, &linewidth_y);
+      if (errind != GKS_K_NO_ERROR)
+        {
+          RETURN_ERROR(errind);
+        }
+      linewidth_x = linewidth_y;
+      if (context_struct_.option == OPTION_LINES)
+        {
+          linewidth_x = 0; /* set to zero to not be drawn */
+        }
     }
-  int new_idx = 0, l = 0, errind;
-  double linewidth_y;
-  gks_inq_pline_linewidth(&errind, &linewidth_y);
-  if (errind != GKS_K_NO_ERROR)
-    {
-      RETURN_ERROR(errind);
-    }
-  float linewidth_x = linewidth_y;
-  if (context_struct_.option == OPTION_LINES)
-    {
-      linewidth_x = 0; /* set to zero to not be drawn */
-    }
+  new_idx = 0;
   /* create triangles */
   for (j = 0; j < ny - 1; j++)
     {
