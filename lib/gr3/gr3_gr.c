@@ -13,6 +13,7 @@ extern float __cdecl sqrtf(float);
 #include "gr.h"
 #include "gr3.h"
 #include "gr3_internals.h"
+#include "gks.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -302,6 +303,10 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   int first_color, last_color;
   int projection_type;
   trans_t tx, ty, tz;
+  int new_num_vertices;
+  float *new_vertices, *new_normals, *new_colors;
+  int new_idx, l, errind;
+  double linewidth_y, linewidth_x;
 
   gr_inqprojectiontype(&projection_type);
   gr_inqcolormapinds(&first_color, &last_color);
@@ -496,31 +501,136 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
             }
         }
     }
-
+  new_num_vertices = num_indices;
+  if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+    {
+      int quality = context_struct_.quality;
+      int ssaa_factor = quality & ~1;
+      if (ssaa_factor == 0) ssaa_factor = 1;
+      new_vertices = malloc(new_num_vertices * 3 * sizeof(float));
+      if (!new_vertices)
+        {
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+        }
+      new_normals = calloc(new_num_vertices * 3, sizeof(float));
+      if (!new_normals)
+        {
+          free(new_vertices);
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+        }
+      new_colors = malloc(new_num_vertices * 3 * sizeof(float));
+      if (!new_colors)
+        {
+          free(new_vertices);
+          free(new_normals);
+          RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
+        }
+      gks_inq_pline_linewidth(&errind, &linewidth_y);
+      linewidth_y *= 2 * ssaa_factor;
+      if (errind != GKS_K_NO_ERROR)
+        {
+          RETURN_ERROR(errind);
+        }
+      linewidth_x = linewidth_y;
+      if (context_struct_.option == OPTION_LINES)
+        {
+          linewidth_x = 0; /* set to zero to not be drawn */
+        }
+    }
+  new_idx = 0;
   /* create triangles */
   for (j = 0; j < ny - 1; j++)
     {
       for (i = 0; i < nx - 1; i++)
         {
+          /* Unroll the indexbuffer for the software-renderer, if the edges should be drawn (cf Options in gr3_surface).
+           * The idea is to store a linewidth in the normals x value of every vertex.
+           * The normals x-value of the first vertex determines the width of edge 0-1, the second vertex normal's x
+           * coordinate to the edge 1-2 and the last one to 2-0.*/
           int k = j * nx + i;
-          int *idx = indices + 6 * (j * (nx - 1) + i);
+          if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+            {
+              for (l = 0; l < 3; l++)
+                {
+                  new_vertices[new_idx + l] = vertices[k * 3 + l];
+                  new_vertices[new_idx + 3 + l] = vertices[(k + 1) * 3 + l];
+                  new_vertices[new_idx + 6 + l] = vertices[(k + nx) * 3 + l];
+                  new_vertices[new_idx + 9 + l] = vertices[(k + nx) * 3 + l];
+                  new_vertices[new_idx + 12 + l] = vertices[(k + 1) * 3 + l];
+                  new_vertices[new_idx + 15 + l] = vertices[(k + nx + 1) * 3 + l];
+                }
+              new_normals[new_idx] = linewidth_y; /* vertical line */
+              new_normals[new_idx + 3] = 0;
+              new_normals[new_idx + 6] = linewidth_x; /* horizontal line */
+              new_normals[new_idx + 9] = 0;
+              new_normals[new_idx + 12] = linewidth_x; /* horizontal line */
+              new_normals[new_idx + 15] = linewidth_y; /* vertical line */
 
-          idx[0] = k;
-          idx[1] = k + 1;
-          idx[2] = k + nx;
-          idx[3] = k + nx;
-          idx[4] = k + 1;
-          idx[5] = k + nx + 1;
+              /* If the edges have to be drawn forming a square shape, every triangle must additionally have
+               * information about the vertex that is missing to make the triangle a square, because
+               * all the edges of the square have to be rasterized. Thus the coordinates are passed by
+               * storing them in the normals, because those aren't needed. There are two cases depending on
+               * which vertex is left out in the square to form a triangle, and to keep them apart
+               * the linewidth is passed with a negative sign in one case.*/
+              new_normals[new_idx + 1] = vertices[(k + nx + 1) * 3];
+              new_normals[new_idx + 2] = vertices[(k + nx + 1) * 3 + 1];
+              new_normals[new_idx + 4] = vertices[(k + nx + 1) * 3 + 2];
+              new_normals[new_idx + 5] = linewidth_y;
+
+              new_normals[new_idx + 10] = vertices[k * 3];
+              new_normals[new_idx + 11] = vertices[k * 3 + 1];
+              new_normals[new_idx + 13] = vertices[k * 3 + 2];
+              new_normals[new_idx + 14] = -linewidth_y;
+              if (j == 0) /*left border*/
+                {
+                  new_normals[new_idx] = linewidth_y;
+                }
+              if (i == 0)
+                {
+                  new_normals[new_idx + 6] = linewidth_y;
+                }
+              if (j == ny - 2) /*right border*/
+                {
+                  new_normals[new_idx + 15] = linewidth_y;
+                }
+              if (i == nx - 2)
+                {
+                  new_normals[new_idx + 12] = linewidth_y;
+                }
+              new_idx += 18;
+            }
+          else
+            {
+              int *idx = indices + 6 * (j * (nx - 1) + i);
+              idx[0] = k;
+              idx[1] = k + 1;
+              idx[2] = k + nx;
+              idx[3] = k + nx;
+              idx[4] = k + 1;
+              idx[5] = k + nx + 1;
+            }
         }
     }
-
-  result = gr3_createindexedmesh_nocopy(mesh, num_vertices, vertices, normals, colors, num_indices, indices);
+  if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+    {
+      result = gr3_createmesh_nocopy(mesh, new_num_vertices, new_vertices, new_normals, new_colors);
+    }
+  else
+    {
+      result = gr3_createindexedmesh_nocopy(mesh, num_vertices, vertices, normals, colors, num_indices, indices);
+    }
   if (result != GR3_ERROR_NONE && result != GR3_ERROR_OPENGL_ERR)
     {
       free(indices);
       free(colors);
       free(normals);
       free(vertices);
+      if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
+        {
+          free(new_normals);
+          free(new_vertices);
+          free(new_colors);
+        }
     }
 
   return result;
@@ -692,13 +802,14 @@ GR3API void gr3_drawsurface(int mesh)
  */
 GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int option)
 {
-  if (option == OPTION_Z_SHADED_MESH || option == OPTION_COLORED_MESH)
+  if (option == OPTION_Z_SHADED_MESH || option == OPTION_COLORED_MESH ||
+      (context_struct_.use_software_renderer && option <= OPTION_FILLED_MESH))
     {
       int mesh;
       double xmin, xmax, ymin, ymax;
       int scale;
       int surfaceoption;
-
+      context_struct_.option = option;
       surfaceoption = GR3_SURFACE_GRTRANSFORM;
       if (option == OPTION_Z_SHADED_MESH)
         {
