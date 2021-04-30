@@ -504,6 +504,9 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
   new_num_vertices = num_indices;
   if (context_struct_.use_software_renderer && context_struct_.option <= OPTION_FILLED_MESH)
     {
+      int quality = context_struct_.quality;
+      int ssaa_factor = quality & ~1;
+      if (ssaa_factor == 0) ssaa_factor = 1;
       new_vertices = malloc(new_num_vertices * 3 * sizeof(float));
       if (!new_vertices)
         {
@@ -523,6 +526,7 @@ GR3API int gr3_createsurfacemesh(int *mesh, int nx, int ny, float *px, float *py
           RETURN_ERROR(GR3_ERROR_OUT_OF_MEM);
         }
       gks_inq_pline_linewidth(&errind, &linewidth_y);
+      linewidth_y *= 2 * ssaa_factor;
       if (errind != GKS_K_NO_ERROR)
         {
           RETURN_ERROR(errind);
