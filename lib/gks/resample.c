@@ -585,11 +585,11 @@ void gks_resample(const unsigned char *source_image, unsigned char *target_image
       break;
     case GKS_K_RESAMPLE_LINEAR:
       resample_vertical_rgba(temp_image, target_image, target_width, source_height, target_height, target_width, 1,
-                             flip_x, calculate_linear_factor);
+                             flip_y, calculate_linear_factor);
       break;
     case GKS_K_RESAMPLE_LANCZOS:
       resample_vertical_rgba(temp_image, target_image, target_width, source_height, target_height, target_width, 3,
-                             flip_x, calculate_lanczos_factor);
+                             flip_y, calculate_lanczos_factor);
       break;
     default:
       gks_perror("Invalid vertical resampling method.");
