@@ -5181,20 +5181,26 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
       if (args_first_value(args, "xticklabels", "S", &xticklabels, &xticklabels_length))
         {
           double x1, x2;
+          double x_left = 0, x_right = 1, null;
+          double available_width;
           double *y;
           unsigned int y_length;
           const double *window;
+          /* calculate width available for xticknotations */
+          gr_wctondc(&x_left, &null);
+          gr_wctondc(&x_right, &null);
+          available_width = x_right - x_left;
           return_error_if(!args_first_value(*current_series, "y", "D", &y, &y_length), ERROR_PLOT_MISSING_DATA);
           return_error_if(xticklabels_length != y_length, ERROR_PLOT_COMPONENT_LENGTH_MISMATCH);
           args_values(args, "window", "D", &window);
           gr_setcharheight(charheight);
-          gr_settextalign(2, 1);
+          gr_settextalign(GKS_K_TEXT_HALIGN_CENTER, GKS_K_TEXT_VALIGN_TOP);
           for (i = 1; i <= y_length; i++)
             {
               x1 = i;
               gr_wctondc(&x1, &x2);
               x2 = viewport[2] - 0.5 * charheight;
-              gr_textext(x1, x2, xticklabels[i - 1]);
+              draw_xticklabel(x1, x2, xticklabels[i - 1], available_width);
             }
         }
 
@@ -7097,6 +7103,86 @@ void set_text_color_for_background(double r, double g, double b)
     {
       gr_settextcolorind(1);
     }
+}
+
+
+/*!
+ * Draw an xticklabel at the specified position while trying to stay in the available space.
+ * Every space character (' ') is seen as a possible position to break the label into the next line.
+ * The label will not break into the next line when enough space is available.
+ * If a label or a part of it does not fit in the available space but doesnt have a space character to break it up
+ * it will get drawn anyway.
+ *
+ * \param[in] x1 The X coordinate of starting position of the label.
+ * \param[in] x2 The Y coordinate of starting position of the label.
+ * \param[in] label The label to be drawn.
+ * \param[in] available_width The available space in X direction around the starting position.
+ */
+void draw_xticklabel(double x1, double x2, const char *label, double available_width)
+{
+  char new_label[256];
+  int breakpoint_positions[128];
+  int cur_num_breakpoints = 0;
+  int i = 0;
+  int cur_start = 0;
+  double tbx[4], tby[4];
+  double width;
+  double charheight;
+
+  gr_inqcharheight(&charheight);
+
+
+  for (i = 0; i == 0 || label[i - 1] != '\0'; ++i)
+    {
+      if (label[i] == ' ' || label[i] == '\0')
+        {
+          /* calculate width of the next part of the label to be drawn */
+          new_label[i] = '\0';
+          gr_inqtextext(x1, x2, new_label + cur_start, tbx, tby);
+          gr_wctondc(&tbx[0], &tby[0]);
+          gr_wctondc(&tbx[1], &tby[1]);
+          width = tbx[1] - tbx[0];
+          new_label[i] = ' ';
+
+          /* add possible breakpoint */
+          breakpoint_positions[cur_num_breakpoints++] = i;
+
+          if (width > available_width)
+            {
+              /* part is too big but doesnt have a breakpoint in it */
+              if (cur_num_breakpoints == 1)
+                {
+                  new_label[i] = '\0';
+                  gr_textext(x1, x2, new_label + cur_start);
+
+                  cur_start = i + 1;
+                  cur_num_breakpoints = 0;
+                }
+              /* part is too big and has breakpoints in it */
+              else
+                {
+                  /* break label at last breakpoint that still allowed the text to fit */
+                  new_label[breakpoint_positions[cur_num_breakpoints - 2]] = '\0';
+                  gr_textext(x1, x2, new_label + cur_start);
+
+                  cur_start = breakpoint_positions[cur_num_breakpoints - 2] + 1;
+                  breakpoint_positions[0] = breakpoint_positions[cur_num_breakpoints - 1];
+                  cur_num_breakpoints = 1;
+                }
+              x2 -= charheight * 1.5;
+            }
+        }
+      else
+        {
+          new_label[i] = label[i];
+        }
+    }
+
+  /* 0-terminate the new label */
+  new_label[i] = '\0';
+
+  /* draw the rest */
+  gr_textext(x1, x2, new_label + cur_start);
 }
 
 /* ========================= methods ================================================================================ */

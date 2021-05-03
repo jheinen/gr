@@ -203,6 +203,7 @@ int *create_colormap(int x, int y, int size);
 error_t classes_polar_histogram(grm_args_t *subplot_args, double *r_max);
 double get_lightness_from_rbg(double r, double g, double b);
 void set_text_color_for_background(double r, double g, double b);
+void draw_xticklabel(double x1, double x2, const char *label, double available_width);
 
 
 #endif /* ifndef GRM_PLOT_INT_H_INCLUDED */
