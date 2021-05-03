@@ -4,7 +4,7 @@
 #include "linked_list.h"
 
 
-node_t *new_list(void) {
+node_t* new_list(void) {
     node_t* new_node = malloc(sizeof(node_t));
     new_node->next = NULL;
     new_node->val = NULL;
@@ -26,7 +26,6 @@ int generate_number(node_t * head){
     return size;*/
      static DATALENGTH number = 0;
      number++;
-     printf("Erzeugte Nummer: %d\n", number-1);
      return number-1;
 }
 
@@ -184,9 +183,11 @@ int list_size(node_t * head){
     }
     size++;
     while (current->next != NULL){
+        //printf("%d: In list size, Adresse: %p\n", size, ((struct val_data*)(current->val))->data);
         size ++;
         current = current->next;
     }
+    //printf("%d: In list size, Adresse: %p\n", size, ((struct val_data*)(current->val))->data);
     return size;
 }
 

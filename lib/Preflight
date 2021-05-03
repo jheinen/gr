@@ -278,9 +278,9 @@ rm -f $tmpout $tmpsrc
 if [ `uname` = "Darwin" ]; then
   dir=`dirname $0`
   if [ $ret -eq 0 ]; then
-    cp -p $dir/gks/quartz/project.pbxproj.X11 lib/gks/quartz/GKSTerm.xcodeproj/project.pbxproj
+    cp -p /Users/peters/Desktop/project_manuell.pbxproj lib/gks/quartz/GKSTerm.xcodeproj/project.pbxproj
   else
-    cp -p $dir/gks/quartz/project.pbxproj lib/gks/quartz/GKSTerm.xcodeproj/project.pbxproj
+    cp -p /Users/peters/Desktop/project_manuell.pbxproj lib/gks/quartz/GKSTerm.xcodeproj/project.pbxproj
   fi
 fi
 

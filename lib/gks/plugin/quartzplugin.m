@@ -92,7 +92,6 @@ static int connect_nb_context(){
     connection_id = new_connection(nb_context, server_ip, server_port, own_ip, own_port);
     if(connection_id >= 0){
         nb_context_is_connected = TRUE;
-        printf("NB is connected\n");
     }
     return connection_id;
 }
@@ -185,7 +184,6 @@ static bool gksterm_is_alive(int window)
 
 static int gksterm_create_window()
 {
-  printf("create Window Aufruf\n");
   size_t request_len = 1;
   char request[1];
   request[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
@@ -212,7 +210,6 @@ static void gksterm_close_window(int window)
 
 static void gksterm_draw(int window, void *displaylist, size_t displaylist_len)
 {
-  printf("Aufruf gksterm draw\n");
   size_t request_len = 1 + sizeof(int) + sizeof(size_t) + displaylist_len;
   char *request = (char *)malloc(request_len);
   assert(request != NULL);
@@ -353,19 +350,18 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
     create_nb_context();
   }
   if (!nb_context_is_connected){
-    struct timespec begin, end;
-    clock_gettime(CLOCK_REALTIME, &begin);
-    try_connect(1); // <--
-    clock_gettime(CLOCK_REALTIME, &end);
+    /*struct timespec begin, end;
+    clock_gettime(CLOCK_REALTIME, &begin);*/
+    try_connect(1);
+    /*clock_gettime(CLOCK_REALTIME, &end);
     long seconds = end.tv_sec - begin.tv_sec;
     long nanoseconds = end.tv_nsec - begin.tv_nsec;
     double elapsed = seconds + nanoseconds*1e-9;
-    printf("Time measured: %.3f seconds.\n", elapsed);
+    printf("Time measured: %.3f seconds.\n", elapsed);*/
   }
 
   ws_state_list *wss = (ws_state_list *)*ptr;
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
   switch (fctid)
     {
     case OPEN_WS:

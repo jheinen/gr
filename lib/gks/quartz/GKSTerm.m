@@ -7,6 +7,8 @@
 #import "GKSTerm.h"
 #import "GKSView.h"
 
+#import "log.h"
+
 static void send_nb_message(struct message* message, void *reply, size_t reply_len)
 {
     struct message* response_message = get_response_message(message, reply_len, reply, USE_MEMCOPY);
@@ -14,8 +16,10 @@ static void send_nb_message(struct message* message, void *reply, size_t reply_l
 }
 static void nb_handle_create_window(GKSTerm *gksterm, char *data, struct message* message)
 {
+    log_trace("Anfang create window\n");
   (void)data;
 
+    log_trace("vor dispatch_sync\n");
   __block int result = 0;
   dispatch_sync(dispatch_get_main_queue(), ^{
     @synchronized(gksterm)
@@ -23,6 +27,7 @@ static void nb_handle_create_window(GKSTerm *gksterm, char *data, struct message
       result = [gksterm GKSQuartzCreateWindow];
     }
   });
+    log_trace("nach dispatch sync\n");
   char reply[1 + sizeof(int)];
   DATALENGTH reply_len = sizeof(reply);
   reply[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
@@ -33,10 +38,12 @@ static void nb_handle_create_window(GKSTerm *gksterm, char *data, struct message
   /* Show the app icon in dock */
   ProcessSerialNumber psn = {0, kCurrentProcess};
   TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+    log_trace("Ende create window\n");
 }
 
 static void nb_handle_draw(GKSTerm *gksterm, char *data, struct message* message)
 {
+    log_trace("Anfang nb is draw\n");
     // Send acknowledgement before actually drawing to avoid timeout
     char reply[1];
     reply[0] = GKSTERM_FUNCTION_DRAW;
@@ -52,10 +59,12 @@ static void nb_handle_draw(GKSTerm *gksterm, char *data, struct message* message
        [gksterm GKSQuartzDraw:window displayList:displaylist_objc];
        free(displaylist);
      });
+    log_trace("Ende draw\n");
 }
 
 static void nb_handle_is_alive(GKSTerm *gksterm, char *data, struct message* message)
 {
+    log_trace("Anfang nb is alive\n");
   int window = *(int *)data;
   bool result = NO;
   @synchronized(gksterm)
@@ -67,9 +76,11 @@ static void nb_handle_is_alive(GKSTerm *gksterm, char *data, struct message* mes
   reply[1] = result ? 1 : 0;
   DATALENGTH reply_len = 2;
   send_nb_message(message, reply, reply_len);
+    log_trace("Ende is alive\n");
 }
 static void nb_handle_close_window(GKSTerm *gksterm, char *data, struct message* message)
 {
+    log_trace("Anfang nb close window\n");
   int window = *(int *)data;
   dispatch_sync(dispatch_get_main_queue(), ^{
     @synchronized(gksterm)
@@ -81,15 +92,18 @@ static void nb_handle_close_window(GKSTerm *gksterm, char *data, struct message*
   reply[0] = GKSTERM_FUNCTION_CLOSE_WINDOW;
   DATALENGTH reply_len = 1;
     send_nb_message(message, reply, reply_len);
+    log_trace("Ende close Window\n");
 }
 
 static void nb_handle_is_running(GKSTerm *gksterm, char *data, struct message* message)
 {
+    log_trace("Anfang nb is running\n");
   (void)data;
   char reply[1];
   reply[0] = GKSTERM_FUNCTION_IS_RUNNING;
   DATALENGTH reply_len = 1;
   send_nb_message(message, reply, reply_len);
+   log_trace("Ende nb is running\n");
 }
 
 static void nb_handle_unknown(char *data, struct message* message)
@@ -104,29 +118,34 @@ static void nb_handle_unknown(char *data, struct message* message)
 
 GKSTerm* gksterm;
 void nb_handle_message(struct message* message){
-    
+    log_trace("In handle message\n");
     char request_type = ((char*)(message->data))[0];
     char* data = ((char*)message->data)+1;
     
     switch (request_type)
     {
     case GKSTERM_FUNCTION_CREATE_WINDOW:
+        log_trace("GKSTERM_FUNCTION_CREATE_WINDOW\n");
         //printf("Request: GKSTERM_FUNCTION_CREATE_WINDOW\n");
         nb_handle_create_window(gksterm, data, message);
         break;
     case GKSTERM_FUNCTION_DRAW:
+        log_trace("GKSTERM_FUNCTION_DRAW\n");
         //printf("Request: GKSTERM_FUNCTION_DRAW\n");
         nb_handle_draw(gksterm, data, message);
         break;
     case GKSTERM_FUNCTION_IS_ALIVE:
+        log_trace("GKSTERM_FUNCTION_IS_ALIVE\n");
         //printf("Request: GKSTERM_FUNCTION_IS_ALIVE\n");
         nb_handle_is_alive(gksterm, data, message);
         break;
     case GKSTERM_FUNCTION_CLOSE_WINDOW:
+        log_trace("GKSTERM_FUNCTION_CLOSE_WINDOW\n");
         //printf("Request: GKSTERM_FUNCTION_CLOSE_WINDOW\n");
         nb_handle_close_window(gksterm, data, message);
         break;
     case GKSTERM_FUNCTION_IS_RUNNING:
+        log_trace("GKSTERM_FUNCTION_IS_RUNNING\n");
         //printf("Request: GKSTERM_FUNCTION_IS_RUNNING\n");
         nb_handle_is_running(gksterm, data, message);
         break;
@@ -155,12 +174,18 @@ static bool initialized = NO;
                                                name:@"GKSViewKeepOnDisplayNotification"
                                              object:nil];
 
+  FILE *fptr;
+  fptr = fopen("/Users/peters/Desktop/grnb/gr/lib/gks/quartz/log_output.txt","w");
+  log_add_fp(fptr, 0);
   if (!initialized)
     {
+    log_trace("vor nb init contect\n");
     int port = 7020;
     time_t diff = 50000;
     time_t limit = 100000;
     init_context(port, nb_handle_message, diff, limit);
+    log_trace("\n init context geklappt\n");
+
 
     gksterm = self;
 
@@ -168,6 +193,7 @@ static bool initialized = NO;
     curr_win_id = 0;
     for (win = 0; win < MAX_WINDOWS; win++) window[win] = nil;
     }
+    log_trace("Ende GKSTerm Aufruf\n");
 }
 
 - (int)GKSQuartzCreateWindow

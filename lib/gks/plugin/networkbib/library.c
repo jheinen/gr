@@ -10,37 +10,41 @@ void assert_unsigned_int_size(){
 }
 
 uint64_t fntohll(uint64_t value){
-    /*int num = 42;
-     //if (*(char *)&num == 42) {  if little-Endian System
-     //uint32_t high_part = htonl((uint32_t)(value >> 32));
-     //uint32_t low_part = htonl((uint32_t)(value & 0xFFFFFFFFLL));
-     //return (((uint64_t)low_part) << 32) | high_part;
-     //}
-     //else{*/
-    return value;
-    //}
-}
-
-uint64_t fhtonll(uint64_t value) {
-    /*int num = 42;
-     if (*(char *)&num == 42) {
+    int num = 42;
+     if (*(char *)&num == 42) {  //if little-Endian System
      uint32_t high_part = htonl((uint32_t)(value >> 32));
      uint32_t low_part = htonl((uint32_t)(value & 0xFFFFFFFFLL));
      return (((uint64_t)low_part) << 32) | high_part;
-     } else {*/
+     }
+     else{
     return value;
-    //}
+    }
+}
+
+uint64_t fhtonll(uint64_t value) {
+    int num = 42;
+     if (*(char *)&num == 42) {
+       uint32_t high_part = htonl((uint32_t)(value >> 32));
+       uint32_t low_part = htonl((uint32_t)(value & 0xFFFFFFFFLL));
+       return (((uint64_t)low_part) << 32) | high_part;
+     } else {
+       return value;
+    }
 }
 
 
 int send_data(int socket, struct message* message, int kind){
+  int n = 1;
+ //little endian if true
+//if(*(char *)&n == 1) {printf("little Endian\n");}
+//else{printf("Big Endian\n");}
 
 /*kind 8 -> normal message, kind 1 -> heartbeat, kind 2, send client port*/
-/*kind 3 -> send client connnecetion id kind 4 -> send serverside connection id */
+/*kind 3 -> send client connecetion id kind 4 -> send serverside connection id */
 
   //printf("\nin send: kind = %d ", kind);
   /*switch (kind){
-    case 8: printf("send Info: Nachrichtenanteil wird verschickt\n");break;
+    //case 8: printf("send Info: Nachrichtenanteil wird verschickt\n");break;
     case 1: printf("send Info: Heartbeat wird verschickt\n");break;
     case 2: printf("send Info: Clientport wird verschickt\n");break;
     case 3: printf("send Info: Client connection id wird verschickt\n");break;
@@ -60,8 +64,12 @@ int send_data(int socket, struct message* message, int kind){
 
     /*send oneByte to tell Receiver which kind of message*/
     size_t sent = 0;
+    int tmp = 0;
     while (sent != 1){
-        sent += send(socket, (const void*)&oneByte, 1, 0);
+      tmp = send(socket, (const void*)&oneByte, 1, 0);
+        if (tmp >= 0){
+          sent += tmp;
+        }
     }
 
     /*cases*/
@@ -72,7 +80,7 @@ int send_data(int socket, struct message* message, int kind){
     else if (kind == 2){
       /*send client port to reconnect in case of lost client*/
       DATALENGTH client_port = message->scon->target_address->client_port;
-      client_port = fhtonll(client_port);
+      client_port = ntohl(client_port);
       sent = 0;
       while (sent != sizeof(client_port)){
           sent += send(socket, (&client_port+sent), sizeof(client_port)-sent, 0);
@@ -90,6 +98,7 @@ int send_data(int socket, struct message* message, int kind){
         printf("Kind = 4 (oder5), sende id: %d\n", message->scon->server_id);
         connection_id = message->scon->server_id;
       }
+      connection_id = ntohl(connection_id);
       sent = 0;
       while (sent != sizeof(connection_id)){
           sent += send(socket, &connection_id+sent, sizeof(connection_id)-sent, 0);
@@ -113,6 +122,7 @@ int send_data(int socket, struct message* message, int kind){
       DATALENGTH max_bytes = 900;
       DATALENGTH to_send;
       /*send request number*/
+      request_number = ntohl(request_number);
       sent = 0;
       while (sent != sizeof(request_number)){
           sent += send(socket, ((void*) &request_number)+sent, sizeof(request_number)-sent, 0);
@@ -128,7 +138,7 @@ int send_data(int socket, struct message* message, int kind){
           }
 
           /*send size for allocation*/
-          DATALENGTH size_in_no = fhtonll(size);
+          DATALENGTH size_in_no = ntohl(size);
           //printf("Laenge der Nachricht: %u\n", size);
           sent = 0;
           while(sent != sizeof(size_in_no)){ /* sends the size for allocating*/
@@ -159,7 +169,13 @@ int send_data(int socket, struct message* message, int kind){
       }
       /*send data*/
       //printf("versende: %u Bytes\n", to_send);
-      sent = send(socket, datapointer+from_where, to_send, 0);
+      sent = 0;
+      while(sent < to_send){
+        tmp = send(socket, datapointer+from_where, to_send, 0);
+        if( tmp >= 0){
+          sent += tmp;
+        }
+      }
       //printf("versendet\n");
       /*char* tmp = malloc(to_send+1);
        memcpy(tmp, datapointer+from_where, to_send);
@@ -229,6 +245,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
         }
         recv_ret = 0;
       }
+      client_port = htonl(client_port);
       scon->target_address->client_port = client_port;
       return 0;
     }
@@ -243,20 +260,21 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
           }
           recv_ret = 0;
       }
+      connection_id = htonl(connection_id);
       if (oneByte == 3){
         scon->client_id = connection_id;
-        //printf("server hat id von client erhalten\n");
+        /*printf("server hat id von client erhalten\n");*/
       }
       if (oneByte == 4){
         if (scon->server_id_set == 0){
           scon->server_id_set = 1;
           scon->server_id = connection_id;
-          //printf("client hat id von server erhalten, id = %d\n", connection_id);
+          /*printf("client hat id von server erhalten, id = %d\n", connection_id);*/
         }
       }
       if (oneByte == 5){
         /*Reconnection*/
-        printf("5: empfangene connection id: %d\n", connection_id);
+        /*printf("5: empfangene connection id: %d\n", connection_id);*/
         return connection_id;
       }
       if (oneByte == 6){
@@ -280,6 +298,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
           }
           recv_ret = 0;
       }
+      number = htonl(number);
       (*(rcv_message))->number = number;
       //printf("Empfangene Nummer: %d\n", number);
       recvd = 0;
@@ -303,7 +322,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
               recv_ret = 0;
           }
           //printf("vor message size, recvd: %d\n", recvd);
-          size = fntohll(size);
+          size = htonl(size);
           //printf("Message Size: %u\n", size);
           (*(rcv_message))->datalength = size;
           /*allocating memory*/
