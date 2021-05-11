@@ -77,6 +77,7 @@ extern const char *plot_clear_exclude_keys[];
 #define PLOT_CONTOUR_GRIDIT_N 200
 #define PLOT_WIREFRAME_GRIDIT_N 50
 #define PLOT_SURFACE_GRIDIT_N 200
+#define PLOT_MIN_CHARHEIGHT 0.012
 
 
 /* ========================= datatypes ============================================================================== */
@@ -204,6 +205,7 @@ error_t classes_polar_histogram(grm_args_t *subplot_args, double *r_max);
 double get_lightness_from_rbg(double r, double g, double b);
 void set_text_color_for_background(double r, double g, double b);
 void draw_xticklabel(double x1, double x2, const char *label, double available_width);
-
+double approx_width_of_y_ticklabels(double lower, double upper, double charheight, int scientific_notation);
+void get_scientific_repr(char *repr, int value);
 
 #endif /* ifndef GRM_PLOT_INT_H_INCLUDED */

@@ -1029,13 +1029,14 @@ error_t plot_pre_subplot(grm_args_t *subplot_args)
 
   args_values(subplot_args, "kind", "s", &kind);
   logger((stderr, "Got keyword \"kind\" with value \"%s\"\n", kind));
-  plot_process_viewport(subplot_args);
   error = plot_store_coordinate_ranges(subplot_args);
   return_if_error;
   plot_process_window(subplot_args);
 
   plot_process_colormap(subplot_args);
   plot_process_font(subplot_args);
+
+  plot_process_viewport(subplot_args);
 
   if (str_equals_any(kind, 2, "polar", "polar_histogram"))
     {
@@ -1092,10 +1093,13 @@ void plot_process_viewport(grm_args_t *subplot_args)
   double vp[4];
   double viewport[4] = {0.0, 0.0, 0.0, 0.0};
   int background_color_index;
+  double y_org_low, y_org_high;
+  double needed_margin;
 
   args_values(subplot_args, "kind", "s", &kind);
   args_values(subplot_args, "subplot", "D", &subplot);
   args_values(subplot_args, "keep_aspect_ratio", "i", &keep_aspect_ratio);
+  args_values(subplot_args, "yorg", "dd", &y_org_low, &y_org_high);
   logger((stderr, "Using subplot: %lf, %lf, %lf, %lf\n", subplot[0], subplot[1], subplot[2], subplot[3]));
 
   get_figure_size(NULL, NULL, NULL, &metric_width, &metric_height);
@@ -1149,6 +1153,12 @@ void plot_process_viewport(grm_args_t *subplot_args)
   viewport[1] = vp[0] + 0.925 * (vp[1] - vp[0]);
   viewport[2] = vp[2] + 0.125 * (vp[3] - vp[2]);
   viewport[3] = vp[2] + 0.925 * (vp[3] - vp[2]);
+
+  needed_margin = approx_width_of_y_ticklabels(y_org_low, y_org_high, PLOT_MIN_CHARHEIGHT, 0);
+  if (needed_margin > 0.125 * (vp[1] - vp[0]) && 2 * needed_margin < (vp[1] - vp[0]))
+    {
+      viewport[0] = vp[0] + needed_margin;
+    }
 
   if (aspect_ratio_ws > 1)
     {
@@ -5080,6 +5090,7 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
   double ticksize;
   char *title;
   char *x_label, *y_label, *z_label;
+  double available_margin, needed_margin;
 
   args_values(args, "kind", "s", &kind);
   args_values(args, "viewport", "D", &viewport);
@@ -5097,9 +5108,18 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
   gr_setlinewidth(1);
   diag = sqrt((viewport[1] - viewport[0]) * (viewport[1] - viewport[0]) +
               (viewport[3] - viewport[2]) * (viewport[3] - viewport[2]));
-  charheight = max(0.018 * diag, 0.012);
+  charheight = max(0.018 * diag, PLOT_MIN_CHARHEIGHT);
+
+  available_margin = viewport[0] - vp[0];
+  needed_margin = approx_width_of_y_ticklabels(y_org_low, y_org_high, charheight, y_tick > 1);
+  if (available_margin < needed_margin)
+    {
+      charheight *= available_margin / needed_margin;
+    }
+
   gr_setcharheight(charheight);
   ticksize = 0.0075 * diag;
+
   if (str_equals_any(kind, 5, "wireframe", "surface", "plot3", "scatter3", "trisurf"))
     {
       args_values(args, "ztick", "d", &z_tick);
@@ -7105,7 +7125,6 @@ void set_text_color_for_background(double r, double g, double b)
     }
 }
 
-
 /*!
  * Draw an xticklabel at the specified position while trying to stay in the available space.
  * Every space character (' ') is seen as a possible position to break the label into the next line.
@@ -7183,6 +7202,70 @@ void draw_xticklabel(double x1, double x2, const char *label, double available_w
 
   /* draw the rest */
   gr_textext(x1, x2, new_label + cur_start);
+}
+
+/*!
+ * Approximate width needed to draw y-ticklables in the given range with the given characterheight.
+ * The width of the lowest and highest value is calculated. The bigger width of the two is multiplied by a value
+ * to account for errors (labels with wider characters and the distance between the label and the axes) and then
+ * returned.
+ *
+ * \param[in] lower The lowest value of the range.
+ * \param[in] upper The highest value of the range.
+ * \param[in] charheight The characterheight for which the width should be calculated.
+ * \return The approximate width needed to draw y-ticklabels in the given range
+ */
+double approx_width_of_y_ticklabels(double lower, double upper, double charheight, int scientific_notation)
+{
+  char lower_str[256], upper_str[256];
+  double tbx[4], tby[4];
+  double lower_width, upper_width, bigger_width;
+  int scale;
+  double account_error;
+
+  gr_inqscale(&scale);
+
+  /* TODO: calculate distance between axes and labels */
+  if (GR_OPTION_Y_LOG & scale && scientific_notation)
+    {
+      get_scientific_repr(lower_str, (int)lower);
+      get_scientific_repr(upper_str, (int)upper);
+      account_error = 1.5;
+    }
+  else
+    {
+      gr_ftoa(lower_str, lower, 0.);
+      gr_ftoa(upper_str, upper, 0.);
+      account_error = 1.2;
+    }
+
+  gr_setcharheight(charheight);
+
+  gr_inqtextext(0, 0, lower_str, tbx, tby);
+  gr_wctondc(&tbx[0], &tby[0]);
+  gr_wctondc(&tbx[1], &tby[1]);
+  lower_width = tbx[1] - tbx[0];
+
+  gr_inqtextext(0, 0, upper_str, tbx, tby);
+  gr_wctondc(&tbx[0], &tby[0]);
+  gr_wctondc(&tbx[1], &tby[1]);
+  upper_width = tbx[1] - tbx[0];
+
+  bigger_width = max(lower_width, upper_width);
+
+  return bigger_width * account_error;
+}
+
+/*!
+ * Get the scientific notation of an integer.
+ *
+ * \param[in] repr Pointer to allocated memory in which the string is saved.
+ * \param[in] value Value to be represented.
+ */
+void get_scientific_repr(char *repr, int value)
+{
+  int exponent = (int)log10(value);
+  sprintf(repr, "10^%d", exponent);
 }
 
 /* ========================= methods ================================================================================ */
