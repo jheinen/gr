@@ -333,7 +333,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
       else if (first_part == 0){ /*not the first part of the message*/
         //printf("not first part\n");
         //printf("Laenge Messages beeing received: %d\n", list_size(scon->messages_beeing_received));
-        node_t* tmp = scon->messages_beeing_received;
+        node_t* tmp = scon->messages_beeing_received->list;
         struct message* tmp_message;
         while(tmp->val != NULL){
           tmp_message = get_by_index(scon->messages_beeing_received, index);
@@ -390,7 +390,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
               //printf("Nachricht vollständig emfangen\n");
               if (first_part == 0){
               //printf("Entferne aus liste\n");
-              remove_by_index(&(scon->messages_beeing_received), index);
+              remove_by_index((scon->messages_beeing_received), index);
             }
           //printf("Nachricht vollstaendig empfangen, recv message data: %s\n",
            //(*(rcv_message))->data);
@@ -399,7 +399,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
       else{
         if (first_part == 1){/*message not sent completely*/
         /*push message to messages beeing received*/
-          push(&(scon->messages_beeing_received), *(rcv_message));
+          push((scon->messages_beeing_received), *(rcv_message));
         }
 
       }

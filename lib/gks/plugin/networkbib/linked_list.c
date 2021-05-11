@@ -4,11 +4,14 @@
 #include "linked_list.h"
 
 
-node_t* new_list(void) {
+struct list_plus_size* new_list(void) {
+  struct list_plus_size* list_plus_size = malloc(sizeof(struct list_plus_size));
     node_t* new_node = malloc(sizeof(node_t));
     new_node->next = NULL;
     new_node->val = NULL;
-    return new_node;
+    list_plus_size->size = 0;
+    list_plus_size->list = new_node;
+    return list_plus_size;
 }
 
 int generate_number(node_t * head){
@@ -29,10 +32,12 @@ int generate_number(node_t * head){
      return number-1;
 }
 
-int push(node_t ** head, void* val) {
+int push(struct list_plus_size* list_plus_size, void* val) {
 
+    node_t** head = &(list_plus_size->list);
     struct val_data* push_val;
-    int size = list_size(*head);
+    int size = list_plus_size->size;
+    list_plus_size->size+=1;
 
     push_val = (struct val_data*)malloc(sizeof(struct val_data));
     push_val->id = size;
@@ -58,7 +63,9 @@ int push(node_t ** head, void* val) {
         return size;
 
 }
-void* pop(node_t ** head) { /*removes the head*/
+void* pop(struct list_plus_size* list_plus_size) { /*removes the head*/
+  node_t** head = &(list_plus_size->list);
+  list_plus_size->size = list_plus_size->size-1;
     void* retval;
     //node_t * next_node;
     if (*head == NULL) {
@@ -72,16 +79,16 @@ void* pop(node_t ** head) { /*removes the head*/
     *head = (*head)->next;
     return retval;
 }
-void* remove_by_index(node_t ** head, int n) { /*removes by list_index*/
+void* remove_by_index(struct list_plus_size* list_plus_size, int n) { /*removes by list_index*/
+    node_t ** head = &(list_plus_size->list);
     int i = 0;
     void* retval = NULL;
     node_t * current = *head;
     node_t * temp_node = NULL;
-
     if (n == 0) {
-        return pop(head);
+        return pop(list_plus_size);
     }
-
+    list_plus_size->size = list_plus_size->size-1;
     for (i = 0; i < n-1; i++) {
         if (current->val== NULL) {
             return NULL;
@@ -97,30 +104,28 @@ void* remove_by_index(node_t ** head, int n) { /*removes by list_index*/
     return retval;
 }
 
-void* remove_by_id(node_t ** head, int id){
+void* remove_by_id(struct list_plus_size* list_plus_size, int id){
 
+    node_t ** head = &(list_plus_size->list);
+    list_plus_size->size = list_plus_size->size-1;
     node_t * current = *head;
     if (((struct val_data*)current->val)->id == id) {
       struct val_data* tmp = (struct val_data*)(*head)->val;
       if ((*head)->next != NULL){
         struct val_data* tmp = (struct val_data*)((*head)->next)->val;
       }
-      void* ret = pop(head);
-      //tmp = (struct val_data*)(*head)->val;
-      //printf("Head ID after pop: %d\n", tmp->id);
-      //printf("%d\n", tmp== NULL);
+      void* ret = pop(list_plus_size);
         return ret;
     }
     void* retval = NULL;
     node_t * temp_node = NULL;
     int current_id = 0;
     int i;
-    for (i = 0; i < list_size(*head); i++) {/*iterate over list and search for id*/
+    for (i = 0; i < list_size(list_plus_size); i++) {/*iterate over list and search for id*/
 
         temp_node = current->next;
         current_id = ((struct val_data*)(temp_node->val))->id;
         if (current_id == id){ /*if current element should be removed*/
-            //printf("%d Verbindung soll geloescht werden\n", i);
             retval = ((struct val_data*)(temp_node->val))->data;
             current->next = temp_node->next;
             temp_node->val = NULL;
@@ -134,8 +139,9 @@ void* remove_by_id(node_t ** head, int id){
     return retval;
 }
 
-void* get_by_index(node_t * head, int index){ /*0 indexed*/
+void* get_by_index(struct list_plus_size* list_plus_size, int index){ /*0 indexed*/
 
+    node_t* head = list_plus_size->list;
     node_t * current = head;
     int i = 0;
     void* retval = NULL;
@@ -154,12 +160,13 @@ void* get_by_index(node_t * head, int index){ /*0 indexed*/
     return retval;
 }
 
-void* get_by_id(node_t * head, int id){
-    int i=0; /*list size index*/
+void* get_by_id(struct list_plus_size* list_plus_size, int id){
+    int i = 0; /*list size index*/
+    node_t* head = list_plus_size->list;
     void* retval = NULL;
     node_t * temp_node = head;
     int current_id = 0;
-    int size_of_list = list_size(head);
+    int size_of_list = list_plus_size->size;
     for (i = 0; i < size_of_list; i++) { /*iterate over list and search for id*/
         current_id = ((struct val_data*)(temp_node->val))->id;
         if (current_id == id){
@@ -172,12 +179,9 @@ void* get_by_id(node_t * head, int id){
     return retval;
 }
 
-int list_size(node_t * head){
-    node_t * current = head;
+int list_size(struct list_plus_size* list_plus_size){
+    /*node_t * current = head;
     int size = 0;
-    /*if (head == NULL){
-      printf("head == NULL\n");
-    }*/
     if (head->val == NULL){
         return size;
     }
@@ -188,16 +192,17 @@ int list_size(node_t * head){
         current = current->next;
     }
     //printf("%d: In list size, Adresse: %p\n", size, ((struct val_data*)(current->val))->data);
-    return size;
+    return size;*/
+    return list_plus_size->size;
 }
 
 /*checks if element with id is in list*/
-int list_contains_id(node_t* head, int id){
-
+int list_contains_id(struct list_plus_size* list_plus_size, int id){
     //printf("aufgerufen mit: %d\n", id);
     //printf("ID des ersten Eintrags: %d\n", ((struct val_data*)(head->val))->id);
     //printf("ID des zweiten Eintrags: %d\n", ((struct val_data*)(head->next->val))->id);
 
+    node_t* head = list_plus_size->list;
     node_t* current = head;
     if(current->val == NULL){
         return 0;
@@ -217,17 +222,19 @@ int list_contains_id(node_t* head, int id){
     }
     return 0;
 }
-int push_with_lowest_id(node_t ** head, void* val, node_t * id_list){
+int push_with_lowest_id(struct list_plus_size* list_plus_size, void* val, struct list_plus_size * id_list_){
 
+      node_t* id_list = id_list_->list;
       struct val_data* push_val;
       //int size = list_size(*head);
-
+      node_t** head = &(list_plus_size->list);
       node_t * current = *head;
-      int id = get_and_set_lowest_id(id_list);
       push_val = (struct val_data*)malloc(sizeof(struct val_data));
-      push_val->id = id;
       push_val->data = val;
-      int size_of_list = list_size(*head);
+      int id = get_and_set_lowest_id(id_list);
+      push_val->id = id;
+      int size_of_list = list_size(list_plus_size);
+      list_plus_size->size = list_plus_size->size + 1;
 
       node_t* push_data = (node_t*)malloc(sizeof(node_t));
       push_data->val = (void*)push_val;
@@ -312,14 +319,17 @@ int push_with_lowest_id(node_t ** head, void* val, node_t * id_list){
     }
   }
 
-void* remove_by_id_and_free_id(node_t ** head, node_t* id_list, int id){
+void* remove_by_id_and_free_id(struct list_plus_size* list_plus_size, struct list_plus_size* id_list_, int id){
 
+  node_t* id_list = id_list_->list;
+  node_t ** head = &(list_plus_size->list);
   node_t* current = *head;
   node_t * temp_node = *head;
   node_t* current2 = id_list;
   struct is_used* used;
   void* ret_data;
   int i;
+
 
   /*case remove first element*/
   if (((struct val_data*)current->val)->id == id) {
@@ -328,7 +338,7 @@ void* remove_by_id_and_free_id(node_t ** head, node_t* id_list, int id){
         }
         used = current2->val;
         used->used = 0;
-      return pop(head);
+      return pop(list_plus_size);
     }
 
   for (i = 0; i< id; i++){
@@ -356,12 +366,13 @@ void* remove_by_id_and_free_id(node_t ** head, node_t* id_list, int id){
   return NULL;
 }
 
-int id_in_list(node_t* head, DATALENGTH id){
+int id_in_list(struct list_plus_size* list_plus_size, DATALENGTH id){
+  node_t* head = list_plus_size->list;
   printf("in id in liste\n");
   node_t* current = head;
   struct val_data* tmp = NULL;
   printf("vor if\n");
-  int size = list_size(head);
+  int size = list_size(list_plus_size);
   printf("laenge erhaltgne\n");
   if (size == 0){
     return 0;

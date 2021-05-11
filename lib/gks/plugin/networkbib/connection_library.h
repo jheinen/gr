@@ -11,14 +11,30 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-#include "queue.h"
-#include "linked_list.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "library.h"
 #include <errno.h>
 #include <poll.h>
 #include <fcntl.h>
+
+#include "queue.h"
+#include "linked_list.h"
+#include "library.h"
+
+#ifdef _WIN32
+/* Headerfiles für Windows */
+#include <winsock.h>
+#include <io.h>
+
+#else
+/* UNIX/Linux */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#endif
 
 struct message{
     DATALENGTH number;
@@ -71,7 +87,7 @@ struct server_configuration{
 struct single_server{
     int id; /*id to adress the server*/
     int serversocket; /*sockets to achieve the server*/
-    node_t* connections; /*contains list of serverconnections*/
+    struct list_plus_size* connections; /*contains list of serverconnections*/
     void (*handle_message_func)(struct message*);/*function to handle all connections*/
     char* server_ip;
 };
@@ -106,14 +122,14 @@ struct single_connection{ /*struct which represents one single Connection*/
     int client_id_set; /*boolean*/
     DATALENGTH server_id; /*id server uses*/
     int server_id_set; /*boolean*/
-    struct node* current_messages; /*message which is currently send/received*/
-    node_t* messages_to_be_send; /*messages that arent fully sent*/
-    node_t* messages_beeing_received; /*messages that arent fully received*/
+    struct list_plus_size* current_messages; /*message which is currently send/received*/
+    struct list_plus_size* messages_to_be_send; /*messages that arent fully sent*/
+    struct list_plus_size* messages_beeing_received; /*messages that arent fully received*/
 };
 
 struct context_object{
-    node_t* connections; /*Linked List with single Connections as Element*/
-    node_t* servers; /*list of different servers, belong to this context*/
+    struct list_plus_size* connections; /*Linked List with single Connections as Element*/
+    struct list_plus_size* servers; /*list of different servers, belong to this context*/
     struct queue_q *to_network_queue; /*queue which receives connection-requests*/
     struct queue_q *to_context_queue; /*queue which responses connection-requests*/
     int connection_request_pipe_read; /*pipe between context and Networkthread*/
@@ -134,13 +150,13 @@ struct message* new_message();
 /*returns new response message with equal socket and number than given message*/
 struct message* get_response_message(struct message* message, DATALENGTH size, void* data, int use_memcopy);
 
-void push_message_to_sending_list(node_t* messages_to_be_send, struct message* message, int kind);
+void push_message_to_sending_list(struct list_plus_size* messages_to_be_send, struct message* message, int kind);
 
 /*sends some data from every message, that should be send*/
 void send_message_list(struct single_connection* act_con);
 /*API: send message with data*/
 
-int delete_socket_from_list(node_t** sockets_to_be_deleted, int connection_id);
+int delete_socket_from_list(struct list_plus_size* sockets_to_be_deleted, int connection_id);
 /**/
 
 DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* status_pointer);
@@ -153,11 +169,11 @@ static void delete_fd_from_pollset(int fd, int* nfds, struct pollfd fds[]);
 
 /*trys to reconnect connection after communication partner didnt answer heartbeat*/
 void try_reconnection(struct single_connection* act_con, int* nfds, struct pollfd fds[],
-   node_t** sockets_to_be_deleted, int to_client_or_server);
+   struct list_plus_size* sockets_to_be_deleted, int to_client_or_server);
 
 /*deletes connection if from network queue is empty */
-void delete_connection(struct single_connection* scon, node_t** context_connections,
-    node_t** server_connections, node_t* connection_ids, int* nfds, struct pollfd fds[]);
+void delete_connection(struct single_connection* scon, struct list_plus_size* context_connections,
+    struct list_plus_size* server_connections, struct list_plus_size* connection_ids, int* nfds, struct pollfd fds[]);
 
 /*removes all current messages from a connection*/
 void clear_messagelist_and_set_status(struct single_connection* scon,
