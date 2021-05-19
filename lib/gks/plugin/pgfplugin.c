@@ -1281,6 +1281,49 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
     }
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y;
+  int i, j, k, rgba, red, green, blue;
+  PGF_point triangle[3];
+
+  if (n > p->max_points)
+    {
+      p->points = (PGF_point *)realloc(p->points, n * sizeof(PGF_point));
+      p->max_points = n;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, p->points[i].x, p->points[i].y);
+    }
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          triangle[k].x = p->points[tri[j] - 1].x;
+          triangle[k].y = p->points[tri[j] - 1].y;
+          j++;
+        }
+
+      rgba = tri[j++];
+      red = rgba & 0xff;
+      green = (rgba >> 8) & 0xff;
+      blue = (rgba >> 16) & 0xff;
+
+      pgf_printf(p->stream, "\\definecolor{mycolor}{RGB}{%d,%d,%d}\n", red, green, blue);
+      pgf_printf(p->stream,
+                 "\\draw[color=mycolor, cap=round, line width=%fpt] "
+                 "(%f,%f) -- (%f,%f) -- (%f,%f) --cycle;\n",
+                 gkss->lwidth * p->nominal_size, triangle[0].x, triangle[0].y, triangle[1].x, triangle[1].y,
+                 triangle[2].x, triangle[2].y);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   switch (primid)
@@ -1293,6 +1336,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);

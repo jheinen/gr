@@ -1091,6 +1091,57 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
   p->pixmap->restore();
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y, xi, yi;
+  int i, j, k, rgba, line_color = MAX_COLOR;
+  int red, green, blue;
+  QPolygonF *triangle;
+
+  p->pixmap->save();
+  p->pixmap->setRenderHint(QPainter::Antialiasing);
+
+  if (n > p->max_points)
+    {
+      p->points->resize(n);
+      p->max_points = n;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, xi, yi);
+      (*p->points)[i] = QPointF(xi, yi);
+    }
+
+  triangle = new QPolygonF(3);
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          (*triangle)[k] = (*p->points)[tri[j] - 1];
+          j++;
+        }
+
+      rgba = tri[j++];
+      red = rgba & 0xff;
+      green = (rgba >> 8) & 0xff;
+      blue = (rgba >> 16) & 0xff;
+      p->rgb[line_color].setRgb(red, green, blue);
+      p->rgb[line_color].setAlpha(p->transparency);
+
+      p->pixmap->setPen(
+          QPen(p->rgb[line_color], gkss->lwidth * p->nominal_size, Qt::SolidLine, Qt::RoundCap, Qt::MiterJoin));
+
+      p->pixmap->drawPolygon(triangle->constData(), 3);
+    }
+  delete triangle;
+
+  p->pixmap->restore();
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   switch (primid)
@@ -1103,6 +1154,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);

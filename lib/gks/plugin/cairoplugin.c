@@ -1864,6 +1864,54 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
     }
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y;
+  int i, j, k, rgba, line_color = MAX_COLOR;
+  cairo_point triangle[3];
+
+  if (n > p->max_points)
+    {
+      p->points = (cairo_point *)gks_realloc(p->points, n * sizeof(cairo_point));
+      p->max_points = n;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, p->points[i].x, p->points[i].y);
+    }
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          triangle[k].x = p->points[tri[j] - 1].x;
+          triangle[k].y = p->points[tri[j] - 1].y;
+          j++;
+        }
+
+      cairo_set_line_width(p->cr, gkss->lwidth * p->nominal_size);
+      rgba = tri[j++];
+      p->rgb[line_color][0] = (rgba & 0xff) / 255.0;
+      p->rgb[line_color][1] = ((rgba >> 8) & 0xff) / 255.0;
+      p->rgb[line_color][2] = ((rgba >> 16) & 0xff) / 255.0;
+
+      set_color(line_color);
+      cairo_set_line_cap(p->cr, CAIRO_LINE_CAP_ROUND);
+
+      cairo_move_to(p->cr, triangle[0].x, triangle[0].y);
+      for (k = 1; k < 3; k++)
+        {
+          cairo_line_to(p->cr, triangle[k].x, triangle[k].y);
+        }
+      cairo_close_path(p->cr);
+      cairo_stroke(p->cr);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   switch (primid)
@@ -1876,6 +1924,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);

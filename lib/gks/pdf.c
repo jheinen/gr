@@ -1888,6 +1888,36 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
     }
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y;
+  int i, j, k, rgba, ln_color = MAX_COLOR;
+  double tri_x[3], tri_y[3];
+
+  pdf_setlinewidth(p, gkss->lwidth * p->nominal_size);
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          WC_to_NDC(px[tri[j] - 1], py[tri[j] - 1], gkss->cntnr, x, y);
+          seg_xform(&x, &y);
+          NDC_to_DC(x, y, tri_x[k], tri_y[k]);
+          j++;
+        }
+
+      rgba = tri[j++];
+      p->red[ln_color] = (rgba & 0xff) / 255.0;
+      p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      pdf_setrgbcolor(p, p->red[ln_color], p->green[ln_color], p->blue[ln_color]);
+      pdf_printf(p->content, "1 J %.2f %.2f m %.2f %.2f l %.2f %.2f l h S\n", tri_x[0], tri_y[0], tri_x[1], tri_y[1],
+                 tri_x[2], tri_y[2]);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   if (gkss->clip_tnr != 0)
@@ -1905,6 +1935,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);
