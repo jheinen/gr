@@ -1767,11 +1767,11 @@ static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
       p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
       p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
 
-      packb("np 0 setlinecap");
+      packb("np 0 setlinejoin");
       set_linewidth(gkss->lwidth);
       set_color(-ln_color, p->wtype);
 
-      sprintf(buffer, "%.2f %.2f m %.2f %.2f %.2f %.2f l csk", tri_x[0], tri_y[0], tri_x[1], tri_y[1], tri_x[2],
+      sprintf(buffer, "%.2f %.2f m %.2f %.2f l %.2f %.2f l csk", tri_x[0], tri_y[0], tri_x[1], tri_y[1], tri_x[2],
               tri_y[2]);
       packb(buffer);
     }
