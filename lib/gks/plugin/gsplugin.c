@@ -1825,7 +1825,7 @@ static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
       p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
       p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
 
-      packb("np 0 setlinejoin");
+      packb("np");
       set_linewidth(gkss->lwidth);
       set_color(-ln_color, p->wtype);
 

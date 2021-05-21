@@ -1178,6 +1178,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   begin_context(context);
 
   CGContextBeginPath(context);
+  CGContextSetLineCap(context, kCGLineCapButt);
+  CGContextSetLineJoin(context, kCGLineJoinRound);
   CGContextSetLineWidth(context, ln_width * p->nominal_size);
 
   if (ln_type != 1)
@@ -1243,6 +1245,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 2: // line
           CGContextBeginPath(context);
+          CGContextSetLineCap(context, kCGLineCapButt);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           CGContextSetLineWidth(context, p->nominal_size);
           CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < 2; i++)
@@ -1261,6 +1265,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 3: // polyline
           CGContextBeginPath(context);
+          CGContextSetLineCap(context, kCGLineCapButt);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           CGContextSetLineWidth(context, p->nominal_size);
           CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < marker[mtype][pc + 1]; i++)
@@ -1281,6 +1287,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
         case 4: // filled polygon
         case 5: // hollow polygon
           CGContextBeginPath(context);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           if (op == 4)
             {
               CGContextSetFillColor(context, marker_color);
@@ -1519,6 +1526,7 @@ static void fill_routine(int n, double *px, double *py, int tnr)
     {
       begin_context(context);
       CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       CGContextSetLineWidth(context, p->nominal_size);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
@@ -1530,6 +1538,7 @@ static void fill_routine(int n, double *px, double *py, int tnr)
       begin_context(context);
       [self set_fill_color:fl_color:context];
       CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       CGContextSetLineWidth(context, p->nominal_size);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
@@ -1571,6 +1580,8 @@ static void to_DC(int n, double *x, double *y)
 
   begin_context(context);
 
+  CGContextSetLineCap(context, kCGLineCapButt);
+  CGContextSetLineJoin(context, kCGLineJoinRound);
   CGContextSetLineWidth(context, gkss->bwidth * p->nominal_size);
   [self set_stroke_color:gkss->bcoli:context];
   [self set_fill_color:gkss->facoli:context];
@@ -1759,8 +1770,8 @@ static void to_DC(int n, double *x, double *y)
       NDC_to_DC(x, y, xi, yi);
 
       CGContextBeginPath(context);
-      CGContextSetLineJoin(context, kCGLineJoinMiter);
       CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       line_width = 0.01 * attributes[j++];
       CGContextSetLineWidth(context, line_width * p->nominal_size);
 
@@ -1864,6 +1875,7 @@ static void to_DC(int n, double *x, double *y)
         }
 
       CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       CGContextSetLineWidth(context, gkss->lwidth * p->nominal_size);
 
       rgba = tri[j++];

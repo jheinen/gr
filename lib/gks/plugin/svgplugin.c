@@ -550,7 +550,8 @@ static void stroke(void)
 
   svg_printf(p->stream,
              "<polyline clip-path=\"url(#clip%02d%d)\" style=\""
-             "stroke:#%02x%02x%02x; stroke-width:%g; stroke-opacity:%g; fill:none\" ",
+             "stroke:#%02x%02x%02x; stroke-linecap:butt; stroke-linejoin:round; stroke-width:%g; stroke-opacity:%g; "
+             "fill:none\" ",
              path_id, p->rect_index, p->rgb[p->color][0], p->rgb[p->color][1], p->rgb[p->color][2], p->linewidth,
              p->transparency);
   svg_printf(p->stream, "points=\"\n  ");
@@ -581,7 +582,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
   svg_printf(p->stream,
              "<polyline clip-path=\"url(#clip%02d%d)\" style=\""
-             "stroke:#%02x%02x%02x; stroke-width:%g; stroke-opacity:%g; fill:none\" ",
+             "stroke:#%02x%02x%02x; stroke-linecap:butt; stroke-linejoin:round; stroke-width:%g; stroke-opacity:%g; "
+             "fill:none\" ",
              path_id, p->rect_index, p->rgb[p->color][0], p->rgb[p->color][1], p->rgb[p->color][2], p->linewidth,
              p->transparency);
   if (linetype < 0 || linetype > 1)
@@ -1215,14 +1217,16 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           break;
         case 'S': /* stroke */
           svg_printf(p->stream,
-                     "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" />",
+                     "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-linecap=\"butt\" "
+                     "stroke-linejoin=\"round\" stroke-width=\"%g\" />",
                      p->rgb[gkss->bcoli][0], p->rgb[gkss->bcoli][1], p->rgb[gkss->bcoli][2], p->transparency,
                      gkss->bwidth * p->nominal_size);
           in_path = 0;
           break;
         case 's': /* close and stroke */
           svg_printf(p->stream,
-                     "Z\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" />",
+                     "Z\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-linecap=\"butt\" "
+                     "stroke-linejoin=\"round\" stroke-width=\"%g\" />",
                      p->rgb[gkss->bcoli][0], p->rgb[gkss->bcoli][1], p->rgb[gkss->bcoli][2], p->transparency,
                      gkss->bwidth * p->nominal_size);
           cur_x = start_x;
@@ -1287,8 +1291,8 @@ static void draw_lines(int n, double *px, double *py, int *attributes)
       svg_printf(p->stream, "<path clip-path=\"url(#clip%02d%d)\" d=\"", path_id, p->rect_index);
       svg_printf(p->stream, "M%g %g L%g %g ", xim1, yim1, xi, yi);
       svg_printf(p->stream,
-                 "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" "
-                 "stroke-linecap=\"round\" stroke-linejoin=\"miter\" />",
+                 "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-linecap=\"round\" "
+                 "stroke-width=\"%g\" />",
                  red, green, blue, p->transparency, line_width * p->nominal_size);
     }
 }
@@ -1354,8 +1358,8 @@ static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
       svg_printf(p->stream, "M%g %g L%g %g L%g %g Z", triangle[0].x, triangle[0].y, triangle[1].x, triangle[1].y,
                  triangle[2].x, triangle[2].y);
       svg_printf(p->stream,
-                 "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-width=\"%g\" "
-                 "stroke-linecap=\"round\" stroke-linejoin=\"miter\" />",
+                 "\" fill=\"none\" stroke=\"#%02x%02x%02x\" stroke-opacity=\"%g\" stroke-linejoin=\"round\" "
+                 "stroke-width=\"%g\" />",
                  red, green, blue, p->transparency, gkss->lwidth * p->nominal_size);
     }
 }

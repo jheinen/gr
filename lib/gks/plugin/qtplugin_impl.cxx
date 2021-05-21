@@ -384,12 +384,12 @@ static void polyline(int n, double *px, double *py)
       QVector<qreal> dashPattern(list[0]);
       for (i = 0; i < list[0]; i++) dashPattern[i] = (double)list[i + 1];
 
-      QPen pen(QPen(transparent_color, ln_width, Qt::CustomDashLine, Qt::FlatCap));
+      QPen pen(QPen(transparent_color, ln_width, Qt::CustomDashLine, Qt::FlatCap, Qt::RoundJoin));
       pen.setDashPattern(dashPattern);
       p->pixmap->setPen(pen);
     }
   else
-    p->pixmap->setPen(QPen(transparent_color, ln_width, Qt::SolidLine, Qt::FlatCap));
+    p->pixmap->setPen(QPen(transparent_color, ln_width, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
 
   line_routine(n, px, py, ln_type, gkss->cntnr);
 
@@ -459,7 +459,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
               seg_xform_rel(&xr, &yr);
               (*points)[i] = QPointF(x - xr, y + yr);
             }
-          p->pixmap->setPen(QPen(marker_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->setPen(QPen(marker_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
           p->pixmap->drawPolyline(points->constData(), marker[mtype][pc + 1]);
           pc += 1 + 2 * marker[mtype][pc + 1];
           delete points;
@@ -472,7 +472,8 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
             {
               p->pixmap->setBrush(QBrush(marker_color, Qt::SolidPattern));
               if (gkss->bcoli != gkss->pmcoli)
-                p->pixmap->setPen(QPen(border_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+                p->pixmap->setPen(
+                    QPen(border_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
               else
                 p->pixmap->setPen(Qt::NoPen);
             }
@@ -671,7 +672,7 @@ static void text(double px, double py, int nchars, char *chars)
   p->pixmap->setRenderHint(QPainter::Antialiasing);
   QColor transparent_color(p->rgb[tx_color]);
   transparent_color.setAlpha(p->transparency);
-  p->pixmap->setPen(QPen(transparent_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+  p->pixmap->setPen(QPen(transparent_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
 
   if (tx_prec == GKS_K_TEXT_PRECISION_STRING)
     {
@@ -724,7 +725,7 @@ static void fillarea(int n, double *px, double *py)
 
   if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
     {
-      p->pixmap->setPen(QPen(transparent_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+      p->pixmap->setPen(QPen(transparent_color, p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
       line_routine(n, px, py, DrawBorder, gkss->cntnr);
     }
   else if (fl_inter == GKS_K_INTSTYLE_SOLID)
@@ -986,17 +987,20 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           path.closeSubpath();
           cur_x = start_x;
           cur_y = start_y;
-          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->strokePath(
+              path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
           break;
         case 'S': /* stroke */
-          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->strokePath(
+              path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
           break;
         case 'F': /* fill and stroke */
           path.closeSubpath();
           cur_x = start_x;
           cur_y = start_y;
           p->pixmap->fillPath(path, fill_color);
-          p->pixmap->strokePath(path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap));
+          p->pixmap->strokePath(
+              path, QPen(stroke_color, gkss->bwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
           break;
         case 'f': /* fill */
           path.closeSubpath();
@@ -1133,7 +1137,7 @@ static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
       p->rgb[line_color].setAlpha(p->transparency);
 
       p->pixmap->setPen(
-          QPen(p->rgb[line_color], gkss->lwidth * p->nominal_size, Qt::SolidLine, Qt::RoundCap, Qt::MiterJoin));
+          QPen(p->rgb[line_color], gkss->lwidth * p->nominal_size, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
 
       p->pixmap->drawPolygon(triangle->constData(), 3);
     }
