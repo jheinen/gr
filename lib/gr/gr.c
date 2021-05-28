@@ -4625,7 +4625,7 @@ static char *replace_minus_sign(char *string)
   return string;
 }
 
-char *gr_ftoa(char *string, double value, double reference)
+static char *gr_ftoa(char *string, double value, double reference)
 {
   char *s;
 

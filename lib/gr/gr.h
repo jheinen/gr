@@ -220,8 +220,6 @@ DLLEXPORT void gr_setpicturesizeforvolume(int, int);
 DLLEXPORT void gr_setvolumebordercalculation(int);
 DLLEXPORT void gr_inqvolumeflags(int *, int *, int *, int *);
 DLLEXPORT void gr_cpubasedvolume(int, int, int, double *, int, double *, double *, double *, double *);
-DLLEXPORT char *gr_ftoa(char *, double, double);
-
 
 #ifdef __cplusplus
 }
