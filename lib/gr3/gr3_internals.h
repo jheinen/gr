@@ -260,6 +260,7 @@ typedef struct _GR3_ContextStruct_t_
   int projection_type;
   int num_threads;
   int use_software_renderer;
+  int option; /* cf. gr_surface_option_t in gr3_gr.c, used for the software renderer */
   int software_renderer_pixmaps_initalised;
   unsigned char *pixmaps[MAX_NUM_THREADS]; /* pixels to be drawn created by the Software Renderer */
   float *depth_buffers[MAX_NUM_THREADS];

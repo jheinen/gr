@@ -86,7 +86,7 @@ typedef unsigned long uLong;
 #define pdf_curveto(p) pdf_printf(p->content, "c\n")
 #define pdf_setdash(p, dash) pdf_printf(p->content, "%s 0 d\n", dash)
 
-#define pdf_setlinewidth(p, width) pdf_printf(p->content, "%s w\n", pdf_double(width))
+#define pdf_setlinewidth(p, width) pdf_printf(p->content, "0 J 1 j %s w\n", pdf_double(width))
 
 #define pdf_text(p, xorg, yorg, text) \
   pdf_printf(p->content, "BT\n/F%d %d Tf\n%.2f %.2f Td\n(%s) Tj\nET\n", p->font, p->pt, xorg, yorg, text)
@@ -133,8 +133,8 @@ typedef struct ws_state_list_t
   int stroke;
   double lastx, lasty;
   double red[MAX_COLOR + 1], green[MAX_COLOR + 1], blue[MAX_COLOR + 1];
-  int alpha, ltype, font, size, pt;
-  double lwidth, angle;
+  int alpha, font, size, pt;
+  double angle;
   double nominal_size;
   PDF_stream *stream;
   long object_number;
@@ -833,8 +833,6 @@ static void init_context(void)
   p->lastx = p->lasty = -1;
 
   p->alpha = 0xff;
-  p->ltype = -999;
-  p->lwidth = -1.0;
   p->font = 1;
   p->size = 24;
   p->angle = 0;
@@ -980,21 +978,13 @@ static void set_linetype(int ltype, double lwidth)
 {
   char dash[80];
 
-  if (p->ltype != ltype || p->lwidth != lwidth)
-    {
-      gks_get_dash(ltype, lwidth * p->nominal_size, dash);
-      pdf_setdash(p, dash);
-      p->ltype = ltype;
-    }
+  gks_get_dash(ltype, lwidth * p->nominal_size, dash);
+  pdf_setdash(p, dash);
 }
 
 static void set_linewidth(double lwidth)
 {
-  if (p->lwidth != lwidth)
-    {
-      pdf_setlinewidth(p, lwidth * p->nominal_size);
-      p->lwidth = lwidth;
-    }
+  pdf_setlinewidth(p, lwidth * p->nominal_size);
 }
 
 static void polyline(int n, double *px, double *py)
@@ -1180,7 +1170,7 @@ static void draw_marker(double xn, double yn, int mtype, double mscale, int mcol
                 }
               pdf_curveto(p);
             }
-          if (op == 7 && gkss->bcoli != gkss->pmcoli)
+          if (op == 7 && gkss->bcoli != gkss->pmcoli && gkss->bwidth > 0)
             pdf_printf(p->content, "b*\n");
           else
             pdf_eofill(p);
@@ -1858,9 +1848,8 @@ static void draw_lines(int n, double *px, double *py, int *attributes)
       p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
 
       set_color(ln_color);
-      set_linewidth(line_width);
 
-      pdf_printf(p->content, "1 J %.2f %.2f m %.2f %.2f l S\n", xim1, yim1, xi, yi);
+      pdf_printf(p->content, "1 J %s w %.2f %.2f m %.2f %.2f l S\n", pdf_double(line_width), xim1, yim1, xi, yi);
     }
 }
 
@@ -1888,6 +1877,36 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
     }
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y;
+  int i, j, k, rgba, ln_color = MAX_COLOR;
+  double tri_x[3], tri_y[3];
+
+  pdf_setlinewidth(p, gkss->lwidth * p->nominal_size);
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          WC_to_NDC(px[tri[j] - 1], py[tri[j] - 1], gkss->cntnr, x, y);
+          seg_xform(&x, &y);
+          NDC_to_DC(x, y, tri_x[k], tri_y[k]);
+          j++;
+        }
+
+      rgba = tri[j++];
+      p->red[ln_color] = (rgba & 0xff) / 255.0;
+      p->green[ln_color] = ((rgba >> 8) & 0xff) / 255.0;
+      p->blue[ln_color] = ((rgba >> 16) & 0xff) / 255.0;
+
+      pdf_setrgbcolor(p, p->red[ln_color], p->green[ln_color], p->blue[ln_color]);
+      pdf_printf(p->content, "%.2f %.2f m %.2f %.2f l %.2f %.2f l h S\n", tri_x[0], tri_y[0], tri_x[1], tri_y[1],
+                 tri_x[2], tri_y[2]);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   if (gkss->clip_tnr != 0)
@@ -1905,6 +1924,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);

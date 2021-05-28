@@ -2,6 +2,10 @@
 #define _XOPEN_SOURCE
 #endif
 
+#ifdef _MSC_VER
+#define NO_THREADS 1
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -39,6 +43,10 @@ typedef __int64 int64_t;
 #define NAN (0.0 / 0.0)
 #endif
 
+#ifndef sign
+#define sign(a) (((a) > (0) || (a) < (0)) ? ((a) / fabs(a)) : (0))
+#endif
+
 #include "gks.h"
 #include "gkscore.h"
 #include "gr.h"
@@ -53,6 +61,7 @@ typedef __int64 int64_t;
 #include "md5.h"
 #include "cm.h"
 #include "boundary.h"
+#include "threadpool.h"
 
 #ifndef R_OK
 #define R_OK 4
@@ -63,6 +72,10 @@ typedef __int64 int64_t;
 #ifndef M_PI
 #define M_PI (3.141592653589793)
 #endif
+
+#define RAYCASTING_CEIL(x) ((x > 0) ? round(x + 0.50001) : (floor(x + 1.0001)))
+#define RAYCASTING_FLOOR(x) (round(x - 0.50001))
+
 
 typedef struct
 {
@@ -160,6 +173,29 @@ typedef struct
   int a, b, c;
   double sp;
 } triangle_with_distance;
+
+struct ray_casting_attr
+{
+  int nx, ny, nz;
+  int algorithm;
+  double *data, *dmin_ptr, *dmax_ptr;
+  double *min_val, *max_val, *pixels;
+};
+
+struct thread_attr
+{
+  int x_start, y_start, x_end, y_end;
+};
+
+typedef struct
+{
+  int border, max_threads;
+  double thread_size;
+  int picture_width, picture_height;
+  struct ray_casting_attr *ray_casting;
+} volume_t;
+
+static volume_t vt = {1, 0, 1.25, 1000, 1000, NULL};
 
 static norm_xform nx = {1, 0, 1, 0};
 
@@ -8952,6 +8988,8 @@ void gr_setcolormapfromrgb(int n, double *r, double *g, double *b, double *x)
             }
         }
     }
+  first_color = 1000;
+  last_color = 1255;
   for (i = 0; i < n - 1; i++)
     {
       if (x == NULL)
@@ -8972,6 +9010,25 @@ void gr_setcolormapfromrgb(int n, double *r, double *g, double *b, double *x)
           double bj = b[i] * (1 - a) + b[i + 1] * a;
           gr_setcolorrep(1000 + j, rj, gj, bj);
         }
+    }
+}
+
+/*!
+ * Inquire the color index range of the current colormap.
+ *
+ * \param[out] first_color_ind The color index of the first color
+ * \param[out] last_color_ind The color index of the last color
+ */
+void gr_inqcolormapinds(int *first_color_ind, int *last_color_ind)
+{
+  check_autoinit;
+  if (first_color_ind != NULL)
+    {
+      *first_color_ind = first_color;
+    }
+  if (last_color_ind != NULL)
+    {
+      *last_color_ind = last_color;
     }
 }
 
@@ -10133,42 +10190,12 @@ void gr_drawarrow(double x1, double y1, double x2, double y2)
   if (flag_graphics) gr_writestream("<drawarrow x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\"/>\n", x1, y1, x2, y2);
 }
 
-/*!
- * Draw an image into a given rectangular area.
- *
- * \param[in] xmin X coordinate of the lower left point of the rectangle
- * \param[in] ymin Y coordinate of the lower left point of the rectangle
- * \param[in] xmax X coordinate of the upper right point of the rectangle
- * \param[in] ymax Y coordinate of the upper right point of the rectangle
- * \param[in] width X dimension of the color index array
- * \param[in] height Y dimension of the color index array
- * \param[in] data color array
- * \param[in] model color model
- *
- * The points (xmin, ymin) and (xmax, ymax) are world coordinates defining
- * diagonally opposite corner points of a rectangle. This rectangle is divided
- * into width by height cells. The two-dimensional array data specifies colors
- * for each cell.
- *
- * \verbatim embed:rst:leading-asterisk
- *
- * The available color models are:
- *
- * +-----------------------+---+-----------+
- * |MODEL_RGB              |  0|   AABBGGRR|
- * +-----------------------+---+-----------+
- * |MODEL_HSV              |  1|   AAVVSSHH|
- * +-----------------------+---+-----------+
- *
- * \endverbatim
- */
-void gr_drawimage(double xmin, double xmax, double ymin, double ymax, int width, int height, int *data, int model)
+static void drawimage_calculation(double xmin, double xmax, double ymin, double ymax, int width, int height, int *data,
+                                  int model)
 {
   int *img = data, *imgT;
   int n, i, j, w, h;
   double hue, saturation, value, red, green, blue, x, y;
-
-  check_autoinit;
 
   if (model == MODEL_HSV)
     {
@@ -10243,6 +10270,45 @@ void gr_drawimage(double xmin, double xmax, double ymin, double ymax, int width,
     }
   else
     gks_draw_image(xmin, ymax, xmax, ymin, width, height, img);
+}
+
+/*!
+ * Draw an image into a given rectangular area.
+ *
+ * \param[in] xmin X coordinate of the lower left point of the rectangle
+ * \param[in] ymin Y coordinate of the lower left point of the rectangle
+ * \param[in] xmax X coordinate of the upper right point of the rectangle
+ * \param[in] ymax Y coordinate of the upper right point of the rectangle
+ * \param[in] width X dimension of the color index array
+ * \param[in] height Y dimension of the color index array
+ * \param[in] data color array
+ * \param[in] model color model
+ *
+ * The points (xmin, ymin) and (xmax, ymax) are world coordinates defining
+ * diagonally opposite corner points of a rectangle. This rectangle is divided
+ * into width by height cells. The two-dimensional array data specifies colors
+ * for each cell.
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available color models are:
+ *
+ * +-----------------------+---+-----------+
+ * |MODEL_RGB              |  0|   AABBGGRR|
+ * +-----------------------+---+-----------+
+ * |MODEL_HSV              |  1|   AAVVSSHH|
+ * +-----------------------+---+-----------+
+ *
+ * \endverbatim
+ */
+void gr_drawimage(double xmin, double xmax, double ymin, double ymax, int width, int height, int *data, int model)
+{
+  int *img = data;
+  int n;
+
+  check_autoinit;
+
+  drawimage_calculation(xmin, xmax, ymin, ymax, width, height, data, model);
 
   if (flag_graphics)
     {
@@ -12111,6 +12177,7 @@ void gr_setspace3d(double phi, double theta, double fov, double camera_distance)
 {
   double scale_factor_x, scale_factor_y, scale_factor_z;
   double bounding_sphere_radius;
+  double eps = 1e-6;
 
   tx.focus_point_x = (ix.xmax + ix.xmin) / 2;
   tx.focus_point_y = (ix.ymin + ix.ymax) / 2;
@@ -12132,7 +12199,7 @@ void gr_setspace3d(double phi, double theta, double fov, double camera_distance)
         {
           camera_distance = fabs(bounding_sphere_radius / sin((fov * M_PI / 180) / 2));
         }
-      gr_setperspectiveprojection(max(0.01, camera_distance - bounding_sphere_radius * 1.01),
+      gr_setperspectiveprojection(max(eps, camera_distance - bounding_sphere_radius * 1.01),
                                   camera_distance + bounding_sphere_radius * 2, fov);
     }
 
@@ -12173,4 +12240,924 @@ void gr_setcallback(char *(*callback)(const char *arg))
   check_autoinit;
 
   gks_set_callback(callback);
+}
+
+static void bilinear_interpolation(double c00, double c10, double c01, double c11, double x_dist, double y_dist,
+                                   double *erg)
+{
+  double c0 = c00 * (1 - x_dist) + c10 * x_dist;
+  double c1 = c01 * (1 - x_dist) + c11 * x_dist;
+
+  *erg = c0 * (1 - y_dist) + c1 * y_dist;
+}
+
+/*!
+ * Set the number of threads which can run parallel. The default value is the number of threads the cpu has.
+ * The only ussage right now is inside gr_cpubasedvolume.
+ *
+ * \param[in] num number of threads
+ */
+void gr_setthreadnumber(int num)
+{
+  check_autoinit;
+
+  vt.max_threads = max(1, num);
+  vt.thread_size = 10 * (1.0 / (2.0 * num));
+
+  if (flag_graphics) gr_writestream("<setthreadnumber num=\"%i\"/>\n", num);
+}
+
+/*!
+ * Set the width and height of the resulting picture. These values are only used for gr_volume and gr_cpubasedvolume.
+ * The default values are 1000 for both.
+ *
+ * \param[in] width  width of the resulting image
+ * \param[in] height height of the resulting image
+ */
+void gr_setpicturesizeforvolume(int width, int height)
+{
+  check_autoinit;
+
+  vt.picture_height = height;
+  vt.picture_width = width;
+
+  if (flag_graphics) gr_writestream("<setpicturesizeforvolume width=\"%i\" height=\"%i\"/>\n", width, height);
+}
+
+/*!
+ * Set the gr_volume border type with this flag. This inflicts how the volume is calculated.
+ * When the flag is set to GR_VOLUME_WITH_BORDER the border will be calculated the same as the points inside the volume.
+ *
+ * \param[in] flag calculation of the gr_volume border
+ *
+ * The available options are:
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +---------------------------+---+-----------------------+
+ * |GR_VOLUME_WITHOUT_BORDER   |  0|default value          |
+ * +---------------------------+---+-----------------------+
+ * |GR_VOLUME_WITH_BORDER      |  1|gr_volume with border  |
+ * +---------------------------+---+-----------------------+
+ *
+ */
+void gr_setvolumebordercalculation(int flag)
+{
+  check_autoinit;
+
+  if (flag == GR_VOLUME_WITHOUT_BORDER || flag == GR_VOLUME_WITH_BORDER)
+    {
+      vt.border = flag;
+    }
+  else
+    {
+      fprintf(stderr, "Invalid gr_volume bordercalculation flag. Possible options are GR_VOLUME_WITHOUT_BORDER, "
+                      "GR_VOLUME_WITH_BORDER \n");
+    }
+  if (flag_graphics) gr_writestream("<setvolumebordercalculation flag=\"%i\"/>\n", flag);
+}
+
+/*!
+ * Inquire the parameters which can be set for gr_cpubasedvolume. The size of the resulting image,
+ * the way the volumeborder is calculated and the amount of threads which are used.
+ *
+ * \param[out] border            flag which tells how the border is calculated
+ * \param[out] max_threads       number of threads
+ * \param[out] picture_width     width of the resulting image
+ * \param[out] picture_height    height of the resulting image
+ */
+void gr_inqvolumeflags(int *border, int *max_threads, int *picture_width, int *picture_height)
+{
+  check_autoinit;
+
+  *border = vt.border;
+  *max_threads = vt.max_threads;
+  *picture_width = vt.picture_width;
+  *picture_height = vt.picture_height;
+}
+
+static void draw_volume(const double *pixels)
+{
+  int i;
+  double dmax;
+  double xmin, ymin, xmax, ymax;
+  int *ipixels;
+
+  ipixels = (int *)gks_malloc(vt.picture_width * vt.picture_height * sizeof(int));
+
+  dmax = pixels[0];
+  for (i = 1; i < vt.picture_width * vt.picture_height; i++)
+    {
+      if (pixels[i] > dmax)
+        {
+          dmax = pixels[i];
+        }
+    }
+
+  int *colormap = (int *)gks_malloc((last_color - first_color + 1) * sizeof(int));
+  for (i = first_color; i <= last_color; i++)
+    {
+      gr_inqcolor(i, colormap + i - first_color);
+    }
+
+  for (i = 0; i < vt.picture_width * vt.picture_height; i++)
+    {
+      if (pixels[i] >= 0)
+        {
+          if (dmax == 0)
+            {
+              ipixels[i] = 0;
+            }
+          else
+            {
+              ipixels[i] = (255u << 24) + colormap[(int)(pixels[i] / dmax * (last_color - first_color))];
+            }
+        }
+    }
+
+  gr_inqwindow(&xmin, &xmax, &ymin, &ymax);
+  drawimage_calculation(xmin, xmax, ymin, ymax, vt.picture_width, vt.picture_height, ipixels, 0);
+
+  free(ipixels);
+  free(colormap);
+}
+
+static void ray_casting_thread(void *arg)
+{
+  int i, j;
+  double ray_start[3], ray_dir[3], ray_dir_default[3], tmp[3];
+
+  /* get the necessary attributes out of the structs */
+  struct thread_attr *ta = (struct thread_attr *)arg;
+  struct ray_casting_attr *rc = vt.ray_casting;
+
+  int nx = rc->nx, ny = rc->ny, nz = rc->nz;
+  int algorithm = rc->algorithm;
+  double *data = rc->data, *pixels = rc->pixels;
+  double *dmax_ptr = rc->dmax_ptr, *dmin_ptr = rc->dmin_ptr;
+  double *max_val = rc->max_val, *min_val = rc->min_val;
+
+  double eps = 1e-8; /* precision parameter for comparisons */
+  double x_spacing = (max_val[0] - min_val[0]) / nx;
+  double y_spacing = (max_val[1] - min_val[1]) / ny;
+  double z_spacing = (max_val[2] - min_val[2]) / nz;
+
+  /* transform values into integer */
+  double min_val_t[3] = {0, 0, 0};
+  double max_val_t[3] = {nx - 1, ny - 1, nz - 1};
+  if (vt.border == GR_VOLUME_WITH_BORDER)
+    {
+      min_val_t[0] = min_val_t[1] = min_val_t[2] = -0.5;
+      max_val_t[0] = nx - 0.5;
+      max_val_t[1] = ny - 0.5;
+      max_val_t[2] = nz - 0.5;
+    }
+
+  /* the direction of each ray is the same when the projection_type is set to orthographic */
+  ray_dir_default[0] = (tx.focus_point_x - tx.camera_pos_x);
+  ray_dir_default[1] = (tx.focus_point_y - tx.camera_pos_y);
+  ray_dir_default[2] = (tx.focus_point_z - tx.camera_pos_z);
+
+  double f_length = sqrt(ray_dir_default[0] * ray_dir_default[0] + ray_dir_default[1] * ray_dir_default[1] +
+                         ray_dir_default[2] * ray_dir_default[2]);
+  ray_dir_default[0] /= f_length;
+  ray_dir_default[1] /= f_length;
+  ray_dir_default[2] /= f_length;
+
+  if (gpx.projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+    {
+      ray_dir[0] = ray_dir_default[0];
+      ray_dir[1] = ray_dir_default[1];
+      ray_dir[2] = ray_dir_default[2];
+    }
+  for (i = ta->x_start; i < ta->x_end; i++)
+    {
+      for (j = ta->y_start; j < ta->y_end; j++)
+        {
+          double color = 0;
+
+          /* cast ray */
+          if (gpx.projection_type == GR_PROJECTION_ORTHOGRAPHIC)
+            {
+              double width_steps = (gpx.right - gpx.left) / vt.picture_width;
+              double heigth_steps = (gpx.top - gpx.bottom) / vt.picture_height;
+
+              /* uses the pixel mid point */
+              tmp[0] = gpx.left + (0.5 + i) * width_steps;
+              tmp[1] = gpx.bottom + (0.5 + j) * heigth_steps;
+              tmp[2] = gpx.near_plane;
+
+              /* transform the point into the camera system */
+              ray_start[0] = tmp[0] * tx.s_x - tmp[1] * tx.up_x + tmp[2] * ray_dir[0];
+              ray_start[1] = tmp[0] * tx.s_y - tmp[1] * tx.up_y + tmp[2] * ray_dir[1];
+              ray_start[2] = tmp[0] * tx.s_z - tmp[1] * tx.up_z + tmp[2] * ray_dir[2];
+            }
+          else if (gpx.projection_type == GR_PROJECTION_PERSPECTIVE)
+            {
+              ray_start[0] = tx.camera_pos_x;
+              ray_start[1] = tx.camera_pos_y;
+              ray_start[2] = tx.camera_pos_z;
+
+              /* calculate position on near_plane */
+              double near_plane[3] = {min(gpx.near_plane, fabs(gpx.near_plane - ray_start[0])),
+                                      min(gpx.near_plane, fabs(gpx.near_plane - ray_start[1])),
+                                      min(gpx.near_plane, fabs(gpx.near_plane - ray_start[2]))};
+              near_plane[0] = gpx.near_plane / (gpx.far_plane - gpx.near_plane);
+              near_plane[1] = gpx.near_plane / (gpx.far_plane - gpx.near_plane);
+              near_plane[2] = gpx.near_plane / (gpx.far_plane - gpx.near_plane);
+
+              double lam = NAN;
+              if (fabs(ray_dir_default[0]) >= eps)
+                {
+                  lam = fabs((near_plane[0]) / ray_dir_default[0]);
+                }
+              if (fabs(ray_dir_default[1]) >= eps)
+                {
+                  double tmp_lam = fabs((near_plane[1]) / ray_dir_default[1]);
+                  if ((lam != lam) || (lam == lam && tmp_lam < lam))
+                    {
+                      lam = tmp_lam;
+                    }
+                }
+              if (fabs(ray_dir_default[2]) >= eps)
+                {
+                  double tmp_lam = fabs((near_plane[2]) / ray_dir_default[2]);
+                  if ((lam != lam) || (lam == lam && tmp_lam < lam))
+                    {
+                      lam = tmp_lam;
+                    }
+                }
+
+              /* calculate size of near plane with tan */
+              double near_plane_size = tan(gpx.fov * M_PI / 360.0) *
+                                       sqrt(pow(lam * ray_dir_default[0], 2) + pow(lam * ray_dir_default[1], 2) +
+                                            pow(lam * ray_dir_default[2], 2));
+
+              /* calculate the position where each ray starts on the near plane */
+              ray_start[0] = tx.s_x * (-near_plane_size + 2 * near_plane_size * (i + 0.5) / vt.picture_width) -
+                             tx.up_x * (-near_plane_size + 2 * near_plane_size * (j + 0.5) / vt.picture_height) +
+                             ray_start[0] + lam * ray_dir_default[0];
+              ray_start[1] = tx.s_y * (-near_plane_size + 2 * near_plane_size * (i + 0.5) / vt.picture_width) -
+                             tx.up_y * (-near_plane_size + 2 * near_plane_size * (j + 0.5) / vt.picture_height) +
+                             ray_start[1] + lam * ray_dir_default[1];
+              ray_start[2] = tx.s_z * (-near_plane_size + 2 * near_plane_size * (i + 0.5) / vt.picture_width) -
+                             tx.up_z * (-near_plane_size + 2 * near_plane_size * (j + 0.5) / vt.picture_height) +
+                             ray_start[2] + lam * ray_dir_default[2];
+
+              /* ray_dir depending on point and angle */
+              ray_dir[0] = ray_start[0] - tx.camera_pos_x;
+              ray_dir[1] = ray_start[1] - tx.camera_pos_y;
+              ray_dir[2] = ray_start[2] - tx.camera_pos_z;
+
+              f_length = sqrt(ray_dir[0] * ray_dir[0] + ray_dir[1] * ray_dir[1] + ray_dir[2] * ray_dir[2]);
+              ray_dir[0] /= f_length;
+              ray_dir[1] /= f_length;
+              ray_dir[2] /= f_length;
+            }
+          /* transform interval same like the original data points */
+          ray_start[0] =
+              ((ray_start[0] - min_val[0]) / (max_val[0] - min_val[0]) * (max_val_t[0] - min_val_t[0])) + min_val_t[0];
+          ray_start[1] =
+              ((ray_start[1] - min_val[1]) / (max_val[1] - min_val[1]) * (max_val_t[1] - min_val_t[1])) + min_val_t[1];
+          ray_start[2] =
+              ((ray_start[2] - min_val[2]) / (max_val[2] - min_val[2]) * (max_val_t[2] - min_val_t[2])) + min_val_t[2];
+
+          double lambda[3] = {
+              0,
+          };
+
+          /* when or does the ray hits parts of the volume */
+          /* calculate the lambda for each direction and take maximum of these three values */
+          if (fabs(ray_dir[0]) >= eps)
+            {
+              double dirfrac = 1.0 / ray_dir[0];
+              lambda[0] = min((min_val_t[0] - ray_start[0]) * dirfrac, (max_val_t[0] - ray_start[0]) * dirfrac);
+            }
+          if (fabs(ray_dir[1]) >= eps)
+            {
+              double dirfrac = 1.0 / ray_dir[1];
+              lambda[1] = min((min_val_t[1] - ray_start[1]) * dirfrac, (max_val_t[1] - ray_start[1]) * dirfrac);
+            }
+          if (fabs(ray_dir[2]) >= eps)
+            {
+              double dirfrac = 1.0 / ray_dir[2];
+              lambda[2] = min((min_val_t[2] - ray_start[2]) * dirfrac, (max_val_t[2] - ray_start[2]) * dirfrac);
+            }
+          double max_lambda = max(lambda[0], max(lambda[1], lambda[2]));
+
+          /* point where the ray enters the volume when possible */
+          if (min_val_t[0] - (ray_start[0] + max_lambda * ray_dir[0]) > eps ||
+              (ray_start[0] + max_lambda * ray_dir[0]) - max_val_t[0] > eps)
+            {
+              pixels[i + j * vt.picture_width] = -1;
+              continue;
+            }
+          if (min_val_t[1] - (ray_start[1] + max_lambda * ray_dir[1]) > eps ||
+              (ray_start[1] + max_lambda * ray_dir[1]) - max_val_t[1] > eps)
+            {
+              pixels[i + j * vt.picture_width] = -1;
+              continue;
+            }
+          if (min_val_t[2] - (ray_start[2] + max_lambda * ray_dir[2]) > eps ||
+              (ray_start[2] + max_lambda * ray_dir[2]) - max_val_t[2] > eps)
+            {
+              pixels[i + j * vt.picture_width] = -1;
+              continue;
+            }
+          ray_start[0] += max_lambda * ray_dir[0];
+          ray_start[1] += max_lambda * ray_dir[1];
+          ray_start[2] += max_lambda * ray_dir[2];
+
+          /* influence of the voxels which are passed by each ray */
+          double start[1] = {NAN};
+          while (1)
+            {
+              double voxel_val, voxel_influ;
+              double ray_length;
+              double end[1];
+              double x_dist, y_dist, z_dist;
+
+              /* end point */
+              if (ray_dir[0] < 0)
+                {
+                  lambda[0] = (max(RAYCASTING_FLOOR(ray_start[0]), min_val_t[0]) - ray_start[0]) / ray_dir[0];
+                }
+              else
+                {
+                  lambda[0] = (min(RAYCASTING_CEIL(ray_start[0]), max_val_t[0]) - ray_start[0]) / ray_dir[0];
+                }
+              if (ray_dir[1] < 0)
+                {
+                  lambda[1] = (max(RAYCASTING_FLOOR(ray_start[1]), min_val_t[1]) - ray_start[1]) / ray_dir[1];
+                }
+              else
+                {
+                  lambda[1] = (min(RAYCASTING_CEIL(ray_start[1]), max_val_t[1]) - ray_start[1]) / ray_dir[1];
+                }
+              if (ray_dir[2] < 0)
+                {
+                  lambda[2] = (max(RAYCASTING_FLOOR(ray_start[2]), min_val_t[2]) - ray_start[2]) / ray_dir[2];
+                }
+              else
+                {
+                  lambda[2] = (min(RAYCASTING_CEIL(ray_start[2]), max_val_t[2]) - ray_start[2]) / ray_dir[2];
+                }
+              double lambda_min = lambda[0];
+              if ((fabs(lambda_min) > fabs(lambda[1]) || lambda_min != lambda_min) && lambda[1] == lambda[1])
+                lambda_min = lambda[1];
+              if ((fabs(lambda_min) > fabs(lambda[2]) || lambda_min != lambda_min) && lambda[2] == lambda[2])
+                lambda_min = lambda[2];
+
+              double ray_end[3] = {ray_start[0] + lambda_min * ray_dir[0], ray_start[1] + lambda_min * ray_dir[1],
+                                   ray_start[2] + lambda_min * ray_dir[2]};
+
+              /* identify voxel */
+              int x_0 = 0, y_0 = 0, z_0 = 0;
+              int x_1 = 0, y_1 = 0, z_1 = 0;
+
+              if (ray_dir[0] >= -eps)
+                {
+                  if (fabs(ray_start[0]) > eps)
+                    {
+                      x_0 = min(nx - 1, (ray_start[0] - fmod(ray_start[0], 1)));
+                    }
+                  x_1 = x_0;
+                  if (ray_end[0] < nx - 1 + eps)
+                    {
+                      x_1 = (int)min(nx - 1, max(0, RAYCASTING_CEIL(ray_start[0])));
+                    }
+                }
+              else if (ray_dir[0] < eps)
+                {
+                  if (fabs(ray_start[0]) > eps)
+                    {
+                      x_0 = min(nx - 1, max(0, (ray_start[0] - fmod(ray_start[0] - ceil(ray_start[0]), 1))));
+                    }
+                  x_1 = x_0;
+                  if (ray_end[0] >= -eps)
+                    {
+                      x_1 = (int)min(nx - 1, max(0, RAYCASTING_FLOOR(ray_start[0])));
+                    }
+                }
+
+              if (ray_dir[1] >= -eps)
+                {
+                  if (fabs(ray_start[1]) > eps)
+                    {
+                      y_0 = min(ny - 1, (ray_start[1] - fmod(ray_start[1], 1)));
+                    }
+                  y_1 = y_0;
+                  if (ray_end[1] < ny - 1 + eps)
+                    {
+                      y_1 = (int)min(ny - 1, max(0, RAYCASTING_CEIL(ray_start[1])));
+                    }
+                }
+              else if (ray_dir[1] < eps)
+                {
+                  if (fabs(ray_start[1]) > eps)
+                    {
+                      y_0 = min(ny - 1, max(0, (ray_start[1] - fmod(ray_start[1] - ceil(ray_start[1]), 1))));
+                    }
+                  y_1 = y_0;
+                  if (ray_end[1] >= -eps)
+                    {
+                      y_1 = (int)min(ny - 1, max(0, RAYCASTING_FLOOR(ray_start[1])));
+                    }
+                }
+
+              if (ray_dir[2] >= -eps)
+                {
+                  if (fabs(ray_start[2]) > eps)
+                    {
+                      z_0 = min(nz - 1, (ray_start[2] - fmod(ray_start[2], 1)));
+                    }
+                  z_1 = z_0;
+                  if (ray_end[2] < nz - 1 + eps)
+                    {
+                      z_1 = (int)min(nz - 1, max(0, RAYCASTING_CEIL(ray_start[2])));
+                    }
+                }
+              else if (ray_dir[2] < eps)
+                {
+                  if (fabs(ray_start[2]) > eps)
+                    {
+                      z_0 = min(nz - 1, max(0, (ray_start[2] - fmod(ray_start[2] - ceil(ray_start[2]), 1))));
+                    }
+                  z_1 = z_0;
+                  if (ray_end[2] >= -eps)
+                    {
+                      z_1 = (int)min(nz - 1, max(0, RAYCASTING_FLOOR(ray_start[2])));
+                    }
+                }
+
+              int k, repeat = 1;
+              double *bilinear_ptr[1];
+              if (*start != *start)
+                {
+                  repeat = 0;
+                }
+              double dist_copy[3] = {NAN, NAN, NAN};
+              for (k = repeat; k < 2; k++)
+                {
+                  double ray_position[3] = {ray_end[0], ray_end[1], ray_end[2]};
+                  if (k == 0)
+                    {
+                      ray_position[0] = ray_start[0];
+                      ray_position[1] = ray_start[1];
+                      ray_position[2] = ray_start[2];
+                      bilinear_ptr[0] = start;
+                    }
+                  else
+                    {
+                      bilinear_ptr[0] = end;
+                    }
+
+                  if (ray_dir[0] >= -eps)
+                    {
+                      x_dist = fabs(min(nx, ray_position[0]) - x_0);
+                      if (ray_position[0] <= 0)
+                        {
+                          x_dist = fabs(ray_position[0] - min_val_t[0]);
+                        }
+                    }
+                  else
+                    {
+                      x_dist = fabs(max(ray_position[0], -1) - x_0);
+                      if (ray_position[0] >= nx - 1)
+                        {
+                          x_dist = fabs(ray_position[0] - max_val_t[0]);
+                        }
+                    }
+
+                  if (ray_dir[1] >= -eps)
+                    {
+                      y_dist = fabs(min(ny, ray_position[1]) - y_0);
+                      if (ray_position[1] <= 0)
+                        {
+                          y_dist = fabs(ray_position[1] - min_val_t[1]);
+                        }
+                    }
+                  else
+                    {
+                      y_dist = fabs(max(ray_position[1], -1) - y_0);
+                      if (ray_position[1] >= ny - 1)
+                        {
+                          y_dist = fabs(ray_position[1] - max_val_t[1]);
+                        }
+                    }
+
+                  if (ray_dir[2] >= -eps)
+                    {
+                      z_dist = fabs(min(nz, ray_position[2]) - z_0);
+                      if (ray_position[2] <= 0)
+                        {
+                          z_dist = fabs(ray_position[2] - min_val_t[2]);
+                        }
+                    }
+                  else
+                    {
+                      z_dist = fabs(max(ray_position[2], -1) - z_0);
+                      if (ray_position[2] >= nz - 1)
+                        {
+                          z_dist = fabs(ray_position[2] - max_val_t[2]);
+                        }
+                    }
+
+                  if (ray_position[0] > nx - 1 + sign(ray_dir[0]) * eps || ray_position[0] < sign(ray_dir[0]) * eps)
+                    {
+                      x_dist *= 2;
+                    }
+                  if (ray_position[1] > ny - 1 + sign(ray_dir[1]) * eps || ray_position[1] < sign(ray_dir[1]) * eps)
+                    {
+                      y_dist *= 2;
+                    }
+                  if (ray_position[2] > nz - 1 + sign(ray_dir[2]) * eps || ray_position[2] < sign(ray_dir[2]) * eps)
+                    {
+                      z_dist *= 2;
+                    }
+
+                  if ((fabs(x_dist - 0) <= eps || fabs(x_dist - 1) <= eps) && fabs(ray_dir[0]) > eps)
+                    {
+                      int x_tmp = x_0;
+                      if (fabs(x_dist - 1) <= eps)
+                        {
+                          x_tmp = x_1;
+                        }
+                      bilinear_interpolation(data[x_tmp + y_0 * nx + z_0 * (nx * ny)],
+                                             data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
+                                             data[x_tmp + y_0 * nx + z_1 * (nx * ny)],
+                                             data[x_tmp + y_1 * nx + z_1 * (nx * ny)], y_dist, z_dist, bilinear_ptr[0]);
+                      if (dist_copy[0] == dist_copy[0])
+                        {
+                          bilinear_interpolation(
+                              data[x_tmp + y_0 * nx + z_0 * (nx * ny)], data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
+                              data[x_tmp + y_0 * nx + z_1 * (nx * ny)], data[x_tmp + y_1 * nx + z_1 * (nx * ny)],
+                              dist_copy[1], dist_copy[2], start);
+                        }
+                    }
+                  else if ((fabs(y_dist - 0) <= eps || fabs(y_dist - 1) <= eps) && fabs(ray_dir[1]) > eps)
+                    {
+                      int y_tmp = y_0;
+                      if (fabs(y_dist - 1) <= eps)
+                        {
+                          y_tmp = y_1;
+                        }
+                      bilinear_interpolation(data[x_0 + y_tmp * nx + z_0 * (nx * ny)],
+                                             data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
+                                             data[x_0 + y_tmp * nx + z_1 * (nx * ny)],
+                                             data[x_1 + y_tmp * nx + z_1 * (nx * ny)], x_dist, z_dist, bilinear_ptr[0]);
+                      if (dist_copy[0] == dist_copy[0])
+                        {
+                          bilinear_interpolation(
+                              data[x_0 + y_tmp * nx + z_0 * (nx * ny)], data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
+                              data[x_0 + y_tmp * nx + z_1 * (nx * ny)], data[x_1 + y_tmp * nx + z_1 * (nx * ny)],
+                              dist_copy[0], dist_copy[2], start);
+                        }
+                    }
+                  else if ((fabs(z_dist - 0) <= eps || fabs(z_dist - 1) <= eps) && fabs(ray_dir[2]) > eps)
+                    {
+                      int z_tmp = z_0;
+                      if (fabs(z_dist - 1) <= eps)
+                        {
+                          z_tmp = z_1;
+                        }
+                      bilinear_interpolation(data[x_0 + y_0 * nx + z_tmp * (nx * ny)],
+                                             data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
+                                             data[x_0 + y_1 * nx + z_tmp * (nx * ny)],
+                                             data[x_1 + y_1 * nx + z_tmp * (nx * ny)], x_dist, y_dist, bilinear_ptr[0]);
+                      if (dist_copy[0] == dist_copy[0])
+                        {
+                          bilinear_interpolation(
+                              data[x_0 + y_0 * nx + z_tmp * (nx * ny)], data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
+                              data[x_0 + y_1 * nx + z_tmp * (nx * ny)], data[x_1 + y_1 * nx + z_tmp * (nx * ny)],
+                              dist_copy[0], dist_copy[1], start);
+                        }
+                    }
+                  if (*start != *start)
+                    {
+                      dist_copy[0] = x_dist;
+                      dist_copy[1] = y_dist;
+                      dist_copy[2] = z_dist;
+                    }
+                }
+
+              /* set the values */
+              ray_length = sqrt(pow((ray_end[0] - ray_start[0]) * x_spacing, 2) +
+                                pow((ray_end[1] - ray_start[1]) * y_spacing, 2) +
+                                pow((ray_end[2] - ray_start[2]) * z_spacing, 2));
+              voxel_val = (*start + *end) / 2;
+              voxel_influ = voxel_val * ray_length;
+
+              if (algorithm == 0)
+                {
+                  /* emission */
+                  color += voxel_influ;
+                  if (rc->dmax_ptr != NULL && color >= *dmax_ptr) break;
+                }
+              else if (algorithm == 1)
+                {
+                  /* absorption */
+                  color += voxel_influ;
+                  if (rc->dmin_ptr != NULL && color <= *dmin_ptr) break;
+                }
+              else
+                {
+                  /* MIP */
+                  if (*start > color)
+                    {
+                      color = *start;
+                    }
+                  if (*end > color)
+                    {
+                      color = *end;
+                    }
+                  if (rc->dmax_ptr != NULL && color >= *dmax_ptr) break;
+                }
+
+              ray_start[0] = ray_end[0];
+              ray_start[1] = ray_end[1];
+              ray_start[2] = ray_end[2];
+
+              /* can reuse end value */
+              *start = *end;
+              if (fabs(ray_start[0] - max_val_t[0]) <= eps || fabs(ray_start[1] - max_val_t[1]) <= eps ||
+                  fabs(ray_start[2] - max_val_t[2]) <= eps)
+                {
+                  break;
+                }
+              if (fabs(ray_start[0] - min_val_t[0]) <= eps || fabs(ray_start[1] - min_val_t[1]) <= eps ||
+                  fabs(ray_start[2] - min_val_t[2]) <= eps)
+                {
+                  break;
+                }
+            }
+
+          if (algorithm == 1)
+            {
+              /* absorption */
+              color = exp(-color);
+            }
+          if (rc->dmax_ptr != NULL && color > *dmax_ptr) color = *dmax_ptr;
+          if (rc->dmin_ptr != NULL && color < *dmin_ptr) color = *dmin_ptr;
+          pixels[i + j * vt.picture_width] = color;
+        }
+    }
+}
+
+/*!
+ * Draw volume data with raycasting using the given algorithm and apply the current GR colormap.
+ *
+ * \param[in]     nx         number of points in x-direction
+ * \param[in]     ny         number of points in y-direction
+ * \param[in]     nz         number of points in z-direction
+ * \param[in]     data       an array of shape nx * ny * nz containing the intensities for each point
+ * \param[in]     algorithm  the algorithm to reduce the volume data
+ * \param[in,out] dmin_ptr   The variable this parameter points at will be used as minimum data value when applying the
+ *                            colormap. If it is negative, the variable will be set to the actual occuring minimum and
+ *                            that value will be used instead. If dmin_ptr is NULL, it will be ignored.
+ * \param[in,out] dmax_ptr   The variable this parameter points at will be used as maximum data value when applying the
+ *                            colormap. If it is negative, the variable will be set to the actual occuring maximum and
+ *                            that value will be used instead. If dmax_ptr is NULL, it will be ignored.
+ *
+ * \param[in]       min_val   array with the minimum coordinates of the volumedata
+ * \param[in]       max_val   array with the maximum coordinates of the volumedata
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * Available algorithms are:
+ *
+ * +---------------------+---+-----------------------------+
+ * |GR_VOLUME_EMISSION   |  0|emission model               |
+ * +---------------------+---+-----------------------------+
+ * |GR_VOLUME_ABSORPTION |  1|absorption model             |
+ * +---------------------+---+-----------------------------+
+ * |GR_VOLUME_MIP        |  2|maximum intensity projection |
+ * +---------------------+---+-----------------------------+
+ *
+ * \endverbatim
+ */
+void gr_cpubasedvolume(int nx, int ny, int nz, double *data, int algorithm, double *dmin_ptr, double *dmax_ptr,
+                       double *dmin_val, double *dmax_val)
+{
+  check_autoinit;
+
+  if (gpx.projection_type == GR_PROJECTION_DEFAULT)
+    {
+      fprintf(stderr, "gr_cpubasedvolume only runs when the projectiontype is set to GR_PROJECTION_ORTHOGRAPHIC or "
+                      "GR_PROJECTION_PERSPECTIVE.\n");
+      return;
+    }
+
+  int n_x, n_y;
+  double *pixels = calloc(vt.picture_width * vt.picture_height, sizeof(double));
+  if (pixels == 0)
+    {
+      fprintf(stderr, "can't allocate memory");
+      return;
+    }
+  /* size of each thread calculated out of threadnumber */
+  int size = (int)(max(10, (nx + ny + nz) / 3.0 * vt.thread_size));
+  n_x = (int)ceil(1. * vt.picture_width / size);
+  n_y = (int)ceil(1. * vt.picture_height / size);
+
+  double *max_ptr = dmax_ptr;
+  double *min_ptr = dmin_ptr;
+  if (dmax_ptr && *dmax_ptr < 0) max_ptr = NULL;
+  if (dmin_ptr && *dmin_ptr < 0) min_ptr = NULL;
+
+  double min_val[3];
+  if (dmin_val == NULL)
+    {
+      min_val[0] = min_val[1] = min_val[2] = -1;
+    }
+  else
+    {
+      min_val[0] = dmin_val[0];
+      min_val[1] = dmin_val[1];
+      min_val[2] = dmin_val[2];
+    }
+  double max_val[3];
+  if (dmax_val == NULL)
+    {
+      max_val[0] = max_val[1] = max_val[2] = -1;
+    }
+  else
+    {
+      max_val[0] = dmax_val[0];
+      max_val[1] = dmax_val[1];
+      max_val[2] = dmax_val[2];
+    }
+
+  double **ptr = &data;
+  if ((nx != ny || ny != nz || nx != nz))
+    {
+      double ray_dir[3] = {tx.focus_point_x - tx.camera_pos_x, tx.focus_point_y - tx.camera_pos_y,
+                           tx.focus_point_z - tx.camera_pos_z};
+
+      double ray_length = sqrt(pow(ray_dir[0], 2) + pow(ray_dir[1], 2) + pow(ray_dir[2], 2));
+      ray_dir[0] /= ray_length;
+      ray_dir[1] /= ray_length;
+      ray_dir[2] /= ray_length;
+
+      int max_n = max(nx, max(ny, nz));
+      int x_max_n = max_n, y_max_n = max_n, z_max_n = max_n;
+      if (fabs(ray_dir[0]) <= 1e-7)
+        {
+          x_max_n = nx;
+        }
+      if (fabs(ray_dir[1]) <= 1e-7)
+        {
+          y_max_n = ny;
+        }
+      if (fabs(ray_dir[2]) <= 1e-7)
+        {
+          z_max_n = nz;
+        }
+      double *new_data = calloc(x_max_n * y_max_n * z_max_n, sizeof(double));
+      if (new_data == 0)
+        {
+          fprintf(stderr, "can't allocate memory");
+          return;
+        }
+
+      int x, y, z;
+      for (x = 0; x < x_max_n; x++)
+        {
+          for (y = 0; y < y_max_n; y++)
+            {
+              for (z = 0; z < z_max_n; z++)
+                {
+                  int x_index, y_index, z_index;
+
+                  if (x_max_n == nx)
+                    {
+                      x_index = x;
+                    }
+                  else
+                    {
+                      x_index = (int)min(round((float)x / ((float)x_max_n / (nx - 1))), nx - 1);
+                    }
+                  if (y_max_n == ny)
+                    {
+                      y_index = y;
+                    }
+                  else
+                    {
+                      y_index = (int)min(round((float)y / ((float)y_max_n / (ny - 1))), ny - 1);
+                    }
+                  if (z_max_n == nz)
+                    {
+                      z_index = z;
+                    }
+                  else
+                    {
+                      z_index = (int)min(round((float)z / ((float)z_max_n / (nz - 1))), nz - 1);
+                    }
+                  new_data[x + y * x_max_n + z * (x_max_n * y_max_n)] =
+                      data[x_index + y_index * nx + z_index * (nx * ny)];
+                }
+            }
+        }
+      nx = x_max_n;
+      ny = y_max_n;
+      nz = z_max_n;
+      ptr = &new_data;
+    }
+
+  struct ray_casting_attr f[1] = {nx, ny, nz, algorithm, ptr[0], min_ptr, max_ptr, min_val, max_val, pixels};
+  vt.ray_casting = f;
+  int x_start = 0, x_end = 0, y_start = 0, y_end = 0;
+
+/* creates the threadpool */
+#ifndef NO_THREADS
+  threadpool_t *tp;
+  tp = calloc(1, sizeof(*tp));
+  if (tp == 0)
+    {
+      fprintf(stderr, "can't allocate memory");
+      return;
+    }
+#endif
+  struct thread_attr *jobs;
+  size_t i, j;
+
+#ifndef NO_THREADS
+#ifdef _WIN32
+#ifndef _SC_NPROCESSORS_ONLN
+  SYSTEM_INFO info;
+  GetSystemInfo(&info);
+#define sysconf(a) info.dwNumberOfProcessors
+#define _SC_NPROCESSORS_ONLN
+#endif
+#endif
+  int threadnum = ((int)sysconf(_SC_NPROCESSORS_ONLN) - 1) < 256 ? (int)sysconf(_SC_NPROCESSORS_ONLN) - 1 : 256;
+  if (vt.max_threads > 0)
+    {
+      threadnum = vt.max_threads;
+    }
+  threadpool_create(tp, threadnum, ray_casting_thread);
+#endif
+  jobs = (struct thread_attr *)gks_malloc(n_x * n_y * sizeof(struct thread_attr));
+
+  for (i = 0; i < n_x; i++)
+    {
+      x_end = (int)min((i + 1.0) * size, vt.picture_width);
+      for (j = 0; j < n_y; j++)
+        {
+          /* transfer data for each thread */
+          y_end = (int)min((j + 1.0) * size, vt.picture_height);
+          jobs[i + j * n_x].x_start = x_start;
+          jobs[i + j * n_x].y_start = y_start;
+          jobs[i + j * n_x].x_end = x_end;
+          jobs[i + j * n_x].y_end = y_end;
+
+#ifndef NO_THREADS
+          threadpool_add_work(tp, jobs + i + j * n_x);
+#else
+          ray_casting_thread(jobs + i + j * n_x);
+#endif
+          y_start = y_end;
+        }
+      x_start = x_end;
+      y_start = 0;
+    }
+#ifndef NO_THREADS
+  threadpool_add_work(tp, jobs + (i - 1) + (j - 1) * n_x);
+  threadpool_destroy(tp);
+#endif
+
+  /* calculate the min and max value of all pixels */
+  if (dmax_ptr && *dmax_ptr < 0)
+    {
+      double max_color = 0;
+      for (i = 0; i < vt.picture_width * vt.picture_height; i++)
+        {
+          if (pixels[i] > max_color) max_color = pixels[i];
+        }
+      *dmax_ptr = max_color;
+    }
+  if (dmin_ptr && *dmin_ptr < 0)
+    {
+      double min_color = pixels[0];
+      for (i = 1; i < vt.picture_width * vt.picture_height; i++)
+        {
+          if (pixels[i] < min_color) min_color = pixels[i];
+        }
+      *dmin_ptr = max(0, min_color);
+    }
+  draw_volume(pixels);
+
+  free(pixels);
+  free(jobs);
+  if (flag_graphics)
+    {
+      gr_writestream("<cpubasedvolume nx=\"%i\" ny=\"%i\" nz=\"%i\" />\n", nx, ny, nz);
+      print_float_array("data", nx * ny * nz, data);
+      gr_writestream(" algorithm=\"%i\" ", algorithm);
+      print_float_array("dmin_ptr", 1, dmin_ptr);
+      print_float_array("dmax_ptr", 1, dmax_ptr);
+      print_float_array("dmin_val", 1, dmin_val);
+      print_float_array("dmax_val", 1, dmax_val);
+      gr_writestream("/>\n");
+    }
 }

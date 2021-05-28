@@ -280,6 +280,7 @@ set(GR_SOURCES
     lib/gr/text.c
     lib/gr/mathtex2.c
     lib/gr/mathtex2.tab.c
+    lib/gr/threadpool.c
     ${CMAKE_CURRENT_BINARY_DIR}/gr_version.h
 )
 
@@ -360,6 +361,7 @@ foreach(LIBRARY gr3_static gr3_shared)
     target_sources(${LIBRARY} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/gr3/gr3_win.c)
   endif()
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} GR::GR)
+  target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} GR::GKS)
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} Jpeg::Jpeg)
   target_link_libraries(${LIBRARY} ${GR3_LINK_MODE} Libpng::Libpng)
   if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))

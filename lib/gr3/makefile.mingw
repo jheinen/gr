@@ -9,8 +9,8 @@ endif
                gr3_jpeg.o gr3_gr.o gr3_mc.o gr3_slices.o gr3_sr.o
        OBJS += gr3_win.o
 
-    INCLUDES = -I$(THIRDPARTYDIR)/include -I../gr
-      GRLIBS = -L../gr -lGR
+    INCLUDES = -I$(THIRDPARTYDIR)/include -I../gr -I../gks
+      GRLIBS = -L../gr -lGR -L../gks -lGKS
      PNGLIBS = $(THIRDPARTYDIR)/lib/libpng.a
     JPEGLIBS = $(THIRDPARTYDIR)/lib/libjpeg.a
        ZLIBS = $(THIRDPARTYDIR)/lib/libz.a

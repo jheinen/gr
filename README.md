@@ -40,4 +40,23 @@ and *Julia*, such as [IPython](http://ipython.org) and
 [Jupyter](https://jupyter.org). An interesting example can be found
 [here](http://pgi-jcns.fz-juelich.de/pub/doc/700K_460.html).
 
-For further information please refer to the [GR home page](http://gr-framework.org).
+## Installation and Getting Started
+
+To install *GR* and try it using *Python*, *Julia* or *C*, please see the corresponding documentation:
+
+- [Python package gr](https://gr-framework.org/python.html)
+- [Julia package GR](https://gr-framework.org/julia.html)
+- [C library GR](https://gr-framework.org/c.html)
+- [Ruby package GR](https://github.com/red-data-tools/GR.rb)
+
+## Documentation
+
+You can find more information about *GR* on the [GR home page](http://gr-framework.org).
+
+## Contributing
+
+If you want to improve *GR*, please read the [contribution guide](https://github.com/sciapp/gr/blob/develop/CONTRIBUTING.md) for a few notes on how to report issues or submit changes.
+
+## Support
+
+If you have any questions about *GR* or run into any issues setting up or running GR, please [open an issue on GitHub](https://github.com/sciapp/gr/issues/new), either in this repo or in the repo for the language binding you are using ([Python](https://github.com/sciapp/python-gr/issues/new), [Julia](https://github.com/jheinen/GR.jl/issues/new), [Ruby](https://github.com/red-data-tools/GR.rb/issues/new)).

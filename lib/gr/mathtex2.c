@@ -796,6 +796,7 @@ static const unsigned int symbol_codepoints[] = {
 
 typedef enum FontVariant_
 {
+  FV_DEFAULT = -1,
   FV_CAL = 0,
   FV_RM = 1,
   FV_IT = 2,
@@ -803,6 +804,7 @@ typedef enum FontVariant_
   FV_FRAK = 4,
   FV_BB = 5,
   FV_BF = 6,
+  FV_BI = 7,
 } FontVariant;
 
 static unsigned int get_codepoint_for_character_variant(unsigned int codepoint, FontVariant variant);
@@ -1025,13 +1027,15 @@ static void push_state()
   if (current_box_model_state_index)
     {
       new_state = *get_current_state();
+      /* Unset index so copy will assign a new index in the tempbuffer */
+      new_state.index = 0;
     }
   else
     {
       new_state.index = 0;
       new_state.previous_state_index = 0;
       new_state.fontsize = font_size;
-      new_state.font = FV_IT;
+      new_state.font = FV_DEFAULT;
       new_state.dpi = 72;
     }
   new_state.previous_state_index = current_box_model_state_index;
@@ -2054,7 +2058,14 @@ static size_t convert_latextext_to_box_model(ParserNode *node)
   push_state();
   if (strncmp("it", font_str, font_str_length) == 0 && strlen("it") == font_str_length)
     {
-      get_current_state()->font = FV_IT;
+      if (get_current_state()->font == FV_BF || get_current_state()->font == FV_BI)
+        {
+          get_current_state()->font = FV_BI;
+        }
+      else
+        {
+          get_current_state()->font = FV_IT;
+        }
     }
   else if (strncmp("rm", font_str, font_str_length) == 0 && strlen("rm") == font_str_length)
     {
@@ -2066,7 +2077,14 @@ static size_t convert_latextext_to_box_model(ParserNode *node)
     }
   else if (strncmp("bf", font_str, font_str_length) == 0 && strlen("bf") == font_str_length)
     {
-      get_current_state()->font = FV_BF;
+      if (get_current_state()->font == FV_IT || get_current_state()->font == FV_BI)
+        {
+          get_current_state()->font = FV_BI;
+        }
+      else
+        {
+          get_current_state()->font = FV_BF;
+        }
     }
   else
     {
@@ -2131,6 +2149,10 @@ static size_t convert_group_to_box_model(ParserNode *node)
     {
       font_str = node->source + 5;
     }
+  else if (strncmp(node->source, "\\text", 5) == 0)
+    {
+      font_str = node->source + 5;
+    }
   if (font_str)
     {
       push_state();
@@ -2147,7 +2169,14 @@ static size_t convert_group_to_box_model(ParserNode *node)
             }
           else if (strncmp("it", font_str, font_str_length) == 0 && strlen("it") == font_str_length)
             {
-              get_current_state()->font = FV_IT;
+              if (get_current_state()->font == FV_BF || get_current_state()->font == FV_BI)
+                {
+                  get_current_state()->font = FV_BI;
+                }
+              else
+                {
+                  get_current_state()->font = FV_IT;
+                }
             }
           else if (strncmp("rm", font_str, font_str_length) == 0 && strlen("rm") == font_str_length)
             {
@@ -2159,7 +2188,14 @@ static size_t convert_group_to_box_model(ParserNode *node)
             }
           else if (strncmp("bf", font_str, font_str_length) == 0 && strlen("bf") == font_str_length)
             {
-              get_current_state()->font = FV_BF;
+              if (get_current_state()->font == FV_IT || get_current_state()->font == FV_BI)
+                {
+                  get_current_state()->font = FV_BI;
+                }
+              else
+                {
+                  get_current_state()->font = FV_BF;
+                }
             }
           else if (strncmp("bb", font_str, font_str_length) == 0 && strlen("bb") == font_str_length)
             {
@@ -3501,6 +3537,10 @@ static void render_box_model(double x, double y, int horizontal_alignment, int v
 
 static unsigned int get_codepoint_for_character_variant(unsigned int codepoint, FontVariant variant)
 {
+  if (variant == FV_DEFAULT)
+    {
+      variant = FV_IT;
+    }
   switch (variant)
     {
     case FV_RM:
@@ -3690,6 +3730,40 @@ static unsigned int get_codepoint_for_character_variant(unsigned int codepoint, 
             }
           return codepoint;
         }
+    case FV_BI:
+      if ('A' <= codepoint && codepoint <= 'Z')
+        {
+          return codepoint + 0x1D468 - 'A';
+        }
+      if ('a' <= codepoint && codepoint <= 'z')
+        {
+          return codepoint + 0x1D482 - 'a';
+        }
+      if ('0' <= codepoint && codepoint <= '9')
+        {
+          return codepoint + 0x1D7CE - '0';
+        }
+      if (codepoint == 981)
+        {
+          return 0x1D6FC + 21;
+        }
+      if (codepoint == 966)
+        {
+          return 0x1D6FC + 29;
+        }
+      if (945 <= codepoint && codepoint <= 969)
+        {
+          return codepoint + 0x1D736 - 945;
+        }
+      if (913 <= codepoint && codepoint <= 937)
+        {
+          return codepoint + 0x1D71C - 913;
+        }
+      if (codepoint == 8706)
+        {
+          return 0x1D6DB;
+        }
+      return codepoint;
     default:
       return codepoint;
     }

@@ -66,6 +66,9 @@ JSTerm = function(ispluto=false) {
       <span class="jsterm-tooltip-value">{$y}</span>`;
     TOOLTIP_MISSING_VALUE_REPLACEMENT = '[n.d.]';
 
+    var is_ready = false;
+    var ready_callbacks = [];
+
     var grm, ws, widgets = {},
       wsOpen = false,
       scheduled_merges = [],
@@ -209,6 +212,18 @@ JSTerm = function(ispluto=false) {
             }
           }
         }));
+      }
+    };
+
+    /**
+     * Registers a callback which is called when
+     * the JSTerm initialization is done
+     */
+    this.ready = function(callback) {
+      if(!is_ready) {
+        ready_callbacks.push(callback);
+      } else {
+        callback();
       }
     };
 
@@ -1115,6 +1130,11 @@ JSTerm = function(ispluto=false) {
           drawSavedData();
         }
       }
+      is_ready = true;
+      ready_callbacks.forEach(function (callback) {
+          callback();
+      });
+      ready_callbacks = null;
     };
 
     if (document.readyState != 'loading') {

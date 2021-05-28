@@ -97,6 +97,7 @@ typedef struct ws_state_list_t
   double a, b, c, d;
   double window[4], viewport[4];
   char rgb[MAX_COLOR][7];
+  double transparency;
   int width, height;
   double nominal_size;
   int color, linewidth;
@@ -282,9 +283,9 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
         {
         case 1: /* point */
           pgf_printf(p->stream,
-                     "\\draw[color=mycolor, line width=%dpt] (%f,%f)"
+                     "\\draw[color=mycolor, line width=%dpt, opacity=%f] (%f,%f)"
                      " rectangle (%f,%f);\n",
-                     p->linewidth, x, y, x + 1.0, y + 1.0);
+                     p->linewidth, p->transparency, x, y, x + 1.0, y + 1.0);
           break;
 
         case 2: /* line */
@@ -298,9 +299,9 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
 
           pgf_printf(p->stream,
                      "\\begin{scope}[yscale=-1, yshift=-%f]\n"
-                     "\\draw[color=mycolor, line width=%dpt] (%f,%f) -- (%f,%f);\n"
+                     "\\draw[color=mycolor, line width=%dpt, opacity=%f] (%f,%f) -- (%f,%f);\n"
                      "\\end{scope}\n",
-                     2 * y, p->linewidth, x - x1, y - y1, x - x2, y - y2);
+                     2 * y, p->linewidth, p->transparency, x - x1, y - y1, x - x2, y - y2);
 
           pc += 4;
           break;
@@ -317,16 +318,19 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
               if (gkss->bcoli != gkss->pmcoli)
                 {
                   pgf_printf(p->stream, "\\definecolor{bcoli}{HTML}{%s}\n", p->rgb[gkss->bcoli]);
-                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt]", p->linewidth);
+                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt, opacity=%f]",
+                             p->linewidth, p->transparency);
                 }
               else
                 {
-                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt, opacity=%f]", p->linewidth,
+                             p->transparency);
                 }
             }
           else
             {
-              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt, opacity=%f]", p->linewidth,
+                         p->transparency);
             }
 
           pgf_printf(p->stream, " (%f,%f)", x - xr, y - yr);
@@ -353,16 +357,19 @@ static void draw_marker(double xn, double yn, int mtype, double mscale)
               if (gkss->bcoli != gkss->pmcoli)
                 {
                   pgf_printf(p->stream, "\\definecolor{bcoli}{HTML}{%s}\n", p->rgb[gkss->bcoli]);
-                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt]", p->linewidth);
+                  pgf_printf(p->stream, "\\filldraw[color=bcoli, fill=mycolor, line width=%dpt, opacity=%f]",
+                             p->linewidth, p->transparency);
                 }
               else
                 {
-                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt]", p->linewidth);
+                  pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt, opacity=%f]", p->linewidth,
+                             p->transparency);
                 }
             }
           else
             {
-              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt]", p->linewidth);
+              pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt, opacity=%f]", p->linewidth,
+                         p->transparency);
             }
 
           pgf_printf(p->stream, " (%f, %f) arc (0:360:%d);\n", x + r, y, r);
@@ -404,7 +411,8 @@ static void stroke(void)
 {
   int i;
 
-  pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt] (%f,%f)", p->linewidth, p->points[0].x, p->points[0].y);
+  pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt, opacity=%f] (%f,%f)", p->linewidth, p->transparency,
+             p->points[0].x, p->points[0].y);
 
   for (i = 1; i < p->npoints; i++)
     {
@@ -438,7 +446,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   seg_xform(&x, &y);
   NDC_to_DC(x, y, x0, y0);
 
-  pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt] (%f,%f)", p->linewidth, x0, y0);
+  pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt, opacity=%f] (%f,%f)", p->linewidth, p->transparency, x0,
+             y0);
 
   for (i = 1; i < n; i++)
     {
@@ -476,16 +485,18 @@ static void fill_routine(int n, double *px, double *py, int tnr)
         }
       pgf_printf(p->stream,
                  "\\fill[pattern=mypattern%d, pattern color=mycolor, "
-                 "thickness=%dpt] (%f,%f)",
-                 fl_style, p->linewidth, ix, iy);
+                 "thickness=%dpt, opacity=%f] (%f,%f)",
+                 fl_style, p->linewidth, p->transparency, ix, iy);
     }
   else if (fl_inter == GKS_K_INTSTYLE_SOLID)
     {
-      pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt, even odd rule] (%f,%f)", p->linewidth, ix, iy);
+      pgf_printf(p->stream, "\\fill[color=mycolor, line width=%dpt, even odd rule, opacity=%f] (%f,%f)", p->linewidth,
+                 p->transparency, ix, iy);
     }
   else
     {
-      pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt] (%f,%f)", p->linewidth, ix, iy);
+      pgf_printf(p->stream, "\\draw[color=mycolor, line width=%dpt, opacity=%f] (%f,%f)", p->linewidth, p->transparency,
+                 ix, iy);
     }
 
   for (i = 1; i < n; i++)
@@ -625,8 +636,8 @@ static void text_routine(double x, double y, int nchars, char *chars)
 
   pgf_printf(p->stream,
              "\\begin{scope}[yscale=-1,yshift=-%f]\n"
-             "\\draw[mycolor] (%f,%f) node[align=",
-             (ystart * 2), xstart, ystart);
+             "\\draw[mycolor, opacity=%f] (%f,%f) node[align=",
+             (ystart * 2), p->transparency, xstart, ystart);
   if (gkss->txal[0] == GKS_K_TEXT_HALIGN_RIGHT)
     pgf_printf(p->stream, "right");
   else if (gkss->txal[0] == GKS_K_TEXT_HALIGN_LEFT)
@@ -826,7 +837,7 @@ static void cellarray(double xmin, double xmax, double ymin, double ymax, int dx
             {
               ind = colia[iy * dimx + ix];
               sscanf(p->rgb[ind], "%02x%02x%02x", &red, &green, &blue);
-              alpha = 255;
+              alpha = nint(255 * p->transparency);
             }
           else
             {
@@ -834,7 +845,7 @@ static void cellarray(double xmin, double xmax, double ymin, double ymax, int dx
               red = (rgb & 0xff);
               green = (rgb & 0xff00) >> 8;
               blue = (rgb & 0xff0000) >> 16;
-              alpha = (rgb & 0xff000000) >> 24;
+              alpha = nint(((rgb & 0xff000000) >> 24) * p->transparency);
             }
           ptr[0] = red;
           ptr[1] = green;
@@ -957,7 +968,7 @@ static void write_page(void)
       pgf_clear_stream(p->patternstream);
       sprintf(buf,
               "\\begin{tikzpicture}[yscale=-1, "
-              "every node/.style={inner sep=0pt, outer sep=1pt, anchor=base west}]\n"
+              "every node/.style={inner sep=0pt, outer sep=1pt, anchor=base west}, line cap=butt, line join=round]\n"
               "\\pgfsetyvec{\\pgfpoint{0pt}{1pt}}\n\\clip (0,0) rectangle (%d,%d);\\node at (0,0) {}; \\node at "
               "(%d,%d) {};\n",
               p->width, p->height, p->width, p->height);
@@ -1001,6 +1012,11 @@ static void select_xform(int tnr)
 {
   gkss->cntnr = tnr;
   set_clip_rect(tnr);
+}
+
+static void set_transparency(double alpha)
+{
+  p->transparency = alpha;
 }
 
 void set_window(int tnr, double xmin, double xmax, double ymin, double ymax)
@@ -1171,7 +1187,7 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           break;
         case 's': /* close and stroke */
           pgf_printf(buf, "-- cycle;\n");
-          pgf_printf(p->stream, "\\draw[color=pathstroke, line width=%dpt] ", line_width);
+          pgf_printf(p->stream, "\\draw[color=pathstroke, line width=%dpt, opacity=%f] ", line_width, p->transparency);
           pgf_memcpy(p->stream, (char *)buf->buffer, buf->length);
           pgf_clear_stream(buf);
           cur_x = start_x;
@@ -1179,13 +1195,14 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           break;
         case 'S': /* stroke */
           pgf_printf(buf, ";\n");
-          pgf_printf(p->stream, "\\draw[color=pathstroke, line width=%dpt] ", line_width);
+          pgf_printf(p->stream, "\\draw[color=pathstroke, line width=%dpt, opacity=%f] ", line_width, p->transparency);
           pgf_memcpy(p->stream, (char *)buf->buffer, buf->length);
           pgf_clear_stream(buf);
           break;
         case 'F': /* fill and stroke */
           pgf_printf(buf, "-- cycle;\n");
-          pgf_printf(p->stream, "\\filldraw[color=pathstroke, fill=pathfill, line width=%dpt] ", line_width);
+          pgf_printf(p->stream, "\\filldraw[color=pathstroke, fill=pathfill, line width=%dpt, opacity=%f] ", line_width,
+                     p->transparency);
           pgf_memcpy(p->stream, (char *)buf->buffer, buf->length);
           pgf_clear_stream(buf);
           cur_x = start_x;
@@ -1193,7 +1210,7 @@ static void draw_path(int n, double *px, double *py, int nc, int *codes)
           break;
         case 'f': /* fill */
           pgf_printf(buf, "-- cycle;\n");
-          pgf_printf(p->stream, "\\fill[fill=pathfill] ");
+          pgf_printf(p->stream, "\\fill[fill=pathfill, opacity=%f] ", p->transparency);
           pgf_memcpy(p->stream, (char *)buf->buffer, buf->length);
           pgf_clear_stream(buf);
           cur_x = start_x;
@@ -1248,8 +1265,9 @@ static void draw_lines(int n, double *px, double *py, int *attributes)
             }
           pgf_printf(p->stream, "\\definecolor{mycolor}{RGB}{%d,%d,%d}\n", (rgba & 0xff), ((rgba >> 8) & 0xff),
                      ((rgba >> 16) & 0xff));
-          pgf_printf(p->stream, "\\draw[color=mycolor, cap=round, line width=%fpt] (%f,%f) -- (%f,%f)", line_width,
-                     xim1, yim1, xi, yi);
+          pgf_printf(p->stream,
+                     "\\draw[color=mycolor, line caps=round, line width=%fpt, opacity=%f] (%f,%f) -- (%f,%f)",
+                     line_width, p->transparency, xim1, yim1, xi, yi);
         }
       prev_rgba = rgba;
       prev_line_width = line_width;
@@ -1281,6 +1299,49 @@ static void draw_markers(int n, double *px, double *py, int *attributes)
     }
 }
 
+static void draw_triangles(int n, double *px, double *py, int ntri, int *tri)
+{
+  double x, y;
+  int i, j, k, rgba, red, green, blue;
+  PGF_point triangle[3];
+
+  if (n > p->max_points)
+    {
+      p->points = (PGF_point *)realloc(p->points, n * sizeof(PGF_point));
+      p->max_points = n;
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, p->points[i].x, p->points[i].y);
+    }
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          triangle[k].x = p->points[tri[j] - 1].x;
+          triangle[k].y = p->points[tri[j] - 1].y;
+          j++;
+        }
+
+      rgba = tri[j++];
+      red = rgba & 0xff;
+      green = (rgba >> 8) & 0xff;
+      blue = (rgba >> 16) & 0xff;
+
+      pgf_printf(p->stream, "\\definecolor{mycolor}{RGB}{%d,%d,%d}\n", red, green, blue);
+      pgf_printf(p->stream,
+                 "\\draw[color=mycolor, line caps=round, line width=%fpt, opacity=%f] "
+                 "(%f,%f) -- (%f,%f) -- (%f,%f) --cycle;\n",
+                 gkss->lwidth * p->nominal_size, p->transparency, triangle[0].x, triangle[0].y, triangle[1].x,
+                 triangle[1].y, triangle[2].x, triangle[2].y);
+    }
+}
+
 static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
 {
   switch (primid)
@@ -1293,6 +1354,9 @@ static void gdp(int n, double *px, double *py, int primid, int nc, int *codes)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       draw_markers(n, px, py, codes);
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      draw_triangles(n, px, py, nc, codes);
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);
@@ -1341,6 +1405,8 @@ void gks_pgfplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double
       p->offset = 0;
 
       p->png_counter = 0;
+
+      p->transparency = 1.0;
 
       set_xform();
       init_norm_xform();
@@ -1520,6 +1586,11 @@ void gks_pgfplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double
           init_norm_xform();
           set_clip_rect(gkss->cntnr);
         }
+      break;
+
+    case 203:
+      /* set transparency */
+      set_transparency(r1[0]);
       break;
 
     default:;

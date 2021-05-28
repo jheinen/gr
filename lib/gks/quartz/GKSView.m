@@ -1178,6 +1178,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
   begin_context(context);
 
   CGContextBeginPath(context);
+  CGContextSetLineCap(context, kCGLineCapButt);
+  CGContextSetLineJoin(context, kCGLineJoinRound);
   CGContextSetLineWidth(context, ln_width * p->nominal_size);
 
   if (ln_type != 1)
@@ -1243,6 +1245,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 2: // line
           CGContextBeginPath(context);
+          CGContextSetLineCap(context, kCGLineCapButt);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           CGContextSetLineWidth(context, p->nominal_size);
           CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < 2; i++)
@@ -1261,6 +1265,8 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 3: // polyline
           CGContextBeginPath(context);
+          CGContextSetLineCap(context, kCGLineCapButt);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           CGContextSetLineWidth(context, p->nominal_size);
           CGContextSetStrokeColor(context, marker_color);
           for (i = 0; i < marker[mtype][pc + 1]; i++)
@@ -1281,6 +1287,7 @@ static void line_routine(int n, double *px, double *py, int linetype, int tnr)
         case 4: // filled polygon
         case 5: // hollow polygon
           CGContextBeginPath(context);
+          CGContextSetLineJoin(context, kCGLineJoinRound);
           if (op == 4)
             {
               CGContextSetFillColor(context, marker_color);
@@ -1519,6 +1526,7 @@ static void fill_routine(int n, double *px, double *py, int tnr)
     {
       begin_context(context);
       CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       CGContextSetLineWidth(context, p->nominal_size);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
@@ -1530,6 +1538,7 @@ static void fill_routine(int n, double *px, double *py, int tnr)
       begin_context(context);
       [self set_fill_color:fl_color:context];
       CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       CGContextSetLineWidth(context, p->nominal_size);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
@@ -1571,6 +1580,8 @@ static void to_DC(int n, double *x, double *y)
 
   begin_context(context);
 
+  CGContextSetLineCap(context, kCGLineCapButt);
+  CGContextSetLineJoin(context, kCGLineJoinRound);
   CGContextSetLineWidth(context, gkss->bwidth * p->nominal_size);
   [self set_stroke_color:gkss->bcoli:context];
   [self set_fill_color:gkss->facoli:context];
@@ -1759,8 +1770,8 @@ static void to_DC(int n, double *x, double *y)
       NDC_to_DC(x, y, xi, yi);
 
       CGContextBeginPath(context);
-      CGContextSetLineJoin(context, kCGLineJoinMiter);
       CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
       line_width = 0.01 * attributes[j++];
       CGContextSetLineWidth(context, line_width * p->nominal_size);
 
@@ -1824,6 +1835,66 @@ static void to_DC(int n, double *x, double *y)
 }
 
 
+- (void)draw_triangles:(int)n:(double *)px:(double *)py:(int)ntri:(int *)tri
+{
+  double x, y, xt[3], yt[3];
+  int i, j, k, rgba;
+  CGFloat color[4];
+  CGPoint triangle[3];
+
+  begin_context(context);
+
+  if (colorSpace == NULL)
+    {
+      colorSpace = CGColorSpaceCreateDeviceRGB();
+    }
+  CGContextSetStrokeColorSpace(context, colorSpace);
+  CGContextSetFillColorSpace(context, colorSpace);
+
+  if (n > num_points)
+    {
+      while (n > num_points) num_points += NUM_POINTS;
+      points = (CGPoint *)gks_realloc(points, num_points * sizeof(CGPoint));
+    }
+
+  for (i = 0; i < n; ++i)
+    {
+      WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
+      seg_xform(&x, &y);
+      NDC_to_DC(x, y, points[i].x, points[i].y);
+    }
+
+  j = 0;
+  for (i = 0; i < ntri / 4; ++i)
+    {
+      for (k = 0; k < 3; ++k)
+        {
+          triangle[k].x = points[tri[j] - 1].x;
+          triangle[k].y = points[tri[j] - 1].y;
+          j++;
+        }
+
+      CGContextBeginPath(context);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
+      CGContextSetLineWidth(context, gkss->lwidth * p->nominal_size);
+
+      rgba = tri[j++];
+      color[0] = (rgba & 0xff) / 255.0;
+      color[1] = ((rgba >> 8) & 0xff) / 255.0;
+      color[2] = ((rgba >> 16) & 0xff) / 255.0;
+      color[3] = gkss->alpha;
+      CGContextSetStrokeColorSpace(context, colorSpace);
+      CGContextSetStrokeColor(context, color);
+
+      CGContextAddLines(context, triangle, 3);
+      CGContextClosePath(context);
+      CGContextDrawPath(context, kCGPathStroke);
+    }
+
+  end_context(context);
+}
+
+
 - (void)gdp:(int)n:(double *)px:(double *)py:(int)primid:(int)nc:(int *)codes
 {
   switch (primid)
@@ -1836,6 +1907,9 @@ static void to_DC(int n, double *x, double *y)
       break;
     case GKS_K_GDP_DRAW_MARKERS:
       [self draw_markers:n:px:py:codes];
+      break;
+    case GKS_K_GDP_DRAW_TRIANGLES:
+      [self draw_triangles:n:px:py:nc:codes];
       break;
     default:
       gks_perror("invalid drawing primitive ('%d')", primid);

@@ -148,8 +148,14 @@ void GKSConnection::newWidget()
 
 GKSServer::GKSServer(QObject *parent) : QTcpServer(parent)
 {
+  QString gks_display = QProcessEnvironment::systemEnvironment().value("GKS_DISPLAY");
+  QHostAddress host_address = QHostAddress::LocalHost;
+  if (!gks_display.isEmpty())
+    {
+      host_address = QHostAddress(gks_display);
+    }
   connect(this, SIGNAL(newConnection()), this, SLOT(connectSocket()));
-  if (!listen(QHostAddress::Any, port))
+  if (!listen(host_address, port))
     {
       qWarning("GKSserver: Failed to listen to port %d", port);
       exit(1);

@@ -7,6 +7,9 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include "gks.h"
+
 #ifdef _MSC_VER
 #define NO_THREADS 1
 #endif
@@ -21,9 +24,15 @@
 #else
 #include <unistd.h>
 #endif
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MINTHREE(a, b, c) MIN(MIN(a, b), c)
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MAXTHREE(a, b, c) MAX(MAX(a, b), c)
 
 /* the following macro enables BACKFACE_CULLING */
-/* #define BACKFACE_CULLING*/
+/*#define BACKFACE_CULLING*/
+
 static int queue_destroy(queue *queue);
 static queue *queue_new(void);
 static void *queue_dequeue(queue *queue);
@@ -41,6 +50,7 @@ static matrix3x3 mat_mul_3x3(matrix3x3 *a, matrix3x3 *b);
 static void mat_vec_mul_4x1(matrix *a, vertex_fp *b);
 static void mat_vec_mul_3x1(matrix3x3 *a, vector *b);
 static void divide_by_w(vertex_fp *v_fp);
+static void cross_product(vector *a, vector *b, vector *res);
 vector VECTOR3x1_INIT_NUL = {0, 0, 0};
 matrix MAT4x4_INIT_NUL = {{0}};
 matrix3x3 MAT3x3_INIT_NUL = {{0}};
@@ -62,6 +72,8 @@ static args *malloc_arg(int thread_idx, int mesh, matrix model_view_perspective,
 static void *draw_triangle_indexbuffer(void *v_arguments);
 static void draw_triangle(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
                           const float *colors, vector light_dir);
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
+                                     color line_color, color fill_color);
 static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int height, const float *colors,
                           vector light_dir, vertex_fp **v_fp_sorted, vertex_fp **v_fp, float A12, float A20, float A01,
                           float B12, float B20, float B01);
@@ -95,6 +107,14 @@ static pthread_mutex_t lock_main;
 static pthread_cond_t wait_for_merge;
 static pthread_cond_t wait_after_merge;
 #endif
+
+
+static void cross_product(vector *a, vector *b, vector *res)
+{
+  res->x = a->y * b->z - a->z * b->y;
+  res->y = a->z * b->x - a->x * b->z;
+  res->z = a->x * b->y - a->y * b->x;
+}
 
 /* Every thread has its own queue containing equal sized parts of every mesh that has to be drawn. The main
  * threads divides the meshes and enqueues jobs for the worker threads meaning they have to draw a part of
@@ -705,7 +725,6 @@ GR3API int gr3_initSR_()
 
   if (context_struct_.num_threads <= 0)
     {
-
       context_struct_.num_threads = 1;
     }
 #else
@@ -775,6 +794,48 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
     }
   else
     {
+      float div_0 = 0;
+      float div_1 = 0;
+      float div_2 = 0;
+      color fill_color;
+      color line_color;
+      color_float dummy_color = {0, 0, 0, 0};
+      vector dummy_vector = {0, 0, 0};
+      if (arg->scales != NULL) /* there is a mesh passed to this function with the intention to finish the rendering
+                                * process and it has all values set to 0/NULL */
+        {
+          div_0 = arg->scales[0];
+          div_1 = arg->scales[1];
+          div_2 = arg->scales[2];
+          if (context_struct_.option >= 0 && context_struct_.option <= 2)
+            {
+              /* If a mesh representation with the lines is demanded, the fill color and the linecolor have
+               * to be determined */
+              int color, errind;
+              double r, g, b;
+              div_0 = 1;
+              div_1 = 1;
+              div_2 = 1;
+              gks_inq_pline_color_index(&errind, &color);
+              gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
+              color_float line_color_f = {r, g, b, 1.0};
+              line_color = color_float_to_color(line_color_f);
+              if (context_struct_.option < 2)
+                {
+                  fill_color.r = (unsigned char)(context_struct_.background_color[0] * 255);
+                  fill_color.g = (unsigned char)(context_struct_.background_color[1] * 255);
+                  fill_color.b = (unsigned char)(context_struct_.background_color[2] * 255);
+                  fill_color.a = (unsigned char)(context_struct_.background_color[3] * 255);
+                }
+              else
+                {
+                  gks_inq_fill_color_index(&errind, &color);
+                  gks_inq_color_rep(1, color, GKS_K_VALUE_SET, &errind, &r, &g, &b);
+                  color_float fill_color_f = {r, g, b, 1.0};
+                  fill_color = color_float_to_color(fill_color_f);
+                }
+            }
+        }
       vertex_fp vertices_fp[3];
       vertex_fp *vertex_fpp[3];
       for (i = arg->idxstart; i < arg->idxend; i++)
@@ -787,9 +848,9 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
               vertices_fp[j].c.g = colors[index + 1];
               vertices_fp[j].c.b = colors[index + 2];
               vertices_fp[j].c.a = 1.0f;
-              vertices_fp[j].normal.x = normals[index] / arg->scales[0];
-              vertices_fp[j].normal.y = normals[index + 1] / arg->scales[1];
-              vertices_fp[j].normal.z = normals[index + 2] / arg->scales[2];
+              vertices_fp[j].normal.x = normals[index] / div_0;
+              vertices_fp[j].normal.y = normals[index + 1] / div_1;
+              vertices_fp[j].normal.z = normals[index + 2] / div_2;
               mat_vec_mul_3x1(&arg->model_view_3x3, &vertices_fp[j].normal);
               vertices_fp[j].x = vertices[index];
               vertices_fp[j].y = vertices[index + 1];
@@ -803,11 +864,278 @@ static void *draw_triangle_indexbuffer(void *v_arguments)
           vertex_fpp[0] = &vertices_fp[0];
           vertex_fpp[1] = &vertices_fp[1];
           vertex_fpp[2] = &vertices_fp[2];
-          draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
-                        arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
+
+          if (context_struct_.option > 2)
+            {
+              draw_triangle(context_struct_.pixmaps[arg->thread_idx], context_struct_.depth_buffers[arg->thread_idx],
+                            arg->width, arg->height, vertex_fpp, arg->colors, arg->light_dir);
+            }
+          else
+            { /* the mesh should be drawn represented by lines */
+              if (arg->scales != NULL)
+                {
+                  /* If one of those values is specified, that means that an extra
+                   * vertex is given to make the triangle a square shape, as square
+                   * shapes are the ones that should be drawn. If an additional vertex
+                   * is given, it must be transformed. */
+                  if (vertices_fp[1].normal.z > 0 || vertices_fp[1].normal.z < 0)
+                    {
+                      vertex_fp tmp = {vertices_fp[0].normal.y,
+                                       vertices_fp[0].normal.z,
+                                       vertices_fp[1].normal.y,
+                                       1.0,
+                                       1.0,
+                                       dummy_color,
+                                       dummy_vector};
+                      mat_vec_mul_4x1(&arg->model_view_perspective, &tmp);
+                      divide_by_w(&tmp);
+                      mat_vec_mul_4x1(&arg->viewport, &tmp);
+                      vertices_fp[0].normal.y = tmp.x;
+                      vertices_fp[0].normal.z = tmp.y;
+                      vertices_fp[1].normal.y = tmp.z;
+                    }
+                }
+              draw_triangle_with_edges(context_struct_.pixmaps[arg->thread_idx],
+                                       context_struct_.depth_buffers[arg->thread_idx], arg->width, arg->height,
+                                       vertex_fpp, line_color, fill_color);
+            }
         }
     }
   return NULL;
+}
+
+/*!
+ * If there is an option between zero and 2 specified in the gr3_surface method, a mesh with the edges should be drawn
+ * (cf. gr_surface_option_t in gr3_gr.c). In this case there is a value stored in the normals to refer to the
+ * thickness of the lines in a triangle (normal.x of v_fp[0] refers to edge 0-1, normal.x of v_fp[1] refers to edge 1-2,
+ * and normal.x of v_fp[2] refers to edge 2-0). In the rendering process, the distance bewteen the pixel and the
+ * relevant edge is defined by checking if there is a perpendicular line between these two and otherwise calculating the
+ * distance to the closer vertex of the two vertices forming the edge. If this distance is smaller than the given
+ * linewidth of this edge, the pixel is colored, otherwise it isnt.
+ * Because squares should be drawn, there are coordinates of the vertex making the triangle a square stored in the
+ * normal. (v_fp[0].normal.y, v_fp[0].normal.z, v_fp[1].normal.y). One missing edge forming a square and being relevant
+ * in the represenation is taken into account, calculating the distances, as well.
+ * \param [in] color line_color Color of the line to be drawn
+ * \param [in] color fill_color Color to fill the triangles with
+ */
+static void draw_triangle_with_edges(unsigned char *pixels, float *dep_buf, int width, int height, vertex_fp *v_fp[3],
+                                     color line_color, color fill_color)
+{
+  int x, y;
+  int x_min = ceil(MINTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
+  int y_min = ceil(MINTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
+  int x_max = floor(MAXTHREE(v_fp[0]->x, v_fp[1]->x, v_fp[2]->x));
+  int y_max = floor(MAXTHREE(v_fp[0]->y, v_fp[1]->y, v_fp[2]->y));
+  int off = ceil(MAXTHREE(v_fp[0]->normal.x, v_fp[1]->normal.x, v_fp[2]->normal.x));
+  int x_lim_lower = x_min - off < 0 ? 0 : x_min - off;
+  int x_lim_upper = x_max + off > width - 1 ? width - 1 : x_max + off;
+  int y_lim_lower = y_min - off < 0 ? 0 : y_min - off;
+  int y_lim_upper = y_max + off > height - 1 ? height - 1 : y_max + off;
+  for (x = x_lim_lower; x <= x_lim_upper; x++)
+    {
+      for (y = y_lim_lower; y <= y_lim_upper; y++)
+        {
+          /* calculate depth with interpolation/extrapolation by calculating the area of the sub triangles */
+          float area_0, area_1, area_2, depth;
+          float len_v_0_1 = sqrt((v_fp[0]->x - v_fp[1]->x) * (v_fp[0]->x - v_fp[1]->x) +
+                                 (v_fp[0]->y - v_fp[1]->y) * (v_fp[0]->y - v_fp[1]->y));
+          float len_v_1_2 = sqrt((v_fp[1]->x - v_fp[2]->x) * (v_fp[1]->x - v_fp[2]->x) +
+                                 (v_fp[1]->y - v_fp[2]->y) * (v_fp[1]->y - v_fp[2]->y));
+          float len_v_2_0 = sqrt((v_fp[2]->x - v_fp[0]->x) * (v_fp[2]->x - v_fp[0]->x) +
+                                 (v_fp[2]->y - v_fp[0]->y) * (v_fp[2]->y - v_fp[0]->y));
+          float len_p_0 = sqrt((x - v_fp[0]->x) * (x - v_fp[0]->x) + (y - v_fp[0]->y) * (y - v_fp[0]->y));
+          float len_p_1 = sqrt((x - v_fp[1]->x) * (x - v_fp[1]->x) + (y - v_fp[1]->y) * (y - v_fp[1]->y));
+          float len_p_2 = sqrt((x - v_fp[2]->x) * (x - v_fp[2]->x) + (y - v_fp[2]->y) * (y - v_fp[2]->y));
+          float s_0 = (len_p_0 + len_p_1 + len_v_0_1) / 2;
+          float tmp_0 = s_0 * (s_0 - len_p_0) * (s_0 - len_p_1) * (s_0 - len_v_0_1);
+
+          float s_1 = (len_p_1 + len_p_2 + len_v_1_2) / 2;
+          float tmp_1 = s_1 * (s_1 - len_p_1) * (s_1 - len_p_2) * (s_1 - len_v_1_2);
+          float s_2 = (len_p_2 + len_p_0 + len_v_2_0) / 2;
+          float tmp_2 = s_2 * (s_2 - len_p_2) * (s_2 - len_p_0) * (s_2 - len_v_2_0);
+          if (tmp_0 < 0)
+            {
+              tmp_0 = 0;
+            }
+          area_0 = sqrt(tmp_0);
+
+          if (tmp_1 < 0)
+            {
+              tmp_1 = 0;
+            }
+          area_1 = sqrt(tmp_1);
+
+          if (tmp_2 < 0)
+            {
+              tmp_2 = 0;
+            }
+          area_2 = sqrt(tmp_2);
+          depth = (area_0 * v_fp[1]->z + area_1 * v_fp[2]->z + area_2 * v_fp[0]->z) * (1 / (area_0 + area_1 + area_2));
+          if (depth < dep_buf[y * width + x])
+            {
+              /* initialise distances with values that are definitly bigger than the linewidth so the default
+               * is, that they are not colored in line color */
+              double d1 = off + 1, d2 = off + 1, d3 = off + 1, d4 = off + 1, d5 = off + 1;
+              if (v_fp[0]->normal.x > 0)
+                {
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
+                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector edge_1 = {-edge_1_inv.x, -edge_1_inv.y, 0};
+                  float angle_01_1 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+                  float angle_01_2 = dot_vector(&diff_vec_2_inv, &edge_1);
+                  /* The two first cases mean, that the nearest point of the relevant edge
+                   * to the pixel, which is questioned to be colored in linecolor, is one
+                   * of the vertices of the relevant edge, so there is no perpedicular line between
+                   * edge and pixel. */
+                  if (angle_01_1 < 0)
+                    {
+                      d1 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
+                    }
+                  else if (angle_01_2 < 0)
+                    {
+                      d1 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  /* there is a perpendicular line between edge and pixel, thus the distance
+                   * can be calculated with the cross product */
+                  else
+                    {
+                      vector vec1;
+                      cross_product(&diff_vec_1, &edge_1, &vec1);
+                      d1 = sqrt(dot_vector(&vec1, &vec1)) / sqrt(dot_vector(&edge_1, &edge_1));
+                    }
+                }
+              if (v_fp[1]->normal.x > 0)
+                {
+                  vector vec2;
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector edge_2 = {v_fp[1]->x - v_fp[2]->x, v_fp[1]->y - v_fp[2]->y, 0};
+                  vector edge_2_inv = {-edge_2.x, -edge_2.y, 0};
+                  float angle_12_1 = dot_vector(&diff_vec_2_inv, &edge_2_inv);
+                  float angle_12_2 = dot_vector(&diff_vec_3_inv, &edge_2);
+                  if (angle_12_1 < 0)
+                    {
+                      d2 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  else if (angle_12_2 < 0)
+                    {
+                      d2 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_2, &edge_2, &vec2);
+                      d2 = sqrt(dot_vector(&vec2, &vec2)) / sqrt(dot_vector(&edge_2, &edge_2));
+                    }
+                }
+              if (v_fp[2]->normal.x > 0)
+                {
+                  vector vec3;
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector diff_vec_1 = {-diff_vec_1_inv.x, -diff_vec_1_inv.y, 0};
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+                  vector edge_3_inv = {-edge_3.x, -edge_3.y, 0};
+                  float angle_20_1 = dot_vector(&diff_vec_3_inv, &edge_3_inv);
+                  float angle_20_2 = dot_vector(&diff_vec_1_inv, &edge_3);
+                  if (angle_20_1 < 0)
+                    {
+                      d3 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                  else if (angle_20_2 < 0)
+                    {
+                      d3 = sqrt(dot_vector(&diff_vec_1, &diff_vec_1));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_3, &edge_3, &vec3);
+                      d3 = sqrt(dot_vector(&vec3, &vec3)) / sqrt(dot_vector(&edge_3, &edge_3));
+                    }
+                }
+              if (v_fp[1]->normal.z > 0.0)
+                {
+                  vector diff_vec_3 = {v_fp[2]->x - x, v_fp[2]->y - y, 0};
+                  vector diff_vec_3_inv = {-diff_vec_3.x, -diff_vec_3.y, 0};
+                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
+                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
+                  vector vec4;
+                  vector edge_4 = {v_fp[2]->x - v_fp[0]->normal.y, v_fp[2]->y - v_fp[0]->normal.z, 0};
+                  vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
+                  float angle_23_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float angle_23_2 = dot_vector(&diff_vec_3_inv, &edge_4_inv);
+                  if (angle_23_1 < 0)
+                    {
+                      d4 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
+                    }
+                  else if (angle_23_2 < 0)
+                    {
+                      d4 = sqrt(dot_vector(&diff_vec_3, &diff_vec_3));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_3, &edge_4, &vec4);
+                      d4 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                    }
+                }
+              if (v_fp[1]->normal.z < 0.0)
+                {
+                  vector vec4;
+                  vector diff_vec_2 = {v_fp[1]->x - x, v_fp[1]->y - y, 0};
+                  vector diff_vec_2_inv = {-diff_vec_2.x, -diff_vec_2.y, 0};
+                  vector diff_vec_4 = {v_fp[0]->normal.y - x, v_fp[0]->normal.z - y, 0};
+                  vector diff_vec_4_inv = {-diff_vec_4.x, -diff_vec_4.y, 0};
+                  vector edge_4 = {v_fp[1]->x - v_fp[0]->normal.y, v_fp[1]->y - v_fp[0]->normal.z, 0};
+                  vector edge_4_inv = {-edge_4.x, -edge_4.y, 0};
+                  float angle_13_1 = dot_vector(&diff_vec_4_inv, &edge_4);
+                  float angle_13_2 = dot_vector(&diff_vec_2_inv, &edge_4_inv);
+                  if (angle_13_1 < 0)
+                    {
+                      d5 = sqrt(dot_vector(&diff_vec_4, &diff_vec_4));
+                    }
+                  else if (angle_13_2 < 0)
+                    {
+                      d5 = sqrt(dot_vector(&diff_vec_2, &diff_vec_2));
+                    }
+                  else
+                    {
+                      cross_product(&diff_vec_2, &edge_4, &vec4);
+                      d5 = sqrt(dot_vector(&vec4, &vec4)) / sqrt(dot_vector(&edge_4, &edge_4));
+                    }
+                }
+              /* if the pixel has a distance to a line which is smaller than the linewidth, it should be colored */
+              if (d1 < v_fp[0]->normal.x || d2 < v_fp[1]->normal.x || d3 < v_fp[2]->normal.x ||
+                  d4 < v_fp[1]->normal.z || d5 < -v_fp[1]->normal.z)
+                {
+                  color_pixel(pixels, dep_buf, depth, width, x, y, &line_color);
+                }
+              else
+                {
+                  vector edge_1_inv = {v_fp[1]->x - v_fp[0]->x, v_fp[1]->y - v_fp[0]->y, 0};
+                  vector diff_vec_1_inv = {x - v_fp[0]->x, y - v_fp[0]->y, 0};
+                  vector edge_3 = {v_fp[2]->x - v_fp[0]->x, v_fp[2]->y - v_fp[0]->y, 0};
+                  float d00 = dot_vector(&edge_1_inv, &edge_1_inv);
+                  float d01 = dot_vector(&edge_1_inv, &edge_3);
+                  float d11 = dot_vector(&edge_3, &edge_3);
+                  float d20 = dot_vector(&diff_vec_1_inv, &edge_1_inv);
+                  float d21 = dot_vector(&diff_vec_1_inv, &edge_3);
+                  float denom = d00 * d11 - d01 * d01;
+                  float w0 = (d11 * d20 - d01 * d21) / denom;
+                  float w1 = (d00 * d21 - d01 * d20) / denom;
+                  float w2 = 1.0f - w0 - w1;
+                  if ((w0 > 0 && w1 > 0 && w2 > 0))
+                    {
+                      /* the pixel does not belong to a line, but lies inside a triangle => fill color */
+                      color_pixel(pixels, dep_buf, depth, width, x, y, &fill_color);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /*!
@@ -879,7 +1207,6 @@ static void fill_triangle(unsigned char *pixels, float *dep_buf, int width, int 
   int curx, dif, first_x = 0;
   float w0 = 0, w1 = 0, w2 = 0, sum_inv = 0;
   int lim = (int)v_fp_sorted[2]->y > height - 1 ? height - 1 : (int)v_fp_sorted[2]->y;
-
   for (scanlineY = starty; scanlineY <= lim; scanlineY++)
     {
       if (scanlineY < (int)(v_fp_sorted[1]->y))
@@ -970,7 +1297,6 @@ static void draw_line(unsigned char *pixels, float *dep_buf, int width, const fl
     }
   for (x = startx; x <= endx && x < width; x += 1)
     {
-
 #ifdef BACKFACE_CULLING
       if (w0 < 0 && w1 < 0 && w2 < 0)
         {
@@ -1324,7 +1650,15 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           view_mat_3x3.mat[i * 3 + j] = view_mat.mat[i * 4 + j];
         }
     }
-  model_view_mat_3x3 = mat_mul_3x3(&view_mat_3x3, &model_mat_3x3);
+  if (context_struct_.option >= 0 && context_struct_.option <= 2)
+    {
+      matrix3x3 id = {{1, 0, 0, 0, 1, 0, 0, 0, 1}};
+      model_view_mat_3x3 = id;
+    }
+  else
+    {
+      model_view_mat_3x3 = mat_mul_3x3(&view_mat_3x3, &model_mat_3x3);
+    }
   light_dir.x = context_struct_.light_dir[0];
   light_dir.y = context_struct_.light_dir[1];
   light_dir.z = context_struct_.light_dir[2];
@@ -1377,6 +1711,7 @@ static int draw_mesh_softwarerendered(queue *queues[MAX_NUM_THREADS], int mesh, 
           mat_vec_mul_4x1(&viewport, &vertices_fp[i]);
           mat_vec_mul_3x1(&model_view_mat_3x3, &vertices_fp[i].normal);
         }
+
       numtri = context_struct_.mesh_list_[mesh].data.number_of_indices / 3;
       tri_per_thread = numtri / context_struct_.num_threads;
       index_start_end[0] = 0;
