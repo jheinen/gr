@@ -18,6 +18,9 @@ extern "C" {
 
 /* ------------------------- util ----------------------------------------------------------------------------------- */
 
+#ifdef GR_STATIC_LIB
+#define EXPORT
+#else
 #if defined _WIN32 || defined __CYGWIN__ || defined __MINGW32__
 #ifdef BUILDING_DLL
 #ifdef __GNUC__
@@ -37,6 +40,7 @@ extern "C" {
 #define EXPORT __attribute__((visibility("default")))
 #else
 #define EXPORT
+#endif
 #endif
 #endif
 

@@ -510,6 +510,7 @@ set_target_properties(grm_shared_internal PROPERTIES C_VISIBILITY_PRESET default
 set_target_properties(grm_shared_internal PROPERTIES OUTPUT_NAME GRM_int)
 target_include_directories(grm_shared_internal PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/gks/>)
 if(WIN32)
+  target_compile_definitions(grm_static PRIVATE GR_STATIC_LIB)
   target_compile_definitions(grm_shared PRIVATE BUILDING_DLL)
   target_compile_definitions(grm_shared_internal PRIVATE BUILDING_DLL)
 endif()
