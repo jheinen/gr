@@ -11,7 +11,7 @@ gksqt.exe: gksqt.cxx gksserver.cxx gkswidget.cxx $(GKSLIB)
 	moc -DGRDIR=\"$(GRDIR)\" -Iinclude gkswidget.h -o moc_gkswidget.cxx
 	moc -DGRDIR=\"$(GRDIR)\" -Iinclude gksserver.h -o moc_gksserver.cxx
 	rcc -o qrc_gksqt.cxx gksqt.qrc
-	$(CXX) -fno-exceptions -std=c++11 -DGRDIR=\"$(GRDIR)\" -Iinclude -Iinclude/QtCore -Iinclude/QtGui -Iinclude/QtNetwork -Iinclude/QtWidgets -I../ -o $@ $^ moc_gkswidget.cxx moc_gksserver.cxx qrc_gksqt.cxx Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll
+	$(CXX) -fno-exceptions -Wl,--subsystem,windows -mwindows -std=c++11 -DGRDIR=\"$(GRDIR)\" -Iinclude -Iinclude/QtCore -Iinclude/QtGui -Iinclude/QtNetwork -Iinclude/QtWidgets -I../ -o $@ $^ moc_gkswidget.cxx moc_gksserver.cxx qrc_gksqt.cxx Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Network.dll
 
 clean:
 	$(RM) include
