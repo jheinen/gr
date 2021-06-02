@@ -22,6 +22,16 @@
 #include "gks.h"
 #include "gkscore.h"
 
+
+#define SOCKET_FUNCTION_UNKNOWN 0
+#define SOCKET_FUNCTION_CREATE_WINDOW 1
+#define SOCKET_FUNCTION_DRAW 2
+#define SOCKET_FUNCTION_IS_ALIVE 3
+#define SOCKET_FUNCTION_CLOSE_WINDOW 4
+#define SOCKET_FUNCTION_IS_RUNNING 5
+#define SOCKET_FUNCTION_INQ_WS_STATE 6
+
+
 #ifndef MAXPATHLEN
 #define MAXPATHLEN 1024
 #endif
@@ -271,6 +281,7 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
                     char *chars, void **ptr)
 {
   ws_state_list *wss;
+  char request_type;
 
   wss = (ws_state_list *)*ptr;
 
@@ -317,14 +328,19 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
                   r2[0] = workstation_information.mheight;
                 }
             }
+          /*
+           * TODO: Send `CREATE_WINDOW` on open workstation or implicit window creation?
+           * request_type = SOCKET_FUNCTION_CREATE_WINDOW;
+           * send_socket(wss->s, &request_type, 1);
+           */
         }
       break;
 
     case 3:
       if (wss->wstype == 411)
         {
-          int null = 0;
-          send_socket(wss->s, (char *)&null, sizeof(int));
+          request_type = SOCKET_FUNCTION_CLOSE_WINDOW;
+          send_socket(wss->s, &request_type, 1);
         }
       close_socket(wss->s);
       if (wss->dl.buffer)
@@ -354,8 +370,36 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
                     }
                 }
             }
+          request_type = SOCKET_FUNCTION_DRAW;
+          if (wss->wstype == 411)
+            {
+              send_socket(wss->s, &request_type, 1);
+            }
           send_socket(wss->s, (char *)&wss->dl.nbytes, sizeof(int));
           send_socket(wss->s, wss->dl.buffer, wss->dl.nbytes);
+        }
+      break;
+
+    case 209: /* inq_ws_state */
+      if (wss->wstype == 411)
+        {
+          char reply[1 + sizeof(gks_ws_state_t)];
+          request_type = SOCKET_FUNCTION_INQ_WS_STATE;
+          if (send_socket(wss->s, &request_type, 1) <= 0)
+            {
+              break;
+            }
+          if (read_socket(wss->s, reply, sizeof(reply)) <= 0)
+            {
+              break;
+            }
+          if (reply[0] == SOCKET_FUNCTION_INQ_WS_STATE)
+            {
+              const gks_ws_state_t *state = (const gks_ws_state_t *)&reply[1];
+              ia[0] = state->width;
+              ia[1] = state->height;
+              r1[0] = state->device_pixel_ratio;
+            }
         }
       break;
     }

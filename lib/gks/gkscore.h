@@ -111,6 +111,7 @@ extern "C" {
 #define SET_BORDER_WIDTH 206
 #define SET_BORDER_COLOR_INDEX 207
 #define SELECT_CLIP_XFORM 208
+#define INQ_WS_STATE 209
 
 #define BEGIN_SELECTION 250
 #define END_SELECTION 251
@@ -179,6 +180,7 @@ typedef struct
   int wtype;
   int conid;
   void *ptr;
+  double vp[4];
 } ws_list_t;
 
 typedef struct
@@ -208,6 +210,13 @@ typedef struct
   int length;
   int coord[124][2];
 } stroke_data_t;
+
+typedef struct
+{
+  int width;
+  int height;
+  double device_pixel_ratio;
+} gks_ws_state_t;
 
 int gks_open_font(void);
 void gks_lookup_font(int fd, int version, int font, int chr, stroke_data_t *buffer);

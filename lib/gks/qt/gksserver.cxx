@@ -11,6 +11,8 @@
 #include <QDesktopWidget>
 #endif
 
+#include "gkscore.h"
+
 #include "gksserver.h"
 
 
@@ -34,7 +36,8 @@ inline QRect &operator-=(QRect &rect, const QMargins &margins)
 #endif
 
 
-GKSConnection::GKSConnection(QTcpSocket *socket) : socket(socket), widget(NULL), dl(NULL), dl_size(0)
+GKSConnection::GKSConnection(QTcpSocket *socket)
+    : socket(socket), widget(NULL), dl(NULL), dl_size(0), socket_function(SocketFunction::unknown)
 {
   ++index;
   connect(socket, SIGNAL(readyRead()), this, SLOT(readClient()));
@@ -66,30 +69,74 @@ GKSConnection::~GKSConnection()
 
 void GKSConnection::readClient()
 {
-  while (socket->bytesAvailable() > 0)
+  while (socket->bytesAvailable() > 0 || socket_function == SocketFunction::inq_ws_state)
     {
-      if (dl_size == 0)
+      switch (socket_function)
         {
-          if (socket->bytesAvailable() < (long)sizeof(int)) return;
-          socket->read((char *)&dl_size, sizeof(unsigned int));
+        case SocketFunction::unknown:
+          char socket_function_byte;
+          socket->read(&socket_function_byte, 1);
+          socket_function = static_cast<SocketFunction::Enum>(socket_function_byte);
+          break;
+        case SocketFunction::create_window:
+          if (widget == NULL)
+            {
+              newWidget();
+            }
+          socket_function = SocketFunction::unknown;
+          break;
+        case SocketFunction::draw:
+          if (dl_size == 0)
+            {
+              if (socket->bytesAvailable() < (long)sizeof(int)) return;
+              socket->read((char *)&dl_size, sizeof(int));
+            }
+          if (socket->bytesAvailable() < dl_size) return;
+          dl = new char[dl_size + sizeof(int)];
+          socket->read(dl, dl_size);
+          // The data buffer must be terminated by a zero integer -> `sizeof(int)` zero bytes
+          memset(dl + dl_size, 0, sizeof(int));
+          if (widget == NULL)
+            {
+              newWidget();
+            }
+          emit(data(dl));
+          dl_size = 0;
+          socket_function = SocketFunction::unknown;
+          break;
+        case SocketFunction::close_window:
+          if (widget != NULL)
+            {
+              widget->close();
+            }
+          socket_function = SocketFunction::unknown;
+          break;
+        case SocketFunction::inq_ws_state:
+          char reply[1 + sizeof(gks_ws_state_t)];
+          if (widget != NULL)
+            {
+              reply[0] = static_cast<char>(SocketFunction::inq_ws_state);
+              double device_pixel_ratio = (
+#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+                  widget->devicePixelRatioF()
+#elif QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+                  widget->devicePixelRatio()
+#else
+                  1.0
+#endif
+              );
+              *reinterpret_cast<gks_ws_state_t *>(&reply[1]) =
+                  gks_ws_state_t{widget->width(), widget->height(), device_pixel_ratio};
+            }
+          else
+            {
+              /* If no widget exists, send back `SocketFunction::unknown` */
+              reply[0] = static_cast<char>(SocketFunction::unknown);
+            }
+          socket->write(reply, sizeof(reply));
+          socket_function = SocketFunction::unknown;
+          break;
         }
-      /* If `dl_size` is still `0` this is a close request
-       * -> send a close request signal which is processed in the GKSServer instance */
-      if (dl_size == 0 && widget == NULL)
-        {
-          emit(requestApplicationShutdown(*this));
-        }
-      if (socket->bytesAvailable() < dl_size) return;
-      dl = new char[dl_size + sizeof(int)];
-      socket->read(dl, dl_size);
-      // The data buffer must be terminated by a zero integer -> `sizeof(int)` zero bytes
-      memset(dl + dl_size, 0, sizeof(int));
-      if (widget == NULL)
-        {
-          newWidget();
-        }
-      emit(data(dl));
-      dl_size = 0;
     }
 }
 

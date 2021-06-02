@@ -9,6 +9,21 @@
 #include "gkswidget.h"
 
 
+struct SocketFunction
+{
+  enum Enum
+  {
+    unknown = 0,
+    create_window = 1,
+    draw = 2,
+    is_alive = 3,
+    close_window = 4,
+    is_running = 5,
+    inq_ws_state = 6
+  };
+};
+
+
 class GKSConnection : public QObject
 {
   Q_OBJECT
@@ -35,6 +50,7 @@ private:
   GKSWidget *widget;
   char *dl;
   unsigned int dl_size;
+  SocketFunction::Enum socket_function;
 };
 
 

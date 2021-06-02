@@ -9,6 +9,8 @@
 #define GKSTERM_FUNCTION_IS_ALIVE 3
 #define GKSTERM_FUNCTION_CLOSE_WINDOW 4
 #define GKSTERM_FUNCTION_IS_RUNNING 5
+#define GKSTERM_FUNCTION_INQ_WS_STATE 6
+
 #include <CoreGraphics/CGGeometry.h>
 #include <CoreGraphics/CGColor.h>
 

@@ -27,4 +27,5 @@
 - (void)GKSQuartzDraw:(int)win displayList:(id)displayList;
 - (int)GKSQuartzIsAlive:(int)win;
 - (void)GKSQuartzCloseWindow:(int)win;
+- (gks_ws_state_t)GKSQuartzGetState:(int)win;
 @end
