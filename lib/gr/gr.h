@@ -218,7 +218,8 @@ DLLEXPORT void gr_setcallback(char *(*)(const char *));
 DLLEXPORT void gr_setthreadnumber(int);
 DLLEXPORT void gr_setpicturesizeforvolume(int, int);
 DLLEXPORT void gr_setvolumebordercalculation(int);
-DLLEXPORT void gr_inqvolumeflags(int *, int *, int *, int *);
+DLLEXPORT void gr_setapproximativecalculation(int);
+DLLEXPORT void gr_inqvolumeflags(int *, int *, int *, int *, int *);
 DLLEXPORT void gr_cpubasedvolume(int, int, int, double *, int, double *, double *, double *, double *);
 
 #ifdef __cplusplus

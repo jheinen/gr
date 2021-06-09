@@ -1163,8 +1163,8 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
     }
   else
     {
-      int border, max_threads;
-      gr_inqvolumeflags(&border, &max_threads, &height, &width);
+      int border, max_threads, approximative_calculation;
+      gr_inqvolumeflags(&border, &max_threads, &height, &width, &approximative_calculation);
       gr_inqprojectiontype(&projection_type);
       if (projection_type == GR_PROJECTION_DEFAULT)
         {

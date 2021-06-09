@@ -73,8 +73,8 @@ typedef __int64 int64_t;
 #define M_PI (3.141592653589793)
 #endif
 
-#define RAYCASTING_CEIL(x) ((x > 0) ? round(x + 0.50001) : (floor(x + 1.0001)))
-#define RAYCASTING_FLOOR(x) (round(x - 0.50001))
+#define RAYCASTING_CEIL(x) ((x > 0) ? round(x + 0.50000001) : (floor(x + 1.00000001)))
+#define RAYCASTING_FLOOR(x) (round(x - 0.50000001))
 
 
 typedef struct
@@ -193,9 +193,10 @@ typedef struct
   double thread_size;
   int picture_width, picture_height;
   struct ray_casting_attr *ray_casting;
+  int approximative_calculation;
 } volume_t;
 
-static volume_t vt = {1, 0, 1.25, 1000, 1000, NULL};
+static volume_t vt = {1, 0, 1.25, 1000, 1000, NULL, 1};
 
 static norm_xform nx = {1, 0, 1, 0};
 
@@ -12285,6 +12286,29 @@ void gr_setpicturesizeforvolume(int width, int height)
 }
 
 /*!
+ * Set if gr_cpubasedvolume is calculated approximative or exact. To use the exact calculation set
+ * approximative_calculation to 0. The default value is the approximative version, which can be set with the number 1.
+ *
+ * \param[in] approximative_calculation exact or approximative calculation of the volume
+ */
+void gr_setapproximativecalculation(int approximative_calculation)
+{
+  check_autoinit;
+
+  if (approximative_calculation == 0 || approximative_calculation == 1)
+    {
+      vt.approximative_calculation = approximative_calculation;
+    }
+  else
+    {
+      fprintf(stderr, "Invalid number for approximative_calculation. Valid numbers are 0 and 1.\n");
+    }
+
+  if (flag_graphics)
+    gr_writestream("<setapproximativecalculation approximative_calculation=\"%i\"", approximative_calculation);
+}
+
+/*!
  * Set the gr_volume border type with this flag. This inflicts how the volume is calculated.
  * When the flag is set to GR_VOLUME_WITH_BORDER the border will be calculated the same as the points inside the volume.
  *
@@ -12321,12 +12345,14 @@ void gr_setvolumebordercalculation(int flag)
  * Inquire the parameters which can be set for gr_cpubasedvolume. The size of the resulting image,
  * the way the volumeborder is calculated and the amount of threads which are used.
  *
- * \param[out] border            flag which tells how the border is calculated
- * \param[out] max_threads       number of threads
- * \param[out] picture_width     width of the resulting image
- * \param[out] picture_height    height of the resulting image
+ * \param[out] border                       flag which tells how the border is calculated
+ * \param[out] max_threads                  number of threads
+ * \param[out] picture_width                width of the resulting image
+ * \param[out] picture_height               height of the resulting image
+ * \param[out] approximative_calculation    exact or approximative calculation of gr_cpubasedvolume
  */
-void gr_inqvolumeflags(int *border, int *max_threads, int *picture_width, int *picture_height)
+void gr_inqvolumeflags(int *border, int *max_threads, int *picture_width, int *picture_height,
+                       int *approximative_calculation)
 {
   check_autoinit;
 
@@ -12334,6 +12360,7 @@ void gr_inqvolumeflags(int *border, int *max_threads, int *picture_width, int *p
   *max_threads = vt.max_threads;
   *picture_width = vt.picture_width;
   *picture_height = vt.picture_height;
+  *approximative_calculation = vt.approximative_calculation;
 }
 
 static void draw_volume(const double *pixels)
@@ -12382,9 +12409,23 @@ static void draw_volume(const double *pixels)
   free(colormap);
 }
 
+static void trilinear_interpolation(double c000, double c001, double c010, double c100, double c101, double c110,
+                                    double c011, double c111, double x_dist, double y_dist, double z_dist, double *erg)
+{
+  double c00 = c000 * (1 - x_dist) + c100 * x_dist;
+  double c01 = c001 * (1 - x_dist) + c101 * x_dist;
+  double c10 = c010 * (1 - x_dist) + c110 * x_dist;
+  double c11 = c011 * (1 - x_dist) + c111 * x_dist;
+
+  double c0 = c00 * (1 - y_dist) + c10 * y_dist;
+  double c1 = c01 * (1 - y_dist) + c11 * y_dist;
+
+  *erg = c0 * (1 - z_dist) + c1 * z_dist;
+}
+
 static void ray_casting_thread(void *arg)
 {
-  int i, j;
+  int i, j, s;
   double ray_start[3], ray_dir[3], ray_dir_default[3], tmp[3];
 
   /* get the necessary attributes out of the structs */
@@ -12398,9 +12439,11 @@ static void ray_casting_thread(void *arg)
   double *max_val = rc->max_val, *min_val = rc->min_val;
 
   double eps = 1e-8; /* precision parameter for comparisons */
-  double x_spacing = (max_val[0] - min_val[0]) / nx;
-  double y_spacing = (max_val[1] - min_val[1]) / ny;
-  double z_spacing = (max_val[2] - min_val[2]) / nz;
+  double x_spacing = 1. / nx;
+  double y_spacing = 1. / ny;
+  double z_spacing = 1. / nz;
+  double min_n = 25; /* number found by testing */
+  double wdh = max(1., ceil(min_n / (double)min(nx, min(ny, nz))));
 
   /* transform values into integer */
   double min_val_t[3] = {0, 0, 0};
@@ -12426,15 +12469,20 @@ static void ray_casting_thread(void *arg)
 
   if (gpx.projection_type == GR_PROJECTION_ORTHOGRAPHIC)
     {
-      ray_dir[0] = ray_dir_default[0];
-      ray_dir[1] = ray_dir_default[1];
-      ray_dir[2] = ray_dir_default[2];
+      ray_dir[0] = ray_dir_default[0] / x_spacing;
+      ray_dir[1] = ray_dir_default[1] / y_spacing;
+      ray_dir[2] = ray_dir_default[2] / z_spacing;
     }
   for (i = ta->x_start; i < ta->x_end; i++)
     {
       for (j = ta->y_start; j < ta->y_end; j++)
         {
           double color = 0;
+          if (algorithm == 1)
+            {
+              /* absorption */
+              color = 1;
+            }
 
           /* cast ray */
           if (gpx.projection_type == GR_PROJECTION_ORTHOGRAPHIC)
@@ -12448,9 +12496,9 @@ static void ray_casting_thread(void *arg)
               tmp[2] = gpx.near_plane;
 
               /* transform the point into the camera system */
-              ray_start[0] = tmp[0] * tx.s_x - tmp[1] * tx.up_x + tmp[2] * ray_dir[0];
-              ray_start[1] = tmp[0] * tx.s_y - tmp[1] * tx.up_y + tmp[2] * ray_dir[1];
-              ray_start[2] = tmp[0] * tx.s_z - tmp[1] * tx.up_z + tmp[2] * ray_dir[2];
+              ray_start[0] = tmp[0] * tx.s_x - tmp[1] * tx.up_x + tmp[2] * ray_dir_default[0];
+              ray_start[1] = tmp[0] * tx.s_y - tmp[1] * tx.up_y + tmp[2] * ray_dir_default[1];
+              ray_start[2] = tmp[0] * tx.s_z - tmp[1] * tx.up_z + tmp[2] * ray_dir_default[2];
             }
           else if (gpx.projection_type == GR_PROJECTION_PERSPECTIVE)
             {
@@ -12505,9 +12553,9 @@ static void ray_casting_thread(void *arg)
                              ray_start[2] + lam * ray_dir_default[2];
 
               /* ray_dir depending on point and angle */
-              ray_dir[0] = ray_start[0] - tx.camera_pos_x;
-              ray_dir[1] = ray_start[1] - tx.camera_pos_y;
-              ray_dir[2] = ray_start[2] - tx.camera_pos_z;
+              ray_dir[0] = (ray_start[0] - tx.camera_pos_x) / x_spacing;
+              ray_dir[1] = (ray_start[1] - tx.camera_pos_y) / y_spacing;
+              ray_dir[2] = (ray_start[2] - tx.camera_pos_z) / z_spacing;
 
               f_length = sqrt(ray_dir[0] * ray_dir[0] + ray_dir[1] * ray_dir[1] + ray_dir[2] * ray_dir[2]);
               ray_dir[0] /= f_length;
@@ -12515,12 +12563,9 @@ static void ray_casting_thread(void *arg)
               ray_dir[2] /= f_length;
             }
           /* transform interval same like the original data points */
-          ray_start[0] =
-              ((ray_start[0] - min_val[0]) / (max_val[0] - min_val[0]) * (max_val_t[0] - min_val_t[0])) + min_val_t[0];
-          ray_start[1] =
-              ((ray_start[1] - min_val[1]) / (max_val[1] - min_val[1]) * (max_val_t[1] - min_val_t[1])) + min_val_t[1];
-          ray_start[2] =
-              ((ray_start[2] - min_val[2]) / (max_val[2] - min_val[2]) * (max_val_t[2] - min_val_t[2])) + min_val_t[2];
+          ray_start[0] = ((ray_start[0] + 1) / 2. * (max_val_t[0] - min_val_t[0])) + min_val_t[0];
+          ray_start[1] = ((ray_start[1] + 1) / 2. * (max_val_t[1] - min_val_t[1])) + min_val_t[1];
+          ray_start[2] = ((ray_start[2] + 1) / 2. * (max_val_t[2] - min_val_t[2])) + min_val_t[2];
 
           double lambda[3] = {
               0,
@@ -12572,9 +12617,10 @@ static void ray_casting_thread(void *arg)
           double start[1] = {NAN};
           while (1)
             {
-              double voxel_val, voxel_influ;
+              double voxel_influ = 0;
               double ray_length;
               double end[1];
+              double mid_left[1], mid_right[1];
               double x_dist, y_dist, z_dist;
 
               /* end point */
@@ -12690,196 +12736,273 @@ static void ray_casting_thread(void *arg)
                     }
                 }
 
-              int k, repeat = 1;
-              double *bilinear_ptr[1];
-              if (*start != *start)
-                {
-                  repeat = 0;
-                }
-              double dist_copy[3] = {NAN, NAN, NAN};
-              for (k = repeat; k < 2; k++)
-                {
-                  double ray_position[3] = {ray_end[0], ray_end[1], ray_end[2]};
-                  if (k == 0)
-                    {
-                      ray_position[0] = ray_start[0];
-                      ray_position[1] = ray_start[1];
-                      ray_position[2] = ray_start[2];
-                      bilinear_ptr[0] = start;
-                    }
-                  else
-                    {
-                      bilinear_ptr[0] = end;
-                    }
-
-                  if (ray_dir[0] >= -eps)
-                    {
-                      x_dist = fabs(min(nx, ray_position[0]) - x_0);
-                      if (ray_position[0] <= 0)
-                        {
-                          x_dist = fabs(ray_position[0] - min_val_t[0]);
-                        }
-                    }
-                  else
-                    {
-                      x_dist = fabs(max(ray_position[0], -1) - x_0);
-                      if (ray_position[0] >= nx - 1)
-                        {
-                          x_dist = fabs(ray_position[0] - max_val_t[0]);
-                        }
-                    }
-
-                  if (ray_dir[1] >= -eps)
-                    {
-                      y_dist = fabs(min(ny, ray_position[1]) - y_0);
-                      if (ray_position[1] <= 0)
-                        {
-                          y_dist = fabs(ray_position[1] - min_val_t[1]);
-                        }
-                    }
-                  else
-                    {
-                      y_dist = fabs(max(ray_position[1], -1) - y_0);
-                      if (ray_position[1] >= ny - 1)
-                        {
-                          y_dist = fabs(ray_position[1] - max_val_t[1]);
-                        }
-                    }
-
-                  if (ray_dir[2] >= -eps)
-                    {
-                      z_dist = fabs(min(nz, ray_position[2]) - z_0);
-                      if (ray_position[2] <= 0)
-                        {
-                          z_dist = fabs(ray_position[2] - min_val_t[2]);
-                        }
-                    }
-                  else
-                    {
-                      z_dist = fabs(max(ray_position[2], -1) - z_0);
-                      if (ray_position[2] >= nz - 1)
-                        {
-                          z_dist = fabs(ray_position[2] - max_val_t[2]);
-                        }
-                    }
-
-                  if (ray_position[0] > nx - 1 + sign(ray_dir[0]) * eps || ray_position[0] < sign(ray_dir[0]) * eps)
-                    {
-                      x_dist *= 2;
-                    }
-                  if (ray_position[1] > ny - 1 + sign(ray_dir[1]) * eps || ray_position[1] < sign(ray_dir[1]) * eps)
-                    {
-                      y_dist *= 2;
-                    }
-                  if (ray_position[2] > nz - 1 + sign(ray_dir[2]) * eps || ray_position[2] < sign(ray_dir[2]) * eps)
-                    {
-                      z_dist *= 2;
-                    }
-
-                  if ((fabs(x_dist - 0) <= eps || fabs(x_dist - 1) <= eps) && fabs(ray_dir[0]) > eps)
-                    {
-                      int x_tmp = x_0;
-                      if (fabs(x_dist - 1) <= eps)
-                        {
-                          x_tmp = x_1;
-                        }
-                      bilinear_interpolation(data[x_tmp + y_0 * nx + z_0 * (nx * ny)],
-                                             data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
-                                             data[x_tmp + y_0 * nx + z_1 * (nx * ny)],
-                                             data[x_tmp + y_1 * nx + z_1 * (nx * ny)], y_dist, z_dist, bilinear_ptr[0]);
-                      if (dist_copy[0] == dist_copy[0])
-                        {
-                          bilinear_interpolation(
-                              data[x_tmp + y_0 * nx + z_0 * (nx * ny)], data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
-                              data[x_tmp + y_0 * nx + z_1 * (nx * ny)], data[x_tmp + y_1 * nx + z_1 * (nx * ny)],
-                              dist_copy[1], dist_copy[2], start);
-                        }
-                    }
-                  else if ((fabs(y_dist - 0) <= eps || fabs(y_dist - 1) <= eps) && fabs(ray_dir[1]) > eps)
-                    {
-                      int y_tmp = y_0;
-                      if (fabs(y_dist - 1) <= eps)
-                        {
-                          y_tmp = y_1;
-                        }
-                      bilinear_interpolation(data[x_0 + y_tmp * nx + z_0 * (nx * ny)],
-                                             data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
-                                             data[x_0 + y_tmp * nx + z_1 * (nx * ny)],
-                                             data[x_1 + y_tmp * nx + z_1 * (nx * ny)], x_dist, z_dist, bilinear_ptr[0]);
-                      if (dist_copy[0] == dist_copy[0])
-                        {
-                          bilinear_interpolation(
-                              data[x_0 + y_tmp * nx + z_0 * (nx * ny)], data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
-                              data[x_0 + y_tmp * nx + z_1 * (nx * ny)], data[x_1 + y_tmp * nx + z_1 * (nx * ny)],
-                              dist_copy[0], dist_copy[2], start);
-                        }
-                    }
-                  else if ((fabs(z_dist - 0) <= eps || fabs(z_dist - 1) <= eps) && fabs(ray_dir[2]) > eps)
-                    {
-                      int z_tmp = z_0;
-                      if (fabs(z_dist - 1) <= eps)
-                        {
-                          z_tmp = z_1;
-                        }
-                      bilinear_interpolation(data[x_0 + y_0 * nx + z_tmp * (nx * ny)],
-                                             data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
-                                             data[x_0 + y_1 * nx + z_tmp * (nx * ny)],
-                                             data[x_1 + y_1 * nx + z_tmp * (nx * ny)], x_dist, y_dist, bilinear_ptr[0]);
-                      if (dist_copy[0] == dist_copy[0])
-                        {
-                          bilinear_interpolation(
-                              data[x_0 + y_0 * nx + z_tmp * (nx * ny)], data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
-                              data[x_0 + y_1 * nx + z_tmp * (nx * ny)], data[x_1 + y_1 * nx + z_tmp * (nx * ny)],
-                              dist_copy[0], dist_copy[1], start);
-                        }
-                    }
-                  if (*start != *start)
-                    {
-                      dist_copy[0] = x_dist;
-                      dist_copy[1] = y_dist;
-                      dist_copy[2] = z_dist;
-                    }
-                }
-
-              /* set the values */
+              double start_copy[1] = {NAN};
+              double voxel_sum = 0;
               ray_length = sqrt(pow((ray_end[0] - ray_start[0]) * x_spacing, 2) +
                                 pow((ray_end[1] - ray_start[1]) * y_spacing, 2) +
                                 pow((ray_end[2] - ray_start[2]) * z_spacing, 2));
-              voxel_val = (*start + *end) / 2;
-              voxel_influ = voxel_val * ray_length;
-
-              if (algorithm == 0)
+              if (vt.approximative_calculation == 0)
                 {
-                  /* emission */
+                  wdh = 1;
+                }
+              for (s = 0; s < (int)wdh; s++)
+                {
+                  int k, repeat = 1;
+                  double *bilinear_ptr[1];
+                  if (*start != *start)
+                    {
+                      repeat = 0;
+                    }
+                  double dist_copy[3] = {NAN, NAN, NAN};
+                  for (k = repeat; k < 4; k++)
+                    {
+                      double ray_position[3];
+                      if (vt.approximative_calculation == 1 && (k == 1 || k == 2))
+                        {
+                          continue;
+                        }
+                      if (k == 0)
+                        {
+                          ray_position[0] = ray_start[0];
+                          ray_position[1] = ray_start[1];
+                          ray_position[2] = ray_start[2];
+                        }
+                      else if (vt.approximative_calculation == 0)
+                        {
+                          ray_position[0] = ray_start[0] + lambda_min * (double)(k) / 3. * ray_dir[0];
+                          ray_position[1] = ray_start[1] + lambda_min * (double)(k) / 3. * ray_dir[1];
+                          ray_position[2] = ray_start[2] + lambda_min * (double)(k) / 3. * ray_dir[2];
+                        }
+                      else
+                        {
+                          ray_position[0] = ray_start[0] + lambda_min * (s + 1.) / wdh * ray_dir[0];
+                          ray_position[1] = ray_start[1] + lambda_min * (s + 1.) / wdh * ray_dir[1];
+                          ray_position[2] = ray_start[2] + lambda_min * (s + 1.) / wdh * ray_dir[2];
+                        }
+
+                      if (k == 0)
+                        {
+                          bilinear_ptr[0] = start;
+                        }
+                      else if (k == 1)
+                        {
+                          bilinear_ptr[0] = mid_left;
+                        }
+                      else if (k == 2)
+                        {
+                          bilinear_ptr[0] = mid_right;
+                        }
+                      else
+                        {
+                          bilinear_ptr[0] = end;
+                        }
+
+                      if (ray_dir[0] >= -eps)
+                        {
+                          x_dist = fabs(min(nx, ray_position[0]) - x_0);
+                          if (ray_position[0] <= 0)
+                            {
+                              x_dist = fabs(ray_position[0] - min_val_t[0]);
+                            }
+                        }
+                      else
+                        {
+                          x_dist = fabs(max(ray_position[0], -1) - x_0);
+                          if (ray_position[0] >= nx - 1)
+                            {
+                              x_dist = fabs(ray_position[0] - max_val_t[0]);
+                            }
+                        }
+
+                      if (ray_dir[1] >= -eps)
+                        {
+                          y_dist = fabs(min(ny, ray_position[1]) - y_0);
+                          if (ray_position[1] <= 0)
+                            {
+                              y_dist = fabs(ray_position[1] - min_val_t[1]);
+                            }
+                        }
+                      else
+                        {
+                          y_dist = fabs(max(ray_position[1], -1) - y_0);
+                          if (ray_position[1] >= ny - 1)
+                            {
+                              y_dist = fabs(ray_position[1] - max_val_t[1]);
+                            }
+                        }
+
+                      if (ray_dir[2] >= -eps)
+                        {
+                          z_dist = fabs(min(nz, ray_position[2]) - z_0);
+                          if (ray_position[2] <= 0)
+                            {
+                              z_dist = fabs(ray_position[2] - min_val_t[2]);
+                            }
+                        }
+                      else
+                        {
+                          z_dist = fabs(max(ray_position[2], -1) - z_0);
+                          if (ray_position[2] >= nz - 1)
+                            {
+                              z_dist = fabs(ray_position[2] - max_val_t[2]);
+                            }
+                        }
+
+                      if (ray_position[0] > nx - 1 + sign(ray_dir[0]) * eps || ray_position[0] < sign(ray_dir[0]) * eps)
+                        {
+                          x_dist *= 2;
+                        }
+                      if (ray_position[1] > ny - 1 + sign(ray_dir[1]) * eps || ray_position[1] < sign(ray_dir[1]) * eps)
+                        {
+                          y_dist *= 2;
+                        }
+                      if (ray_position[2] > nz - 1 + sign(ray_dir[2]) * eps || ray_position[2] < sign(ray_dir[2]) * eps)
+                        {
+                          z_dist *= 2;
+                        }
+
+                      if ((s == 0 && k == 0) || (s == wdh - 1 && k == 3) ||
+                          (wdh <= 1 && vt.approximative_calculation == 1))
+                        {
+                          if ((fabs(x_dist - 0) <= eps || fabs(x_dist - 1) <= eps) && fabs(ray_dir[0]) > eps)
+                            {
+                              int x_tmp = x_0;
+                              if (fabs(x_dist - 1) <= eps)
+                                {
+                                  x_tmp = x_1;
+                                }
+                              bilinear_interpolation(
+                                  data[x_tmp + y_0 * nx + z_0 * (nx * ny)], data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
+                                  data[x_tmp + y_0 * nx + z_1 * (nx * ny)], data[x_tmp + y_1 * nx + z_1 * (nx * ny)],
+                                  y_dist, z_dist, bilinear_ptr[0]);
+                              if (dist_copy[0] == dist_copy[0])
+                                {
+                                  bilinear_interpolation(data[x_tmp + y_0 * nx + z_0 * (nx * ny)],
+                                                         data[x_tmp + y_1 * nx + z_0 * (nx * ny)],
+                                                         data[x_tmp + y_0 * nx + z_1 * (nx * ny)],
+                                                         data[x_tmp + y_1 * nx + z_1 * (nx * ny)], dist_copy[1],
+                                                         dist_copy[2], start);
+                                }
+                            }
+                          else if ((fabs(y_dist - 0) <= eps || fabs(y_dist - 1) <= eps) && fabs(ray_dir[1]) > eps)
+                            {
+                              int y_tmp = y_0;
+                              if (fabs(y_dist - 1) <= eps)
+                                {
+                                  y_tmp = y_1;
+                                }
+                              bilinear_interpolation(
+                                  data[x_0 + y_tmp * nx + z_0 * (nx * ny)], data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
+                                  data[x_0 + y_tmp * nx + z_1 * (nx * ny)], data[x_1 + y_tmp * nx + z_1 * (nx * ny)],
+                                  x_dist, z_dist, bilinear_ptr[0]);
+                              if (dist_copy[0] == dist_copy[0])
+                                {
+                                  bilinear_interpolation(data[x_0 + y_tmp * nx + z_0 * (nx * ny)],
+                                                         data[x_1 + y_tmp * nx + z_0 * (nx * ny)],
+                                                         data[x_0 + y_tmp * nx + z_1 * (nx * ny)],
+                                                         data[x_1 + y_tmp * nx + z_1 * (nx * ny)], dist_copy[0],
+                                                         dist_copy[2], start);
+                                }
+                            }
+                          else if ((fabs(z_dist - 0) <= eps || fabs(z_dist - 1) <= eps) && fabs(ray_dir[2]) > eps)
+                            {
+                              int z_tmp = z_0;
+                              if (fabs(z_dist - 1) <= eps)
+                                {
+                                  z_tmp = z_1;
+                                }
+                              bilinear_interpolation(
+                                  data[x_0 + y_0 * nx + z_tmp * (nx * ny)], data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
+                                  data[x_0 + y_1 * nx + z_tmp * (nx * ny)], data[x_1 + y_1 * nx + z_tmp * (nx * ny)],
+                                  x_dist, y_dist, bilinear_ptr[0]);
+                              if (dist_copy[0] == dist_copy[0])
+                                {
+                                  bilinear_interpolation(data[x_0 + y_0 * nx + z_tmp * (nx * ny)],
+                                                         data[x_1 + y_0 * nx + z_tmp * (nx * ny)],
+                                                         data[x_0 + y_1 * nx + z_tmp * (nx * ny)],
+                                                         data[x_1 + y_1 * nx + z_tmp * (nx * ny)], dist_copy[0],
+                                                         dist_copy[1], start);
+                                }
+                            }
+                          if (*start != *start)
+                            {
+                              dist_copy[0] = x_dist;
+                              dist_copy[1] = y_dist;
+                              dist_copy[2] = z_dist;
+                            }
+                        }
+                      else
+                        {
+                          trilinear_interpolation(
+                              data[x_0 + y_0 * nx + z_0 * (nx * ny)], data[x_0 + y_0 * nx + z_1 * (nx * ny)],
+                              data[x_0 + y_1 * nx + z_0 * (nx * ny)], data[x_1 + y_0 * nx + z_0 * (nx * ny)],
+                              data[x_1 + y_0 * nx + z_1 * (nx * ny)], data[x_1 + y_1 * nx + z_0 * (nx * ny)],
+                              data[x_0 + y_1 * nx + z_1 * (nx * ny)], data[x_1 + y_1 * nx + z_1 * (nx * ny)], x_dist,
+                              y_dist, z_dist, bilinear_ptr[0]);
+                        }
+                    }
+                  /* set the values */
+                  if (s == 0)
+                    {
+                      start_copy[0] = *start;
+                    }
+                  if (vt.approximative_calculation == 1)
+                    {
+                      voxel_sum += (*start + *end) / 2.;
+                      *start = *end;
+                    }
+                }
+              voxel_influ = voxel_sum / wdh * ray_length;
+
+              if (vt.approximative_calculation == 0)
+                {
+                  double y[4] = {start[0], mid_left[0], mid_right[0], end[0]};
+                  double a = 27. / 6. * (y[3] - 3. * y[2] + 3. * y[1] - y[0]);
+                  double b = 9. / 2. * (y[2] - 2. * y[1] + y[0] - 6. / 27. * a);
+                  double c = 3. * (y[1] - y[0] - 1. / 9. * b - 1. / 27. * a);
+
+                  if (algorithm == 0 || algorithm == 1)
+                    {
+                      voxel_influ = (0.25 * a + 1. / 3. * b + 0.5 * c + y[0]) * ray_length;
+                    }
+                  else
+                    {
+                      double x1 = (-b + sqrt(b * b - 3 * a * c)) / (3 * a);
+                      double x2 = (-b - sqrt(b * b - 3 * a * c)) / (3 * a);
+                      if (0 > x1 || x1 > 1 || x1 != x1)
+                        {
+                          x1 = 0;
+                        }
+                      if (0 > x2 || x2 > 1 || x2 != x2)
+                        {
+                          x2 = 0;
+                        }
+                      voxel_influ = max(a * pow(x1, 3) + b * pow(x1, 2) + c * x1 + y[0],
+                                        a * pow(x2, 3) + b * pow(x2, 2) + c * x2 + y[0]);
+                      color = max(color, voxel_influ);
+                    }
+                }
+
+              if (algorithm == 0 || algorithm == 1)
+                {
+                  /* emission or absorption*/
                   color += voxel_influ;
                   if (rc->dmax_ptr != NULL && color >= *dmax_ptr) break;
-                }
-              else if (algorithm == 1)
-                {
-                  /* absorption */
-                  color += voxel_influ;
-                  if (rc->dmin_ptr != NULL && color <= *dmin_ptr) break;
                 }
               else
                 {
                   /* MIP */
-                  if (*start > color)
-                    {
-                      color = *start;
-                    }
-                  if (*end > color)
-                    {
-                      color = *end;
-                    }
+                  *start = *start_copy;
+                  color = max(color, max(*start, *end));
                   if (rc->dmax_ptr != NULL && color >= *dmax_ptr) break;
                 }
 
               ray_start[0] = ray_end[0];
               ray_start[1] = ray_end[1];
               ray_start[2] = ray_end[2];
+              *start = *end;
 
               /* can reuse end value */
-              *start = *end;
               if (fabs(ray_start[0] - max_val_t[0]) <= eps || fabs(ray_start[1] - max_val_t[1]) <= eps ||
                   fabs(ray_start[2] - max_val_t[2]) <= eps)
                 {
@@ -12989,81 +13112,6 @@ void gr_cpubasedvolume(int nx, int ny, int nz, double *data, int algorithm, doub
     }
 
   double **ptr = &data;
-  if ((nx != ny || ny != nz || nx != nz))
-    {
-      double ray_dir[3] = {tx.focus_point_x - tx.camera_pos_x, tx.focus_point_y - tx.camera_pos_y,
-                           tx.focus_point_z - tx.camera_pos_z};
-
-      double ray_length = sqrt(pow(ray_dir[0], 2) + pow(ray_dir[1], 2) + pow(ray_dir[2], 2));
-      ray_dir[0] /= ray_length;
-      ray_dir[1] /= ray_length;
-      ray_dir[2] /= ray_length;
-
-      int max_n = max(nx, max(ny, nz));
-      int x_max_n = max_n, y_max_n = max_n, z_max_n = max_n;
-      if (fabs(ray_dir[0]) <= 1e-7)
-        {
-          x_max_n = nx;
-        }
-      if (fabs(ray_dir[1]) <= 1e-7)
-        {
-          y_max_n = ny;
-        }
-      if (fabs(ray_dir[2]) <= 1e-7)
-        {
-          z_max_n = nz;
-        }
-      double *new_data = calloc(x_max_n * y_max_n * z_max_n, sizeof(double));
-      if (new_data == 0)
-        {
-          fprintf(stderr, "can't allocate memory");
-          return;
-        }
-
-      int x, y, z;
-      for (x = 0; x < x_max_n; x++)
-        {
-          for (y = 0; y < y_max_n; y++)
-            {
-              for (z = 0; z < z_max_n; z++)
-                {
-                  int x_index, y_index, z_index;
-
-                  if (x_max_n == nx)
-                    {
-                      x_index = x;
-                    }
-                  else
-                    {
-                      x_index = (int)min(round((float)x / ((float)x_max_n / (nx - 1))), nx - 1);
-                    }
-                  if (y_max_n == ny)
-                    {
-                      y_index = y;
-                    }
-                  else
-                    {
-                      y_index = (int)min(round((float)y / ((float)y_max_n / (ny - 1))), ny - 1);
-                    }
-                  if (z_max_n == nz)
-                    {
-                      z_index = z;
-                    }
-                  else
-                    {
-                      z_index = (int)min(round((float)z / ((float)z_max_n / (nz - 1))), nz - 1);
-                    }
-                  new_data[x + y * x_max_n + z * (x_max_n * y_max_n)] =
-                      data[x_index + y_index * nx + z_index * (nx * ny)];
-                }
-            }
-        }
-      nx = x_max_n;
-      ny = y_max_n;
-      nz = z_max_n;
-      ptr = &new_data;
-    }
-
   struct ray_casting_attr f[1] = {nx, ny, nz, algorithm, ptr[0], min_ptr, max_ptr, min_val, max_val, pixels};
   vt.ray_casting = f;
   int x_start = 0, x_end = 0, y_start = 0, y_end = 0;
