@@ -508,6 +508,12 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
           ia[1] = state.height;
           r1[0] = state.device_pixel_ratio;
         }
+      else
+        {
+          ia[0] = 500;
+          ia[1] = 500;
+          r1[0] = 1.0;
+        }
       [mutex unlock];
       break;
     }

@@ -221,6 +221,7 @@ DLLEXPORT void gr_setvolumebordercalculation(int);
 DLLEXPORT void gr_setapproximativecalculation(int);
 DLLEXPORT void gr_inqvolumeflags(int *, int *, int *, int *, int *);
 DLLEXPORT void gr_cpubasedvolume(int, int, int, double *, int, double *, double *, double *, double *);
+DLLEXPORT void gr_inqvpsize(int *, int *, double *);
 
 #ifdef __cplusplus
 }

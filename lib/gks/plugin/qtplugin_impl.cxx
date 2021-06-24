@@ -1731,6 +1731,14 @@ void QT_PLUGIN_ENTRY_NAME(int fctid, int dx, int dy, int dimx, int *i_arr, int l
       i_arr[0] = p->width;
       i_arr[1] = p->height;
       return;
+
+    case 209: /* inq_ws_state */
+      get_pixmap();
+      i_arr[0] = p->width;
+      i_arr[1] = p->height;
+      f_arr_1[0] = p->device_pixel_ratio;
+      return;
+
     default:;
     }
 

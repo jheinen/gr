@@ -400,6 +400,12 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
               ia[1] = state->height;
               r1[0] = state->device_pixel_ratio;
             }
+          else
+            {
+              ia[0] = 500;
+              ia[1] = 500;
+              r1[0] = 1.0;
+            }
         }
       break;
     }

@@ -2973,6 +2973,10 @@ void gks_inq_vp_size(int wkid, int *errind, int *width, int *height, double *dev
       switch (ws->wtype)
         {
 #ifndef EMSCRIPTEN
+        case 381:
+          gks_qt_plugin(INQ_WS_STATE, 2, 1, 2, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, &ws->ptr);
+          break;
+
         case 400:
           gks_quartz_plugin(INQ_WS_STATE, 2, 1, 2, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, &ws->ptr);
           break;

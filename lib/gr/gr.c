@@ -13209,3 +13209,14 @@ void gr_cpubasedvolume(int nx, int ny, int nz, double *data, int algorithm, doub
       gr_writestream("/>\n");
     }
 }
+
+
+void gr_inqvpsize(int *width, int *height, double *device_pixel_ratio)
+{
+  int n = 1, errind, wkid, ol;
+
+  check_autoinit;
+
+  gks_inq_open_ws(n, &errind, &ol, &wkid);
+  gks_inq_vp_size(wkid, &errind, width, height, device_pixel_ratio);
+}
