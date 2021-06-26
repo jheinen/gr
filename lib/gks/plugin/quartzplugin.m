@@ -411,6 +411,8 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
       r2[0] = 0.001 * size.height;
       ia[0] = (int)NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]);
       ia[1] = (int)NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]);
+
+      wss->aspect_ratio = 1.0;
       break;
 
     case CLOSE_WS:
@@ -499,13 +501,25 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
       [mutex unlock];
       break;
 
+    case SET_WS_WINDOW:
+      wss->aspect_ratio = (r1[1] - r1[0]) / (r2[1] - r2[0]);
+      break;
+
     case INQ_WS_STATE:
       [mutex lock];
       if (wss->win != -1)
         {
           gksterm_get_state(&state, wss->win);
-          ia[0] = state.width;
-          ia[1] = state.height;
+          if (state.width > state.height * wss->aspect_ratio)
+            {
+              ia[0] = (int)(state.height * wss->aspect_ratio + 0.5);
+              ia[1] = state.height;
+            }
+          else
+            {
+              ia[0] = state.width;
+              ia[1] = (int)(state.width / wss->aspect_ratio + 0.5);
+            }
           r1[0] = state.device_pixel_ratio;
         }
       else

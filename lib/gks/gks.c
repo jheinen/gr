@@ -710,9 +710,17 @@ void gks_open_ws(int wkid, char *path, int wtype)
                           p->unitsy = i_arr[1];
 #endif
                           ws->vp[0] = 0;
-                          ws->vp[1] = 500 / p->unitsx * p->sizex;
                           ws->vp[2] = 0;
-                          ws->vp[3] = 500 / p->unitsy * p->sizey;
+                          if ((wtype >= 140 && wtype <= 146) || wtype == 150)
+                            {
+                              ws->vp[1] = 2400.0 / p->unitsx * p->sizex;
+                              ws->vp[3] = 2400.0 / p->unitsy * p->sizey;
+                            }
+                          else
+                            {
+                              ws->vp[1] = 500.0 / p->unitsx * p->sizex;
+                              ws->vp[3] = 500.0 / p->unitsy * p->sizey;
+                            }
                         }
                       else
                         {
@@ -2991,7 +2999,10 @@ void gks_inq_vp_size(int wkid, int *errind, int *width, int *height, double *dev
 
           i_arr[0] = (int)((ws->vp[1] - ws->vp[0]) / descr->sizex * descr->unitsx + 0.5);
           i_arr[1] = (int)((ws->vp[3] - ws->vp[2]) / descr->sizey * descr->unitsy + 0.5);
-          f_arr_1[0] = 1.0;
+          if (ws->wtype == 101 || ws->wtype == 102 || ws->wtype == 382) /* PDF or SVG */
+            f_arr_1[0] = 4.0;
+          else
+            f_arr_1[0] = 1.0;
         }
 
       *errind = GKS_K_NO_ERROR;

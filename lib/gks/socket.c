@@ -43,6 +43,7 @@ typedef struct
   int s;
   int wstype;
   gks_display_list_t dl;
+  double aspect_ratio;
 } ws_state_list;
 
 static gks_state_list_t *gkss;
@@ -334,6 +335,8 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
            * send_socket(wss->s, &request_type, 1);
            */
         }
+
+      wss->aspect_ratio = 1.0;
       break;
 
     case 3:
@@ -380,6 +383,10 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
         }
       break;
 
+    case 54: /* set workstation window */
+      wss->aspect_ratio = (r1[1] - r1[0]) / (r2[1] - r2[0]);
+      break;
+
     case 209: /* inq_ws_state */
       if (wss->wstype == 411)
         {
@@ -396,8 +403,16 @@ void gks_drv_socket(int fctid, int dx, int dy, int dimx, int *ia, int lr1, doubl
           if (reply[0] == SOCKET_FUNCTION_INQ_WS_STATE)
             {
               const gks_ws_state_t *state = (const gks_ws_state_t *)&reply[1];
-              ia[0] = state->width;
-              ia[1] = state->height;
+              if (state->width > state->height * wss->aspect_ratio)
+                {
+                  ia[0] = (int)(state->height * wss->aspect_ratio + 0.5);
+                  ia[1] = state->height;
+                }
+              else
+                {
+                  ia[0] = state->width;
+                  ia[1] = (int)(state->width / wss->aspect_ratio + 0.5);
+                }
               r1[0] = state->device_pixel_ratio;
             }
           else

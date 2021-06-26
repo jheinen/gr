@@ -1664,6 +1664,8 @@ static void inqdspsize(double *mwidth, double *mheight, int *width, int *height)
 void QT_PLUGIN_ENTRY_NAME(int fctid, int dx, int dy, int dimx, int *i_arr, int len_f_arr_1, double *f_arr_1,
                           int len_f_arr_2, double *f_arr_2, int len_c_arr, char *c_arr, void **ptr)
 {
+  double aspect_ratio;
+
   p = (ws_state_list *)*ptr;
 
   switch (fctid)
@@ -1733,9 +1735,18 @@ void QT_PLUGIN_ENTRY_NAME(int fctid, int dx, int dy, int dimx, int *i_arr, int l
       return;
 
     case 209: /* inq_ws_state */
+      aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
       get_pixmap();
-      i_arr[0] = p->width;
-      i_arr[1] = p->height;
+      if (p->width > p->height * aspect_ratio)
+        {
+          i_arr[0] = nint(p->height * aspect_ratio);
+          i_arr[1] = p->height;
+        }
+      else
+        {
+          i_arr[0] = p->width;
+          i_arr[1] = nint(p->width / aspect_ratio);
+        }
       f_arr_1[0] = p->device_pixel_ratio;
       return;
 
