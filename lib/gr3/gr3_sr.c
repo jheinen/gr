@@ -385,6 +385,10 @@ static void initialise_consumer(queue *queues[MAX_NUM_THREADS], int height, int 
 static matrix get_projection(int width, int height, float fovy, float zNear, float zFar, int projection_type)
 {
   float aspect = (float)width / height;
+  if (context_struct_.projection_type == GR3_PROJECTION_PARALLEL && context_struct_.aspect_override > 0)
+    {
+      aspect = context_struct_.aspect_override;
+    }
   float tfov2 = tan(fovy * PI / 360.0);
   float right = zNear * aspect * tfov2;
   float top = zNear * tfov2;

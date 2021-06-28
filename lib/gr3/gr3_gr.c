@@ -854,6 +854,7 @@ GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int opt
         {
           /* projection type does not consider the viewport aspect ratio */
           aspect = 1;
+          context_struct_.aspect_override = 1;
         }
       if (aspect > 1)
         {
@@ -867,6 +868,7 @@ GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int opt
           gr3_drawimage((float)xmin, (float)xmax, (float)ymin, (float)ymax, width, height, GR3_DRAWABLE_GKS);
           context_struct_.vertical_field_of_view = (float)fovy;
         }
+      context_struct_.aspect_override = 0;
       if (gr3_geterror(0, NULL, NULL)) return;
     }
   else
