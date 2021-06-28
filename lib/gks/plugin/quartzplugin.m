@@ -526,7 +526,14 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
         {
           ia[0] = 500;
           ia[1] = 500;
-          r1[0] = 1.0;
+          if ([NSScreen mainScreen] != nil)
+            {
+              r1[0] = [[NSScreen mainScreen] backingScaleFactor];
+            }
+          else
+            {
+              r1[0] = 1.0;
+            }
         }
       [mutex unlock];
       break;

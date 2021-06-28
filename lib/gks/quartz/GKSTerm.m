@@ -362,6 +362,10 @@ static bool initialized = NO;
     {
       state.device_pixel_ratio = [window[win] backingScaleFactor];
     }
+  else if ([NSScreen mainScreen] != nil)
+    {
+      state.device_pixel_ratio = [[NSScreen mainScreen] backingScaleFactor];
+    }
   else
     {
       state.device_pixel_ratio = 1.0;
