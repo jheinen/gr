@@ -130,8 +130,16 @@ void GKSConnection::readClient()
             }
           else
             {
-              /* If no widget exists, send back `SocketFunction::unknown` */
-              reply[0] = static_cast<char>(SocketFunction::unknown);
+              /* If no widget exists, send back default size and device pixel ratio of primary screen */
+              double device_pixel_ratio = (
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+                  QGuiApplication::primaryScreen()->devicePixelRatio()
+#else
+                  1.0
+#endif
+              );
+              reply[0] = static_cast<char>(SocketFunction::inq_ws_state);
+              *reinterpret_cast<gks_ws_state_t *>(&reply[1]) = gks_ws_state_t{500, 500, device_pixel_ratio};
             }
           socket->write(reply, sizeof(reply));
           socket_function = SocketFunction::unknown;
