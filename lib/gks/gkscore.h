@@ -163,6 +163,7 @@ typedef struct
   double bwidth;
   int bcoli;
   int clip_tnr;
+  double aspect_ratio;
   char *(*callback)(const char *);
 } gks_state_list_t;
 
