@@ -300,13 +300,11 @@ int push_with_lowest_id(struct list_plus_size* list_plus_size, void* val, struct
         ret_id += 1;
         if (*(int*)current->val == 0){ /*id ret_val is free*/
           current->val = new_entry;
-          printf("case 2, returned id: %d\n",  ret_id);
           return ret_id;
         }
       }
       if (*(int*)current->val == 0){ /*id ret_val is free*/
         current->val = new_entry;
-        printf("case 3, returned id: %d\n",  ret_id);
         return ret_id;
       }
       else{ /*create new element*/
@@ -346,6 +344,7 @@ void* remove_by_id_and_free_id(struct list_plus_size* list_plus_size, struct lis
       current = current->next;
     }
     if(((struct val_data*)current->val)->id == id ){
+      list_plus_size->size = list_plus_size->size-1;
       /*remove*/
       ret_data = ((struct val_data*)current->val)->data;
       int j;
@@ -368,16 +367,12 @@ void* remove_by_id_and_free_id(struct list_plus_size* list_plus_size, struct lis
 
 int id_in_list(struct list_plus_size* list_plus_size, DATALENGTH id){
   node_t* head = list_plus_size->list;
-  printf("in id in liste\n");
   node_t* current = head;
   struct val_data* tmp = NULL;
-  printf("vor if\n");
   int size = list_size(list_plus_size);
-  printf("laenge erhaltgne\n");
   if (size == 0){
     return 0;
   }
-  printf("nach erstem if\n");
   while(current->next != NULL){
     tmp = ((struct val_data*)current)->data;
     if ( tmp->id == id){
@@ -385,7 +380,6 @@ int id_in_list(struct list_plus_size* list_plus_size, DATALENGTH id){
     }
     current = current->next;
   }
-  printf("nach hauptteil\n");
   if ( tmp->id == id){
     return 1;
   }
@@ -401,7 +395,6 @@ void print_pop_list(node_t * head){
     while(current->val != NULL){
         //value = *(int*)((struct val_data*)current->val)->data;
         id = ((struct val_data*)current->val)->id;
-        printf("Id: %d\n",  id);
         if (current->next != NULL){
             current = current->next;
         }

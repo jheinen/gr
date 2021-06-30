@@ -72,9 +72,9 @@ static bool nb_context_is_connected = FALSE;
 static int connection_id;
 
 static struct context_object* create_nb_context(){
-    int own_port = 7019;
-    time_t diff = 5000;
-    time_t limit = 10000;
+    int own_port = 7021;
+    time_t diff = 3;
+    time_t limit = 10;
     nb_context = init_context(own_port, NULL, diff, limit);
     nb_context_is_created = TRUE;
     return nb_context;
@@ -86,8 +86,8 @@ static int connect_nb_context(){
       return -1;
     }
     char* server_ip = "127.0.0.1";
-    int server_port = 7020;
-    int own_port = 7019;
+    int server_port = 7022;
+    int own_port = 7021;
     char* own_ip = "127.0.0.1";
     connection_id = new_connection(nb_context, server_ip, server_port, own_ip, own_port);
     if(connection_id >= 0){
@@ -117,10 +117,29 @@ static int try_connect(int count){
 static void gksterm_communicate(const char *request, size_t request_len, int timeout, bool only_if_running,
                                 void (^reply_handler)(char *, size_t))
 {
+
+  /*printf("in communicate, finde requerst raus\n");
+  if (request[0] == GKSTERM_FUNCTION_IS_ALIVE){
+    printf("GKSTERM_FUNCTION_IS ALIVE\n");
+  }
+  if (request[0] == GKSTERM_FUNCTION_IS_RUNNING){
+    printf("GKSTERM_FUNCTION_IS_RUNNING\n");
+  }
+  if (request[0] == GKSTERM_FUNCTION_CREATE_WINDOW){
+    printf("GKSTERM_FUNCTION_CREATE_WINDOW\n");
+  }
+  if (request[0] == GKSTERM_FUNCTION_CLOSE_WINDOW){
+    printf("GKSTERM_FUNCTION_CLOSE_WINDOW\n");
+  }
+  if (request[0] == GKSTERM_FUNCTION_DRAW){
+    printf("GKSTERM_FUNCTION_DRAW\n");
+  }*/
+  struct timespec begin, end;
   int gkstermhasdied = 0;
 
   if (!(only_if_running && !gksterm_is_running())){
-    int sent = nb_send_message(nb_context, (void*)request, request_len, connection_id, 2, timeout);
+    //clock_gettime(CLOCK_REALTIME, &begin);
+    int sent = nb_send_message(nb_context, (void*)request, request_len, connection_id, NULL, 2, 3);
     if (sent == -1){
       gkstermhasdied = 1;
     }
@@ -129,17 +148,29 @@ static void gksterm_communicate(const char *request, size_t request_len, int tim
     gkstermhasdied = 1;
   }
   if (gkstermhasdied == 1){
+    if (connection_active(nb_context, connection_id == 0)){
+      nb_context_is_connected = FALSE;
+    }
+    printf("Fehlerfall has died\n");
     @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
                                    reason:@"The connection to GKSTerm has timed out."
                                  userInfo:nil];
   }
   struct message* recv_message = new_message();
-  int rcv = nb_recv_message(nb_context, connection_id, &recv_message, 1, timeout);
+  int rcv = nb_recv_message(nb_context, connection_id, &recv_message, 1, 3);
   if (rcv > 0){
+    /*clock_gettime(CLOCK_REALTIME, &end);
+    long seconds = end.tv_sec - begin.tv_sec;
+    long nanoseconds = end.tv_nsec - begin.tv_nsec;
+    double elapsed = seconds + nanoseconds*1e-9;
+    printf("Dauer des Sendens und Empfangens von: %zu Bytes: %f\n", request_len, elapsed);*/
     assert(((char*)(recv_message->data))[0] == request[0]);
     reply_handler(recv_message->data + 1, rcv - 1);
   }
   if (rcv == -1){
+    if (connection_active(nb_context, connection_id == 0)){
+      nb_context_is_connected = FALSE;
+    }
     @throw [NSException exceptionWithName:@"GKSTermHasDiedException"
                                    reason:@"The connection to GKSTerm has timed out."
                                  userInfo:nil];
@@ -155,12 +186,14 @@ static bool gksterm_is_running()
 
   @try
     {
+      //printf("Is Running versuch\n");
       gksterm_communicate(request, request_len, GKSTERM_IS_RUNNING_TIMEOUT, NO, ^(char *reply, size_t reply_len) {
         assert(reply_len == 0);
       });
     }
   @catch (NSException *)
     {
+      printf("Exception gecatcht\n");
       return false;
     }
   gksterm_has_run_before = 1;
@@ -175,6 +208,7 @@ static bool gksterm_is_alive(int window)
   *(int *)(request + 1) = window;
 
   __block bool result = NO;
+  //printf("is alive versuch\n");
   gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char *reply, size_t reply_len) {
     assert(reply_len == 1);
     result = (reply[0] == 1);
@@ -189,6 +223,7 @@ static int gksterm_create_window()
   request[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
 
   __block int result = 0;
+  //printf("create window versuch\n");
   gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char *reply, size_t reply_len) {
     assert(reply_len == sizeof(int));
     result = *(int *)reply;
@@ -202,7 +237,7 @@ static void gksterm_close_window(int window)
   char request[1 + sizeof(int)];
   request[0] = GKSTERM_FUNCTION_CLOSE_WINDOW;
   *(int *)(request + 1) = window;
-
+  //printf("close window versuch\n");
   gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char *reply, size_t reply_len) {
     assert(reply_len == 0);
   });
@@ -220,6 +255,7 @@ static void gksterm_draw(int window, void *displaylist, size_t displaylist_len)
 
   @try
     {
+        //printf("draw versuch\n");
       gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char *reply, size_t reply_len) {
         assert(reply_len == 0);
       });
@@ -315,6 +351,7 @@ static void gksterm_draw(int window, void *displaylist, size_t displaylist_len)
 
 static BOOL gks_terminal(void)
 {
+  printf("In Terminal, versuche GKSTerm zu launchen\n");
   NSURL *url;
   OSStatus status;
   BOOL isDir;

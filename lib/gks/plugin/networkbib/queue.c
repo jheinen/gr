@@ -84,3 +84,15 @@ int queue_length(struct queue_q *queue){
     }
     return 0;
 }
+
+void queue_merge(struct queue_q **first, struct queue_q *second){
+  if ((*first)->back != NULL){
+    (*first)->back->next = second->start;
+  }
+  else{
+    (*first)->start = second->start;
+  }
+  (*first)->back = second->back;
+  second->start = second->back = NULL;
+  return;
+}

@@ -97,6 +97,11 @@ struct network_thread_args{
     int connection_pipe;
 };
 
+struct id_callback{
+  DATALENGTH id;
+  void (*callback)(struct message*);
+};
+
 struct target_address{
     DATALENGTH server_port;
     DATALENGTH client_port;
@@ -119,9 +124,11 @@ struct single_connection{ /*struct which represents one single Connection*/
     time_t last_interaction; /*the last time data was received from this connection*/
     struct target_address* target_address; /*information about target address*/
     DATALENGTH client_id; /*id client uses*/
-    int client_id_set; /*boolean*/
+    int client_id_set;
     DATALENGTH server_id; /*id server uses*/
     int server_id_set; /*boolean*/
+    int type; /*0 = client connection, 1 = server connection*/
+    int can_be_deleted;
     struct list_plus_size* current_messages; /*message which is currently send/received*/
     struct list_plus_size* messages_to_be_send; /*messages that arent fully sent*/
     struct list_plus_size* messages_beeing_received; /*messages that arent fully received*/
@@ -130,6 +137,7 @@ struct single_connection{ /*struct which represents one single Connection*/
 struct context_object{
     struct list_plus_size* connections; /*Linked List with single Connections as Element*/
     struct list_plus_size* servers; /*list of different servers, belong to this context*/
+    struct list_plus_size* callbacks; /*List which contains callbacks from certain messages*/
     struct queue_q *to_network_queue; /*queue which receives connection-requests*/
     struct queue_q *to_context_queue; /*queue which responses connection-requests*/
     int connection_request_pipe_read; /*pipe between context and Networkthread*/
@@ -159,7 +167,7 @@ void send_message_list(struct single_connection* act_con);
 int delete_socket_from_list(struct list_plus_size* sockets_to_be_deleted, int connection_id);
 /**/
 
-DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* status_pointer);
+DATALENGTH receive_connection(struct context_object* context, struct single_connection* act_con, DATALENGTH* status_pointer);
 /**/
 
 void message_send(struct message* message);
@@ -169,7 +177,7 @@ static void delete_fd_from_pollset(int fd, int* nfds, struct pollfd fds[]);
 
 /*trys to reconnect connection after communication partner didnt answer heartbeat*/
 void try_reconnection(struct single_connection* act_con, int* nfds, struct pollfd fds[],
-   struct list_plus_size* sockets_to_be_deleted, int to_client_or_server);
+   struct list_plus_size* sockets_to_be_deleted);
 
 /*deletes connection if from network queue is empty */
 void delete_connection(struct single_connection* scon, struct list_plus_size* context_connections,
@@ -194,8 +202,8 @@ int new_connection(struct context_object* context, char* server_ip,
                    int server_port, char* client_ip, int client_port);
 
 /*sends message about connection with id=id*/
-int nb_send_message(struct context_object* context, void*data, DATALENGTH size,
-                 int connection_id, int wt, int timeout);
+int nb_send_message(struct context_object* context, void* data, DATALENGTH size,
+  int connection_id, void (*handle_message_func)(struct message* response_message), int wt, int timeout);
 
 /*trys to recv message, waits if wt set to 1*/
 int nb_recv_message(struct context_object* context, int connection_id,
@@ -210,5 +218,8 @@ void close_all_connections(struct context_object* context);
 /*creates new Server with given params at one context object*/
 int create_server(struct context_object* context, int port, char* accepted_clients,
                   void (*handle_message_func)(struct message* message));
+
+/*checks if connection is still active*/
+int connection_active(struct context_object* context, int connection_id);
 
 #endif

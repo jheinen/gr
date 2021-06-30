@@ -24,12 +24,14 @@ int queue_destroy(struct queue_q **queue);
 
 int queue_empty(struct queue_q *queue);
 
-struct queue_q *queue_new(void);
+struct queue_q* queue_new(void);
 
 void *queue_dequeue(struct queue_q *queue);
 
 int queue_enqueue(struct queue_q *queue, void *data);
 
 int queue_length(struct queue_q *queue);
+
+void queue_merge(struct queue_q** first, struct queue_q *second);
 
 #endif

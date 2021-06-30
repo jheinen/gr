@@ -63,6 +63,7 @@ void push_message_to_sending_list(struct list_plus_size* messages_to_be_send, st
 }
 
 void send_message_list(struct single_connection* act_con){
+  //printf("in send message list\n");
   /*iterate over list of messages to send*/
   int message_index;
   int message_count = act_con->messages_to_be_send->size;
@@ -89,9 +90,12 @@ void send_message_list(struct single_connection* act_con){
     }
     int ret_val;
     if ((ret_val = send_data(act_con->socket, act_message, message_and_kind->kind)) < 0){
-      printf("retval: %d\n", ret_val);
+      printf("Versenden der Daten hat nicht funktioniert, kind:%d \n", message_and_kind->kind);
       perror("Error occurred while trying to send some data\n");
-      exit(1);
+      if(message_and_kind->kind == 8){
+        act_message->fully_sent = -1;
+        printf("act_message->fully_sent gesetzt\n");
+      }
     }
     /*check if message is sent completely and possibly remove byte from User Pipeline*/
     if (ret_val == 3){ /*message sent completely*/
@@ -156,7 +160,7 @@ void clear_messagelist_and_set_status(struct single_connection* scon,
     scon->status = status;
   }
 
-DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* recv_status){
+DATALENGTH receive_connection(struct context_object* context, struct single_connection* act_con, DATALENGTH* recv_status){
 
   DATALENGTH recvd;
   struct message* rcv_message = new_message();
@@ -173,20 +177,22 @@ DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* rec
   }
   if (*recv_status == 1){
     /*recvd part of a mesage*/
-    printf("recvd Heartbeat\n");
     act_con->last_interaction = time(NULL);
     return 0;
   }
   if (*recv_status == 2){
     printf("Client default port received\n");
+    act_con->last_interaction = time(NULL);
     return 0;
   }
   if (*recv_status == 3){
     /*Client Port recvd*/
+    act_con->last_interaction = time(NULL);
     return 0;
   }
   if (*recv_status == 4){
     //printf("Recieved Connection ID from Server\n");
+    act_con->last_interaction = time(NULL);
     return 0;
   }
   if(*recv_status == 5){
@@ -199,18 +205,34 @@ DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* rec
   if(*recv_status == 7){
     /*Reconnection successfull, delete socket in sockets_to_be_deleted*/
     /*recd contains connection_id which is needed to remove */
+    act_con->last_interaction = time(NULL);
     return recvd;
   }
 
   if (*recv_status == 8 && rcv_message->datalength == rcv_message->how_much_sent){
     /* full message received succesfull*/
+    act_con->last_interaction = time(NULL);
+    int existing_callback = 0;
+    struct  id_callback* id_callback;
+    pthread_mutex_lock (&bibmutex);
+    for (int i=0; i< list_size(context->callbacks); i++){
+      id_callback = (struct id_callback*)get_by_index(context->callbacks, i);
+      if (id_callback->id == rcv_message->number){
+        id_callback = (struct id_callback*)remove_by_index(context->callbacks, i);
+        void (*handle_message_func)(struct message* response_message) = id_callback->callback;
+        free(id_callback);
+        handle_message_func(rcv_message);
+        existing_callback = 1;
+      }
+    }
+    pthread_mutex_unlock (&bibmutex);
+
     if (act_con->handle_message_func != NULL){
-        //printf("Adresse der rcv_message: %p\n", rcv_message);
-        //printf("vor handle_message, printe Nachricht: %s\n", rcv_message->data);
       act_con->handle_message_func(rcv_message);
+      existing_callback = 1;
       return 8;
     }
-    else{
+    if (existing_callback == 0){
       struct queue_q* to_context_queue = act_con->queue_from_network;
       pthread_mutex_lock(&act_con->connection_mutex);
       queue_enqueue(to_context_queue, rcv_message);
@@ -230,6 +252,7 @@ DATALENGTH receive_connection(struct single_connection* act_con, DATALENGTH* rec
 }
 
 static void delete_fd_from_pollset(int fd, int* nfds, struct pollfd fds[]){
+  printf("in delete from pollset\n");
   int con_index;
   for(con_index = 1; con_index < *nfds; con_index++){
     if (fd == fds[con_index].fd){
@@ -244,27 +267,30 @@ static void delete_fd_from_pollset(int fd, int* nfds, struct pollfd fds[]){
   }
 }
 
-void try_reconnection(struct single_connection* act_con, int* nfds, struct pollfd fds[], struct list_plus_size* sockets_to_be_deleted, int to_client_or_server){
+void try_reconnection(struct single_connection* act_con, int* nfds, struct pollfd fds[], struct list_plus_size* sockets_to_be_deleted){
   {
     /*if client 0, else if server 1*/
     struct sockaddr_in serverAddr;
     /*try reconnection*/
 
     /*create new connection socket*/
-
     int newsocket = socket(AF_INET, SOCK_STREAM, 0);
     if (newsocket < 0){
       perror("error creating new socket for client connection\n");
     }
-    printf("try reconnection prints:\n");
-    printf("server port: %d\n", act_con->target_address->server_port);
-    printf("client port: %d\n", act_con->target_address->client_port);
-    printf("client ip: %s\n", act_con->target_address->client_ip);
     fcntl(newsocket, F_SETFL, O_NONBLOCK);
     /*configure serverAddress*/
+    if(act_con->type == 0){
+      /*connect to server*/
+      serverAddr.sin_port = htons(act_con->target_address->server_port);
+      serverAddr.sin_addr.s_addr = inet_addr(act_con->target_address->server_ip);
+    }
+    else if(act_con->type == 1){
+      /*connect to client*/
+      serverAddr.sin_port = htons(act_con->target_address->client_port);
+      serverAddr.sin_addr.s_addr = inet_addr(act_con->target_address->client_ip);
+    }
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(act_con->target_address->server_port);
-    serverAddr.sin_addr.s_addr = inet_addr(act_con->target_address->client_ip);
     memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
     int connectret = -2147483648;
     struct timespec begin, end;
@@ -286,8 +312,7 @@ void try_reconnection(struct single_connection* act_con, int* nfds, struct pollf
         }
       }
       else if (errno == EISCONN){
-        printf("RECONNECTION SUCCESSFULL\n");
-        printf("Verbindungs ID: %d\n", act_con->connection_id);
+        printf("CONNECT SUCCESSFULL\n");
         int tmp_socket = act_con->socket;
         act_con->socket = newsocket;
         delete_fd_from_pollset(tmp_socket, nfds,  fds);
@@ -296,26 +321,31 @@ void try_reconnection(struct single_connection* act_con, int* nfds, struct pollf
         message->scon = act_con;
         /*tell connnection partner that connnection already existed*/
         //send_data(act_con->socket, message, 5);
-        push_message_to_sending_list(act_con->messages_to_be_send, message, 5);
+        //push_message_to_sending_list(act_con->messages_to_be_send, message, 5);
+        send_data(act_con->socket, message, 5);
         /*if server did not find the connection, resend clients con_id*/
         //send_data(newsocket, message, 3);
-        push_message_to_sending_list(act_con->messages_to_be_send, message, 3);
-        //free(message);
-
+        if(act_con->type == 0){
+          //push_message_to_sending_list(act_con->messages_to_be_send, message, 3);
+          send_data(act_con->socket, message, 3);
+        }
+        else if(act_con->type ==  1){
+          //push_message_to_sending_list(act_con->messages_to_be_send, message, 4);
+          send_data(act_con->socket, message, 4);
+        }
+        free(message);
         /*now remove the old socket and replace it with the new one*/
         struct connection_id_and_socket* con_id_and_socket = malloc(sizeof(struct connection_id_and_socket));
         con_id_and_socket->connection_id = act_con->connection_id;
         con_id_and_socket->socket = tmp_socket;
         push(sockets_to_be_deleted, con_id_and_socket);
         //close(tmp_socket);
-        //printf("Socket %d geschlossen\n", tmp_socket);
 
         act_con->status = 0; /*succses*/
         fds[*nfds].fd = newsocket;
         fds[*nfds].events = POLLIN;
         *nfds = (*nfds) + 1;
         break;
-
       }
       else{
         printf("couldnt reconnect to Server, close connection\n");
@@ -348,6 +378,7 @@ struct single_connection* new_connection_struct(){
     scon->server_id_set = 0;
     scon->messages_to_be_send = new_list();
     scon->messages_beeing_received = new_list();
+    scon->can_be_deleted = 1;
     return scon;
   }
 
@@ -362,12 +393,14 @@ struct single_connection* new_connection_struct(){
         scon->queue_to_network = NULL;
       }
       if (scon->socket != 0){
-        #ifdef _WIN32
-            closesocket(stbd_element->socket);
-            WSACleanup();
-        #else
-          close(scon->socket);
-        #endif
+        if(scon->socket >= 0){
+          #ifdef _WIN32
+              closesocket(stbd_element->socket);
+              WSACleanup();
+              #else
+                close(scon->socket);
+              #endif
+            }
         printf("geschlossenes Socket: %d\n", scon->socket);
         delete_fd_from_pollset(scon->socket, nfds, fds);
         scon->socket = 0;
@@ -384,8 +417,7 @@ struct single_connection* new_connection_struct(){
         close(scon->pipe_from_network);
         close(scon->pipe_to_user);
         if(context_connections != NULL){
-          remove_by_id_and_free_id((context_connections),
-          connection_ids, scon->connection_id);
+          remove_by_id_and_free_id(context_connections, connection_ids, scon->connection_id);
         }
         if (server_connections != NULL){
           remove_by_id_and_free_id(server_connections, connection_ids, scon->connection_id);
@@ -398,14 +430,10 @@ struct single_connection* new_connection_struct(){
 
       /*Creates a new Networkthread, that manages all single connections*/
       static void* create_network_thread(void* args){
-        //log_trace("Anfang create Network Thread\n");
-        //fd_set readfds;/*set which contains watched filedescriptors*/
-        //int max_fd; /*contains value of highest watched filedescriptor + 1*/
         int activity; /*select return value, if written in filedescriptor*/
         char ch; /*aingle char to read from pipeline*/
         struct sockaddr_in serverAddr; /*struct to define the Adress of the
         other Application*/
-
         /*context Object with every single connection*/
         struct context_object* context = (struct context_object*) args;
         /*queue that receives connection-requests from clients*/
@@ -453,14 +481,18 @@ struct single_connection* new_connection_struct(){
           for (client_con = 0; client_con < list_size(context->connections); client_con++){
             struct single_connection* act_con =
             get_by_index(context->connections, client_con);
-            if (act_con->status == 2){
+            if (act_con->status == 2 && act_con->can_be_deleted == 1){
               delete_connection(act_con, (context->connections),
                 NULL, connection_ids, &nfds, fds);
             }
-            else if (act_con->status == 4){
-              printf("try reconnection\n");
-              try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted, 0);
+            else if (act_con->status == 2 && act_con->can_be_deleted == 0){
+              //printf("Else fall Status 2 aber kann nicht loeschen\n");
             }
+            else if(act_con->status != 2){
+              //printf("NT: vor poll, Soll nicht geloescht werden\n");
+            }
+              //printf("try reconnection\n");
+              //try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted);
           }
           int p;
           for (p = 0; p< list_size(context->servers); p++){
@@ -472,20 +504,19 @@ struct single_connection* new_connection_struct(){
             for (connection = 0; connection < list_size(act_server->connections); connection++){
               struct single_connection* act_con =
               get_by_index(act_server->connections, connection);
-              if (act_con->status == 2){
-                printf("status ist 2, versuche zu loeschen\n");
+              if (act_con->status == 2 && act_con->can_be_deleted == 1){
+                printf("rufe delete auf, type der Verbindung: %d\n", act_con->type);
+                printf("server connections == NULL: %d\n", act_server->connections == NULL);
                 delete_connection(act_con, NULL,
                   (act_server->connections), connection_ids, &nfds, fds);
-                printf("nach delete connection\n");
+                    printf("nach delete, Anzahl der Verbindungen context: %d\n", list_size(context->connections));
                 //node_t* server_connections = act_server->connections;
               }
               else if (act_con->status == 4){
-                  printf("Server trys reconnection\n");
-                  perror("Try to RECONNECT, nicht serverseitig implementiert\n");
-                  exit(1);
-                  try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted, 1);
-                  printf("ende try reconnection\n");
-
+                //try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted);
+                }
+                else if (act_con->status == 2 && act_con->can_be_deleted == 0){
+                  printf("Else fall, kann nicht loeschen\n");
                 }
               }
             }
@@ -503,19 +534,17 @@ struct single_connection* new_connection_struct(){
           //    printf("tmp: %d\n", tmpp);
           //  }
           //}
-          //log_trace("NT: vor poll\n");
           activity = poll(fds, nfds, timeout);
-          //log_trace("NT: nach poll\n");
           /*printf("Poll ausgeloest, Anzahl FDs: %d\n", nfds);*/
           int fd;
-          /*for (fd = 0; fd <nfds; fd ++){
-            printf("Aktuell gecheckter Filedescriptor: %d\n", fds[fd].fd);
-            printf("Filedescriptor events: %d\n", fds[fd].events);
-            printf("Filedescriptor Revents: %d\n", fds[fd].revents);
-            if (fds[fd].revents & POLLIN){
-              //printf("Der Filedeskriptor mit der Nummer: %d pollt\n", fds[fd].fd);
-            }
-          }*/
+          for (fd = 0; fd <nfds; fd ++){
+            //printf("Aktuell gecheckter Filedescriptor: %d\n", fds[fd].fd);
+            //printf("Filedescriptor events: %d\n", fds[fd].events);
+            //printf("Filedescriptor Revents: %d\n", fds[fd].revents);
+            /*if (fds[fd].revents & POLLIN){
+              printf("Der Filedeskriptor mit der Nummer: %d pollt\n", fds[fd].fd);
+            }*/
+          }
           /*sleep(1);*/
           /*for (int ls=0; ls <list_size(context->servers); ls++){
           struct single_server* act_servers = get_by_index(context->servers, ls);
@@ -536,6 +565,7 @@ struct single_connection* new_connection_struct(){
   } */
   /*TODO Heartbeat aktivieren*/
   if (time(NULL)-last_heartbeat > context->diff){ /*send Heartbeat message about every connection*/
+    printf("Soll Heartbeat verschicken\n");
     /*iterate over every connection and check if it should be closed*/
     /*TODO remove*/struct single_server* ss = get_by_index(context->servers, 0);
     printf("time for Heartbeat, Anzahl Client und Server Verbingungen: %d und %d\n", list_size(context->connections), list_size(ss->connections));
@@ -547,18 +577,17 @@ struct single_connection* new_connection_struct(){
       if (time(NULL) - last_interaction > context->limit && act_con->status != 2){
         /*client connection lost -> try to reconnect, if not possible -> close*/
         act_con->status = 4; /*try reconnection*/
-        printf("Setzte Status auf 4\n");
+        try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted);
       }
       else{
         /*send heartbeat*/
-          printf("Heartbeat else Zweig, sende Heartbeat\n");
         if (act_con->status == 0 || act_con->status == 1){
           struct message* empty_message = NULL; /*no new struct needed, to send Heartbeat*/
           //send_data(act_con->socket, (struct message*)&empty_message, 1);
-          printf("push message to sending list (Heartbeat)\n");
           push_message_to_sending_list(act_con->messages_to_be_send, empty_message, 1);
         }
-        else{printf("Heartbeat print, Status ist auf: %d\n", act_con->status);}
+        else{
+        }
       }
     }
       int l;
@@ -569,7 +598,7 @@ struct single_connection* new_connection_struct(){
         for (connection = 0; connection < list_size(act_server->connections);
         connection++){
           struct single_connection* act_con =
-          get_by_index(act_server->connections, connection);
+            get_by_index(act_server->connections, connection);
           time_t last_interaction = act_con->last_interaction;
           if (time(NULL)- last_interaction > context->limit && act_con->status != 2){
             /*connection lost -> close it*/
@@ -577,16 +606,20 @@ struct single_connection* new_connection_struct(){
             printf("Versuche Verbindung zu Client auf Port: %d \n", act_con->target_address->client_port);
             act_con->status = 4; /*try reconnection*/
             printf("Setzte Status auf 4\n");
+            try_reconnection(act_con, &nfds, fds, sockets_to_be_deleted);
           }
           else{ /*send heartbeat*/
             void* empty_message = NULL;
             //send_data(act_con->socket, empty_message, 1);
+            printf("Pushe Heartbeat\n");
             push_message_to_sending_list(act_con->messages_to_be_send, empty_message, 1);
           }
         }
       }
       last_heartbeat = time(NULL);
     }
+
+    //printf("NT: Hinter Loeschungen\n");
 
     if(fds[0].revents & POLLIN){ /*new wish from user*/
       piperesult = read(context_pipeline, &ch, 1);
@@ -624,12 +657,12 @@ struct single_connection* new_connection_struct(){
             printf("Winsock initialisiert\n");
 #else
         int sock;
-#endif
         int clientSocket = socket(type, protocol, 0);
         if (clientSocket < 0){
           perror("error creating Serverside socket\n");
         }
         fcntl(clientSocket, F_SETFL, O_NONBLOCK);
+#endif
         /*configure serverAddress*/
         serverAddr.sin_family = type;
         serverAddr.sin_port = htons(server_port);
@@ -710,10 +743,12 @@ struct single_connection* new_connection_struct(){
           /*insert new connection to connection list and get_id*/
           //int connection_id = push((&context->connections), (void*)scon);
           connection_id = push_with_lowest_id((context->connections), (void*)scon, connection_ids);
+          printf("Id der neu erzeugten Verbindung: %d\n", connection_id);
           scon->connection_id = connection_id;
           scon->client_id = connection_id;
           scon->client_id_set = 1;
           scon->handle_message_func = NULL;
+          scon->type = 0; /*client connection*/
           /*put new connection in set of watched filedescriptors*/
           fds[nfds].fd = clientSocket;
           fds[nfds].events = POLLIN;
@@ -845,7 +880,10 @@ struct single_connection* new_connection_struct(){
           free(server_conf);
         }
       } /*End case context pipeline wish from user*/
+        //printf("NT: hinter Service\n");
       /*check connections*/
+      //printf("NT: Anzahl Context Connections: %d\n", list_size(context->connections));
+      //printf("NT: Anzahl der FDs: %d\n", nfds);
       int j;
       for (j=0; j<list_size(context->connections); j++){
         struct single_connection* act_con =
@@ -870,6 +908,8 @@ struct single_connection* new_connection_struct(){
               push_message_to_sending_list(act_con->messages_to_be_send, to_send_message, 8);
             }
           }
+          else{
+          }
           if (list_size(act_con->messages_to_be_send) != 0){
             /*iterate and send data over every single message*/
             send_message_list(act_con);
@@ -888,7 +928,7 @@ struct single_connection* new_connection_struct(){
               DATALENGTH recvd = 0;
               /*receive messages until everything is received or
               recvd bytes passes 1000 Bytes*/
-              recvd = receive_connection(act_con, &recv_status);
+              recvd = receive_connection(context, act_con, &recv_status);
               recvd_bytes += recvd;
               if(recv_status == 5){
                 perror("Unexepted case\n");
@@ -899,6 +939,7 @@ struct single_connection* new_connection_struct(){
                 exit(1);
               }
               if(recv_status == 7){
+                act_con->last_interaction = time(NULL);
                 /*Reconnection successfull, delete old open socket*/
                 int stbd_size = list_size(sockets_to_be_deleted);
                 struct connection_id_and_socket* stbd_element;
@@ -920,8 +961,12 @@ struct single_connection* new_connection_struct(){
               }
             }
           }
+          else{
+            //printf("NT: Socket war nicht am pollen\n");
+          }
         }
       } /*End context connections*/
+      //printf("NT: hinter context connections\n");
       int l;
       for (l=0; l <list_size(context->servers); l++){
         /*get server at index l*/
@@ -937,6 +982,7 @@ struct single_connection* new_connection_struct(){
               /*Threadpool has space => accept connection_request*/
               int new_connection_socket = accept(act_server_socket,
                 (struct sockaddr *) &client, &addr_size);
+                printf("nach accept, neues Socket: %d\n", new_connection_socket);
               struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&client;
               struct in_addr ipAddr = pV4Addr->sin_addr;
               char str[20];
@@ -948,7 +994,7 @@ struct single_connection* new_connection_struct(){
               }
               else{
                 client_ip = str;
-                }
+              }
 
                 /*set to Nonblocking*/
                 //fcntl(new_connection_socket, F_SETFL, O_NONBLOCK);
@@ -983,12 +1029,15 @@ struct single_connection* new_connection_struct(){
                 scon->socket = new_connection_socket;
                 scon->connection_id = push_with_lowest_id(
                 act_server->connections,(void*)scon, connection_ids);
+                printf("Server connection id: %d\n", scon->connection_id);
+                scon->type = 1; /*server connection*/
                 //printf("ID, Socket und Pipe der neuen Verbindung: %d, %d und %d\n",
                 //scon->connection_id, scon->socket, scon->pipe_from_user);
                 scon->server_id = scon->connection_id;
                 struct message* message = new_message();
                 message->scon = scon;
-                send_data(scon->socket, message,4);
+                push_message_to_sending_list(scon->messages_to_be_send, message, 4);
+                //send_data(scon->socket, message,4);
                 free(message);
                 if (act_server->handle_message_func != NULL){
                   scon->handle_message_func = act_server->handle_message_func;
@@ -999,6 +1048,9 @@ struct single_connection* new_connection_struct(){
                 fds[nfds].fd = new_connection_socket;
                 fds[nfds].events = POLLIN;
                 nfds++;
+                //printf("Ende accept\n");
+                //printf("Anzahl der context cons: %d\n", list_size(context->connections));
+                //printf("Anzahl der server cons: %d\n", list_size(act_server->connections));
               }
             }
             /*check if server connections in pollset*/
@@ -1035,15 +1087,35 @@ struct single_connection* new_connection_struct(){
                   DATALENGTH recv_status;
                   DATALENGTH recvd_bytes = 0;
                   /*one non blocking recv call*/
-                  recvd_bytes += receive_connection(act_con, &recv_status);
+                  recvd_bytes += receive_connection(context, act_con, &recv_status);
                   if(recv_status == 5){
                     /*return value of recv_data = index of connection that should be reconnected*/
                     printf("NT: RECONNECTION\n");
                     printf("NT: suche nach einer Verbindung mit id: %d\n", recvd_bytes);
+                    int found = 0;
+                    struct single_connection* con;
                     if (list_contains_id(act_server->connections, recvd_bytes)){
-                      struct single_connection* con = get_by_id(act_server->connections, recvd_bytes);
+                      con = get_by_id(act_server->connections, recvd_bytes);
+                      printf("gefunden\n");
+                      found = 1;
+                    }
+                    else if (list_contains_id(context->connections, recvd_bytes)){
+                      con = get_by_id(context->connections, recvd_bytes);
+                      printf("gefunden\n");
+                      if (act_server->handle_message_func != NULL){
+                        con->handle_message_func = NULL;
+                      }
+                      found = 1;
+                    }
+                    else{
+                      /*not found*/
+                      for (int cindex=0; cindex < list_size(act_server->connections); cindex ++){
+                        struct single_connection* tmp_con = get_by_index(act_server->connections, cindex);
+                      }
+                    }
+                    if (found == 1){
                       delete_fd_from_pollset(con->socket, &nfds, fds);
-                      /*inform client that e can close his socket*/
+                      /*inform connection partner that he can close his socket*/
                       struct message* message = new_message();
                       message->scon = con;
                       send_data(act_con->socket, message, 7);
@@ -1054,18 +1126,13 @@ struct single_connection* new_connection_struct(){
                       #else
                             close(con->socket);
                       #endif
-                      printf("NT: geschlossenes socket: %d\n", con->socket);
                       con->socket = act_con->socket;
+                      if (queue_length(act_con->queue_from_network)!= 0){
+                        queue_merge(&(con->queue_from_network), act_con->queue_from_network);
+                      }
                       act_con->socket = -1;
                       clear_messagelist_and_set_status(act_con, 2);
                       con->status = 0;
-                    }
-                    else{/*
-                      for (int cindex=0; cindex < list_size(act_server->connections); cindex ++){
-                        struct single_connection* tmp_con = get_by_index(act_server->connections, cindex);
-                        printf("id: %d\n", tmp_con->connection_id);
-
-                      }*/
                     }
                   }
                   if(recv_status == 6){
@@ -1079,6 +1146,7 @@ struct single_connection* new_connection_struct(){
                     for (stbd_element_int = 0; stbd_element_int < stbd_size; stbd_element_int ++){
                       stbd_element = get_by_id(sockets_to_be_deleted, stbd_element_int);
                       if ((stbd_element->connection_id) == recvd_bytes){
+                        printf("socket gefunden, lösche es\n");
                         #ifdef _WIN32
                             closesocket(stbd_element->socket);
                             WSACleanup();
@@ -1094,6 +1162,7 @@ struct single_connection* new_connection_struct(){
               }
             }
           }
+          //printf("Hinter Server Connections\n");
         } /*End While True*/
           return NULL;
       } /*End Function*/
@@ -1126,6 +1195,7 @@ struct single_connection* new_connection_struct(){
         malloc(sizeof(struct context_object));
       context->servers = new_list();
       context->connections = new_list();
+      context->callbacks = new_list();
       context->to_network_queue = queue_new();
       context->to_context_queue = queue_new();
       context->connection_request_pipe_read = pipe_to_network[0];
@@ -1138,7 +1208,6 @@ struct single_connection* new_connection_struct(){
       pthread_create(&network_thread_number, NULL, create_network_thread, (void*)context);
       char* accepted_clients = "0.0.0.0";
       create_server(context, default_port, accepted_clients, handle_message_func);
-      //log_trace("Ende init context\n");
       return context;
     }
 
@@ -1218,19 +1287,49 @@ struct single_connection* new_connection_struct(){
   }
   /*send data to specific connection, identified by connection_id*/
   int nb_send_message(struct context_object* context,void* data, DATALENGTH size,
-    int connection_id, int wt, int timeout){
+    int connection_id, void (*handle_message_func)(struct message* response_message), int wt, int timeout){
       /*param kind specifies if send should not wait, wait till sent, or wait till
       an answer is there */
       int piperesult;
       char ch = 2;
       /*checks if connection is avaiable*/
-      if (list_contains_id(context->connections, connection_id) == 0){
-        printf("MT: Connection not avaiable, could not send Data\n");
-        return -1;
+      pthread_mutex_lock(&bibmutex);
+      int connection_found = list_contains_id(context->connections, connection_id);
+      struct single_connection* sin_con;
+      if (connection_found == 1){
+        //printf("Verbindung gefunden (recv, Clientverbindung)\n");
+        sin_con = get_by_id(context->connections, connection_id);
+        if (sin_con->status == 2){
+          pthread_mutex_unlock(&bibmutex);
+          return -1;
+        }
+        sin_con->can_be_deleted = 0;
+        pthread_mutex_unlock(&bibmutex);
       }
-      /*gets connection from context->connections and sends*/
-      struct single_connection* sin_con
-      = get_by_id(context->connections, connection_id);
+      if (connection_found == 0){
+        /*iterate over all servers and search for connnenction*/
+        int server;
+        for (server = 0; server < list_size(context->servers); server++){
+          struct single_server* act_server = get_by_id(context->servers, server);
+          connection_found = list_contains_id(act_server->connections, connection_id);
+          if (connection_found == 1){
+            //printf("Verbindung gefunden(recv, Serververbindung)\n");
+            struct single_connection* sin_con
+              = get_by_id(act_server->connections, connection_id);
+              if (sin_con->status == 2){
+                pthread_mutex_unlock(&bibmutex);
+                return -1;
+              }
+              sin_con->can_be_deleted = 0;
+              pthread_mutex_unlock(&bibmutex);
+            }
+          }
+        }
+        if (connection_found == 0){
+          printf("Connection not found, could not send Data\n");
+          pthread_mutex_unlock(&bibmutex);
+          return -1;
+        }
       struct queue_q* to_network_queue = sin_con->queue_to_network;
       int pipe_to_network = sin_con->pipe_to_network;
       /*create message struct */
@@ -1239,6 +1338,14 @@ struct single_connection* new_connection_struct(){
       context->request_number+=1; /*TODO Request number generation*/
       to_send_message->data = data;
       to_send_message->datalength = size;
+      if (handle_message_func != NULL){
+        struct id_callback* id_callback = malloc(sizeof(struct id_callback));
+        id_callback->id = to_send_message->number;
+        id_callback->callback = handle_message_func;
+        pthread_mutex_lock (&bibmutex);
+        push(context->callbacks, id_callback);
+        pthread_mutex_unlock (&bibmutex);
+      }
       /*put to-send data in queue*/
       pthread_mutex_lock (&bibmutex);
       queue_enqueue(to_network_queue, (void*)to_send_message);
@@ -1247,9 +1354,11 @@ struct single_connection* new_connection_struct(){
       piperesult = write(pipe_to_network, &ch, 1);
       if (piperesult < 0){
         printf("could not write in pipe to network(send)\n");
+        sin_con->can_be_deleted = 1;
         return -1;
       }
       if (wt == 0){ /*sending and dont wait for acknowledgement*/
+        sin_con->can_be_deleted = 1;
         return 1;
       }
       if (wt == 2){
@@ -1263,8 +1372,15 @@ struct single_connection* new_connection_struct(){
         while (elapsed < timeout){
           pthread_mutex_lock(&bibmutex);
           if (to_send_message->fully_sent == 1){
+            sin_con->can_be_deleted = 1;
             pthread_mutex_unlock(&bibmutex);
             return 1;
+          }
+          else if(to_send_message->fully_sent == -1){
+            sin_con->can_be_deleted = 1;
+            pthread_mutex_unlock(&bibmutex);
+            printf("-1 !! nicht vollständig gesendet, gebe -1 zurueck\n");
+            return -1;
           }
           else{
             pthread_mutex_unlock(&bibmutex);
@@ -1276,7 +1392,8 @@ struct single_connection* new_connection_struct(){
           }
         }
       }
-      return 1;
+      sin_con->can_be_deleted = 1;
+      return -1;
     }
     /*returns 0 if data could not be readed, else data points to data*/
     /*wt speciefies if recv should be blocking till data can be recvd*/
@@ -1284,11 +1401,15 @@ struct single_connection* new_connection_struct(){
     int nb_recv_message(struct context_object* context, int connection_id, struct message** message, int wt, int timeout){
       /*check if connection is avaiable in context connections*/
       //struct single_connection* sin_con;
+      pthread_mutex_lock(&bibmutex);
+
       int connection_found = list_contains_id(context->connections, connection_id);
       struct single_connection* sin_con;
       if (connection_found == 1){
         //printf("Verbindung gefunden (recv, Clientverbindung)\n");
         sin_con = get_by_id(context->connections, connection_id);
+        sin_con->can_be_deleted = 0;
+        pthread_mutex_unlock(&bibmutex);
       }
       if (connection_found == 0){
       /*iterate over all servers and search for connnenction*/
@@ -1300,6 +1421,8 @@ struct single_connection* new_connection_struct(){
           //printf("Verbindung gefunden(recv, Serververbindung)\n");
           struct single_connection* sin_con
             = get_by_id(act_server->connections, connection_id);
+            sin_con->can_be_deleted = 0;
+            pthread_mutex_unlock(&bibmutex);
           }
         }
       }
@@ -1311,12 +1434,14 @@ struct single_connection* new_connection_struct(){
   if (wt == 0){
     if (queue_empty(sin_con->queue_from_network)){
       //printf("queue empty, no message found\n");
+      sin_con->can_be_deleted = 1;
       return 0; /*no new answer receiveable*/
     }
     else { /*at least one entry from queue*/
       //printf("queue not empty, len: %d\n", queue_length(from_network_queue));
       struct message* return_message = (struct message*) queue_dequeue(sin_con->queue_from_network);
       *message = return_message;
+      sin_con->can_be_deleted = 1;
       return return_message->datalength;
     }
   }
@@ -1334,19 +1459,22 @@ struct single_connection* new_connection_struct(){
         struct message* return_message = (struct message*) queue_dequeue(sin_con->queue_from_network);
         pthread_mutex_unlock(&bibmutex);
         *message = return_message;
+        sin_con->can_be_deleted = 1;
         return return_message->datalength;
       }
       else{
         pthread_mutex_unlock(&bibmutex);
-        usleep(5000);
+        usleep(1000);
         clock_gettime(CLOCK_REALTIME, &end);
         seconds = end.tv_sec - begin.tv_sec;
         nanoseconds = end.tv_nsec - begin.tv_nsec;
         elapsed = seconds + nanoseconds*1e-9;
       }
     }
+    sin_con->can_be_deleted = 1;
     return -1;
   }
+  sin_con->can_be_deleted = 1;
   return -1;
 }
 
@@ -1379,11 +1507,9 @@ struct single_connection* new_connection_struct(){
       exit(1);
     }
   }
-  int create_server(struct context_object* context, int port,
-    char* accepted_clients,
+  int create_server(struct context_object* context, int port, char* accepted_clients,
     void (*handle_message_func)(struct message* message)){
-      //log_trace("Anfang create_server\n");
-    fd_set readfds;/*contains watched pipeline*/
+    fd_set readfds;
     char ch = 4;
     int piperesult;
     struct server_configuration* server_conf = (struct server_configuration*)
@@ -1427,6 +1553,24 @@ struct single_connection* new_connection_struct(){
       printf("couldnt create server\n");
       exit(1);
     }
-    //log_trace("Ende create_server\n");
     return server_id_ptr;
+  }
+
+  int connection_active(struct context_object* context, int connection_id){
+    if (list_contains_id(context->connections, connection_id)){
+        printf("Ende der neuen Funktion, Verbindung gefunden\n");
+      return 1;
+    }
+    else{
+      int server;
+      for (server = 0; server < list_size(context->servers); server++){
+        struct single_server* act_server = get_by_id(context->servers, server);
+        if (list_contains_id(act_server->connections, connection_id) == 1){
+          printf("Ende der neuen Funktion, Verbindung gefunden\n");
+          return 1;
+        }
+      }
+    }
+          printf("Ende der neuen Funktion, Verbindung nicht gefunden\n");
+    return 0;
   }

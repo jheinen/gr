@@ -35,6 +35,7 @@ uint64_t fhtonll(uint64_t value) {
 
 int send_data(int socket, struct message* message, int kind){
   int n = 1;
+  struct timespec begin, end;
  //little endian if true
 //if(*(char *)&n == 1) {printf("little Endian\n");}
 //else{printf("Big Endian\n");}
@@ -44,7 +45,6 @@ int send_data(int socket, struct message* message, int kind){
 
   //printf("\nin send: kind = %d ", kind);
   /*switch (kind){
-    //case 8: printf("send Info: Nachrichtenanteil wird verschickt\n");break;
     case 1: printf("send Info: Heartbeat wird verschickt\n");break;
     case 2: printf("send Info: Clientport wird verschickt\n");break;
     case 3: printf("send Info: Client connection id wird verschickt\n");break;
@@ -52,6 +52,7 @@ int send_data(int socket, struct message* message, int kind){
     case 5: printf("send Info: Client schickt Server_id zum Wiederaufbau\n");break;
     case 6: printf("send Info: Server schickt Client_id zum Wiederaufbau\n");break;
     case 7: printf("send Info: Server sagt Client, dass altes Socket geloescht werden kann\n");break;
+    //case 8: printf("8, will daten verschicken\n");
   }*/
 
   char oneByte;
@@ -60,20 +61,40 @@ int send_data(int socket, struct message* message, int kind){
     oneByte = (char)kind;
     if (kind == 0){oneByte = 8;}
   }
-  else{printf("send wrong kind\n");exit(1);}
-
+  else{
+    printf("send wrong kind\n");
+    exit(1);
+  }
+//printf("Vor One Byte versenden\n");
     /*send oneByte to tell Receiver which kind of message*/
     size_t sent = 0;
     int tmp = 0;
+    clock_gettime(CLOCK_REALTIME, &begin);
+    /*FR: absolute time get current*/
     while (sent != 1){
       tmp = send(socket, (const void*)&oneByte, 1, 0);
         if (tmp >= 0){
           sent += tmp;
         }
+        else{
+          clock_gettime(CLOCK_REALTIME, &end);
+          long seconds = end.tv_sec - begin.tv_sec;
+          long nanoseconds = end.tv_nsec - begin.tv_nsec;
+          double elapsed = seconds + nanoseconds*1e-9;
+          if (elapsed > 0.5){
+            //printf("Sende Aufruf war nicht erfoglreich\n");
+            if(kind == 1){
+              printf("Heartbeat hat nicht geklappt\n");
+            }
+            return -1;
+          }
+        }
     }
+    //printf("One Byte versendet\n");
 
     /*cases*/
     if (kind == 1){
+      printf("Heartbeat case vor return\n");
       /*Heartbeat Signal sent, end of function*/
       return 0;
     }
@@ -82,8 +103,23 @@ int send_data(int socket, struct message* message, int kind){
       DATALENGTH client_port = message->scon->target_address->client_port;
       client_port = ntohl(client_port);
       sent = 0;
+      tmp = 0;
+      //clock_gettime(CLOCK_REALTIME, &begin);
       while (sent != sizeof(client_port)){
-          sent += send(socket, (&client_port+sent), sizeof(client_port)-sent, 0);
+        tmp = send(socket, (&client_port+sent), sizeof(client_port)-sent, 0);
+        if (tmp >= 0){
+            sent += tmp;
+        }
+        else{
+          clock_gettime(CLOCK_REALTIME, &end);
+          long seconds = end.tv_sec - begin.tv_sec;
+          long nanoseconds = end.tv_nsec - begin.tv_nsec;
+          double elapsed = seconds + nanoseconds*1e-9;
+          if (elapsed > 0.5){
+            //printf("Sende Aufruf war nicht erfoglreich\n");
+            return -1;
+          }
+        }
       }
       return 0;
     }
@@ -95,21 +131,37 @@ int send_data(int socket, struct message* message, int kind){
         connection_id = message->scon->client_id;
       }
       if (kind == 4 || kind == 5){
-        printf("Kind = 4 (oder5), sende id: %d\n", message->scon->server_id);
-        connection_id = message->scon->server_id;
+          connection_id = message->scon->server_id;
       }
       connection_id = ntohl(connection_id);
       sent = 0;
+      tmp = 0;
+      //clock_gettime(CLOCK_REALTIME, &begin);
       while (sent != sizeof(connection_id)){
-          sent += send(socket, &connection_id+sent, sizeof(connection_id)-sent, 0);
+        tmp = send(socket, &connection_id+sent, sizeof(connection_id)-sent, 0);
+        if (tmp >= 0){
+          sent += tmp;
+        }
+        else{
+          clock_gettime(CLOCK_REALTIME, &end);
+          long seconds = end.tv_sec - begin.tv_sec;
+          long nanoseconds = end.tv_nsec - begin.tv_nsec;
+          double elapsed = seconds + nanoseconds*1e-9;
+          if (elapsed > 0.5){
+            //printf("Sende Aufruf war nicht erfoglreich\n");
+            return -1;
+          }
+        }
       }
       return 0;
     }
     else if (kind == 8){
+      //printf("Send data im 8ter Fall\n");
+      //printf("send kind = 8, socket: %d, Nummmer: %d \n", socket, message->number);
       /*send piece of message*/
 
       //printf("message length: %d, how how_much_sent: %d, Nummer:%d \n", message->datalength, message->how_much_sent, message->number);
-      char* test = (char*)(message->data);
+      //char* test = (char*)(message->data);
       /*switch((*test)){
        case 5:
         printf("in send, sende GKSTERM_FUNTION_IS_RUNNING\n");
@@ -119,48 +171,90 @@ int send_data(int socket, struct message* message, int kind){
       int from_where = message->how_much_sent;
       DATALENGTH size = message->datalength;
       DATALENGTH request_number = message->number;
-      DATALENGTH max_bytes = 900;
+      DATALENGTH max_bytes = 60000;
       DATALENGTH to_send;
       /*send request number*/
       request_number = ntohl(request_number);
       sent = 0;
+      tmp = 0;
+      //clock_gettime(CLOCK_REALTIME, &begin);
       while (sent != sizeof(request_number)){
-          sent += send(socket, ((void*) &request_number)+sent, sizeof(request_number)-sent, 0);
+        tmp = send(socket, ((void*) &request_number)+sent, sizeof(request_number)-sent, 0);
+        if (tmp >= 0){
+            sent += tmp;
+        }
+        else{
+          clock_gettime(CLOCK_REALTIME, &end);
+          long seconds = end.tv_sec - begin.tv_sec;
+          long nanoseconds = end.tv_nsec - begin.tv_nsec;
+          double elapsed = seconds + nanoseconds*1e-9;
+          if (elapsed > 0.5){
+            return -1;
+          }
+        }
       }
       if (from_where == 0){ /*First part of message*/
-
           sent = 0;
           char first_part = 1;
-          //printf("Erster Teil der Nachricht\n");
-          //printf("sende first part: %d\n", first_part);
           while(sent != 1){
               sent += send(socket, (const void*)&first_part, 1, 0);
           }
-
           /*send size for allocation*/
           DATALENGTH size_in_no = ntohl(size);
           //printf("Laenge der Nachricht: %u\n", size);
           sent = 0;
+          tmp = 0;
+          //clock_gettime(CLOCK_REALTIME, &begin);
           while(sent != sizeof(size_in_no)){ /* sends the size for allocating*/
-            //printf("sende size: %d\n", size_in_no);
-              sent += send(socket, ((void*)&size_in_no)+sent,sizeof(size)-sent, 0);
+            tmp = send(socket, ((void*)&size_in_no)+sent,sizeof(size)-sent, 0);
+            if (tmp >= 0){
+              sent += tmp;
+            }
+            else{
+              clock_gettime(CLOCK_REALTIME, &end);
+              long seconds = end.tv_sec - begin.tv_sec;
+              long nanoseconds = end.tv_nsec - begin.tv_nsec;
+              double elapsed = seconds + nanoseconds*1e-9;
+              if (elapsed > 0.5){
+                //printf("8ter Fall, Sende Aufruf war nicht erfoglreich\n");
+                return -1;
+              }
+            }
           }
+              //printf("8ter Fall Size versendet\n");
           //printf("Size gesendet, size: %d\n", size_in_no);
           //printf("Bytes gesendet: %lu\n", sent);
       }
 
-      else if (from_where != 0){ /*not the first part of the message*/
+      else if (from_where != 0){
+       /*not the first part of the message*/
         //printf("Nicht der erste Part der Nachricht\n");
           sent = 0;
+          tmp = 0;
+          //clock_gettime(CLOCK_REALTIME, &begin);
           char first_part = 0;
           //printf("sende first part: %d\n", first_part);
           while(sent != 1){
-              sent += send(socket, (const void*)&first_part, 1, 0);
+            tmp = send(socket, (const void*)&first_part, 1, 0);
+            if (tmp >= 0){
+                sent += tmp;
+            }
+            else{
+              clock_gettime(CLOCK_REALTIME, &end);
+              long seconds = end.tv_sec - begin.tv_sec;
+              long nanoseconds = end.tv_nsec - begin.tv_nsec;
+              double elapsed = seconds + nanoseconds*1e-9;
+              if (elapsed > 0.5){
+                //printf("8ter Fall, Sende Aufruf war nicht erfoglreich\n");
+                return -1;
+              }
+            }
           }
+          //printf("8ter Fall not first part versendet\n");
       }
       /*now send part of message*/
       sent = 0;
-
+      //printf("maxbytes: %d, size-from_where: %d\n", max_bytes, size-from_where);
       if (max_bytes > size-from_where){
           to_send = size-from_where;
       }
@@ -170,24 +264,41 @@ int send_data(int socket, struct message* message, int kind){
       /*send data*/
       //printf("versende: %u Bytes\n", to_send);
       sent = 0;
+      tmp = 0;
+      //clock_gettime(CLOCK_REALTIME, &begin);
       while(sent < to_send){
-        tmp = send(socket, datapointer+from_where, to_send, 0);
-        if( tmp >= 0){
+        tmp = send(socket, datapointer+from_where+sent, to_send-sent, 0);
+        if(tmp >= 0){
           sent += tmp;
         }
+        else{
+          clock_gettime(CLOCK_REALTIME, &end);
+          long seconds = end.tv_sec - begin.tv_sec;
+          long nanoseconds = end.tv_nsec - begin.tv_nsec;
+          double elapsed = seconds + nanoseconds*1e-9;
+          if (elapsed > 0.5){
+            printf("Zeit abgelaufen, hat nicht geklappt\n");
+            return -1;
+          }
+        }
       }
+      //printf("gesendete Bytes: %lu\n", sent);
+      //printf("message how much sent alt: %d\n", message->how_much_sent);
+      //printf("message how much sent neu: %lu\n", message->how_much_sent+sent);
+      //printf("8ter Fall, daten versendet\n");
       //printf("versendet\n");
       /*char* tmp = malloc(to_send+1);
        memcpy(tmp, datapointer+from_where, to_send);
        char* tmp2 = "";
        memcpy(tmp + to_send, tmp2, 1);*/
-
       message->how_much_sent += sent;
       if (message->how_much_sent == message->datalength){
         /*Message sent completly*/
+        //printf("Nachricht vollstaendig versendet\n");
         message->fully_sent = 1;
         return 3;
       }
+      //printf("Teil der Nachricht versendet\n");
       return sent;
   }
   return 0;
@@ -204,7 +315,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
     char first_part;
     void* buffer;
     DATALENGTH datasize;
-    DATALENGTH max_bytes = 900;
+    DATALENGTH max_bytes = 60000;
     DATALENGTH to_receive;
     DATALENGTH recv_ret = 0;
     int socket;
@@ -219,6 +330,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
         recv_ret = 0;
         if (recvd == 0){
           printf("Null Byte empfangen => schliesse Verbindung\n");
+          printf("Null Byte Socket: %d\n", scon->socket);
             *recv_status = 0; /*connection closed*/
             return 0;
         }
@@ -226,11 +338,23 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
     }
     *recv_status = oneByte;
     //printf("in recv, One Byte: %d\n", oneByte);
+    /*switch (oneByte){
+      //case 8: printf("send Info: Nachrichtenanteil wird verschickt\n");break;
+      case 1: printf("recvd: 1\n");break;
+      case 2: printf("recvd: 2\n");break;
+      case 3: printf("recvd: 3\n");break;
+      case 4: printf("recvd: 4\n");break;
+      case 5: printf("recvd: 5\n");break;
+      case 6: printf("recvd: 6\n");break;
+      case 7: printf("recvd: 7\n");break;
+      case 8: printf("recvd: 8\n");break;
+    }*/
     if (oneByte == 0){
       /*close connection*/
       return 0;
-      }
+    }
     else if(oneByte == 1){
+      printf("Heartbeat empfangen\n");
       /*Heartbeat "Message*/
       return 0;
     }
@@ -262,7 +386,10 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
       }
       connection_id = htonl(connection_id);
       if (oneByte == 3){
-        scon->client_id = connection_id;
+        if (scon->client_id_set == 0){
+          scon->client_id_set = 1;
+          scon->client_id = connection_id;
+        }
         /*printf("server hat id von client erhalten\n");*/
       }
       if (oneByte == 4){
@@ -321,7 +448,7 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
               }
               recv_ret = 0;
           }
-          //printf("vor message size, recvd: %d\n", recvd);
+          //printf("Message size, recvd: %d\n", recvd);
           size = htonl(size);
           //printf("Message Size: %u\n", size);
           (*(rcv_message))->datalength = size;
@@ -356,13 +483,14 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
 
       datasize = (*(rcv_message))->datalength;
       int from_where = (*(rcv_message))->how_much_sent;
+      //printf("maxbytes: %d, datasize-from_where: %d\n", max_bytes, datasize-from_where);
       if (max_bytes > datasize-from_where){
           to_receive = datasize-from_where;
       }
       else{
           to_receive = max_bytes;
       }
-
+      //printf("to_receive: %d\n", to_receive);
       recvd = 0;
       /*one recv call*/
       if (to_receive > max_bytes){
@@ -372,9 +500,12 @@ DATALENGTH receive_data(struct single_connection* scon, DATALENGTH* recv_status,
         //printf("Message size: %d\n", (*(rcv_message))->datalength);
         int ret = 0;
         while (recvd != to_receive){ /*receive size of data*/
-          ret = recv(socket, (*(rcv_message))->data + (*(rcv_message))->how_much_sent, to_receive, 0);
+          ret = recv(socket, (*(rcv_message))->data + (*(rcv_message))->how_much_sent + recvd, to_receive-recvd, 0);
           if (ret > 0 && ret <= to_receive){
             recvd += ret;
+          }
+          if(ret == to_receive){
+            break;
           }
           ret = 0;
         }
