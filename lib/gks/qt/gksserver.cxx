@@ -139,7 +139,7 @@ void GKSConnection::readClient()
 #endif
               );
               reply[0] = static_cast<char>(SocketFunction::inq_ws_state);
-              *reinterpret_cast<gks_ws_state_t *>(&reply[1]) = gks_ws_state_t{500, 500, device_pixel_ratio};
+              *reinterpret_cast<gks_ws_state_t *>(&reply[1]) = gks_ws_state_t{0, 0, device_pixel_ratio};
             }
           socket->write(reply, sizeof(reply));
           socket_function = SocketFunction::unknown;

@@ -506,6 +506,7 @@ void gks_init_gks(void)
       s->bwidth = 1;
       s->bcoli = 0;
       s->clip_tnr = 0;
+      s->aspect_ratio = 1;
 
       s->callback = NULL;
     }
@@ -1968,6 +1969,7 @@ void gks_set_ws_window(int wkid, double xmin, double xmax, double ymin, double y
 
                       /* call the device driver link routine */
                       gks_ddlk(SET_WS_WINDOW, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+                      s->aspect_ratio = (xmax - xmin) / (ymax - ymin);
                     }
                   else
                     /* workstation window is not within the NDC unit square */
@@ -3007,8 +3009,24 @@ void gks_inq_vp_size(int wkid, int *errind, int *width, int *height, double *dev
 
       *errind = GKS_K_NO_ERROR;
       vp = s->viewport[s->cntnr];
-      *width = i_arr[0] * (vp[1] - vp[0]);
-      *height = i_arr[1] * (vp[3] - vp[2]);
+      if (i_arr[0] == 0 && i_arr[1] == 0)
+        {
+          *width = 500 * (vp[1] - vp[0]);
+          *height = 500 * (vp[3] - vp[2]);
+        }
+      else
+        {
+          if (s->aspect_ratio > 1)
+            {
+              *width = i_arr[0] * (vp[1] - vp[0]);
+              *height = i_arr[1] * (vp[3] - vp[2]) * s->aspect_ratio;
+            }
+          else
+            {
+              *width = i_arr[0] * (vp[1] - vp[0]) / s->aspect_ratio;
+              *height = i_arr[1] * (vp[3] - vp[2]);
+            }
+        }
       *device_pixel_ratio = f_arr_1[0];
     }
   else
