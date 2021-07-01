@@ -3011,21 +3011,20 @@ void gks_inq_vp_size(int wkid, int *errind, int *width, int *height, double *dev
       vp = s->viewport[s->cntnr];
       if (i_arr[0] == 0 && i_arr[1] == 0)
         {
-          *width = 500 * (vp[1] - vp[0]);
-          *height = 500 * (vp[3] - vp[2]);
+          element = gks_list_find(av_ws_types, ws->wtype);
+          descr = (ws_descr_t *)element->ptr;
+          i_arr[0] = (int)((ws->vp[1] - ws->vp[0]) / descr->sizex * descr->unitsx + 0.5);
+          i_arr[1] = (int)((ws->vp[3] - ws->vp[2]) / descr->sizey * descr->unitsy + 0.5);
+        }
+      if (s->aspect_ratio > 1)
+        {
+          *width = i_arr[0] * (vp[1] - vp[0]);
+          *height = i_arr[1] * (vp[3] - vp[2]) * s->aspect_ratio;
         }
       else
         {
-          if (s->aspect_ratio > 1)
-            {
-              *width = i_arr[0] * (vp[1] - vp[0]);
-              *height = i_arr[1] * (vp[3] - vp[2]) * s->aspect_ratio;
-            }
-          else
-            {
-              *width = i_arr[0] * (vp[1] - vp[0]) / s->aspect_ratio;
-              *height = i_arr[1] * (vp[3] - vp[2]);
-            }
+          *width = i_arr[0] * (vp[1] - vp[0]) / s->aspect_ratio;
+          *height = i_arr[1] * (vp[3] - vp[2]);
         }
       *device_pixel_ratio = f_arr_1[0];
     }
