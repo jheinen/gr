@@ -676,7 +676,7 @@ static void gks_ft_init_fallback_faces()
     }
 }
 
-int gks_ft_load_user_font(char *font)
+int gks_ft_load_user_font(char *font, int ignore_file_not_found)
 {
   static int user_font_index = 300;
   char abspath[MAXPATHLEN] = {0};
@@ -699,7 +699,7 @@ int gks_ft_load_user_font(char *font)
         }
       else
         {
-          gks_perror("could not find font %s", font);
+          if (!ignore_file_not_found) gks_perror("could not find font %s", font);
           return -1;
         }
     }
@@ -1845,7 +1845,7 @@ void gks_ft_inq_text3d_extent(double x, double y, double z, char *text, int axis
   if (!init) gks_ft_init();
 }
 
-int gks_ft_load_user_font(char *font)
+int gks_ft_load_user_font(char *font, int ignore_file_not_found)
 {
   if (!init) gks_ft_init();
   return -1;

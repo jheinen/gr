@@ -196,6 +196,12 @@ typedef struct
   int approximative_calculation;
 } volume_t;
 
+typedef struct
+{
+  char *name;
+  char *candidate[3];
+} font_alias_t;
+
 static volume_t vt = {1, 0, 1.25, 1000, 1000, NULL, 1};
 
 static norm_xform nx = {1, 0, 1, 0};
@@ -834,6 +840,42 @@ static int cmap[48][72] = {
      0xe44f64, 0xe95362, 0xec5860, 0xf05f5e, 0xf2645c, 0xf56b5c, 0xf7715c, 0xf9785d, 0xfa7f5e, 0xfb8660, 0xfc8c63,
      0xfd9367, 0xfd9a6a, 0xfea06e, 0xfea872, 0xfeae77, 0xfeb57b, 0xfebb81, 0xfec286, 0xfec98c, 0xfecf92, 0xfed698,
      0xfddc9e, 0xfde3a4, 0xfdeaaa, 0xfcf0b2, 0xfcf6b8, 0xfcfdbf}};
+
+static font_alias_t font_aliases[] = {
+    {"Times Roman", {"NimbusRoman-Regular.otf", "texgyretermes-regular.otf", "FreeSerif.otf"}},
+    {"Times Italic", {"NimbusRoman-Italic.otf", "texgyretermes-italic.otf", "FreeSerifItalic.otf"}},
+    {"Times Bold", {"NimbusRoman-Bold.otf", "texgyretermes-bold.otf", "FreeSerifBold.otf"}},
+    {"Times Bold Italic", {"NimbusRoman-BoldItalic.otf", "texgyretermes-bolditalic.otf", "FreeSerifBoldItalic.otf"}},
+    {"Helvetica", {"NimbusSans-Regular.otf", "texgyreheros-regular.otf", "FreeSans.otf"}},
+    {"Helvetica Oblique", {"NimbusSans-Italic.otf", "texgyreheros-italic.otf", "FreeSansOblique.otf"}},
+    {"Helvetica Bold", {"NimbusSans-Bold.otf", "texgyreheros-bold.otf", "FreeSansBold.otf"}},
+    {"Helvetica Bold Oblique", {"NimbusSans-BoldItalic.otf", "texgyreheros-bolditalic.otf", "FreeSansBoldOblique.otf"}},
+    {"Courier", {"NimbusMonoPS-Regular.otf", "texgyrecursor-regular.otf", "FreeMono.otf"}},
+    {"Courier Oblique", {"NimbusMonoPS-Italic.otf", "texgyrecursor-italic.otf", "FreeMonoOblique.otf"}},
+    {"Courier Bold", {"NimbusMonoPS-Bold.otf", "texgyrecursor-bold.otf", "FreeMonoBold.otf"}},
+    {"Courier Bold Oblique",
+     {"NimbusMonoPS-BoldItalic.otf", "texgyrecursor-bolditalic.otf", "FreeMonoBoldOblique.otf"}},
+    {"Bookman Light", {"URWBookman-Light.otf", "texgyrebonum-regular.otf", NULL}},
+    {"Bookman Light Italic", {"URWBookman-LightItalic.otf", "texgyrebonum-italic.otf", NULL}},
+    {"Bookman Demi", {"URWBookman-Demi.otf", "texgyrebonum-bold.otf", NULL}},
+    {"Bookman Demi Italic", {"URWBookman-DemiItalic.otf", "texgyrebonum-bolditalic.otf", NULL}},
+    {"New Century Schoolbook Roman", {"C059-Roman.otf", "texgyreschola-regular.otf", NULL}},
+    {"New Century Schoolbook Italic", {"C059-Italic.otf", "texgyreschola-italic.otf", NULL}},
+    {"New Century Schoolbook Bold", {"C059-Bold.otf", "texgyreschola-bold.otf", NULL}},
+    {"New Century Schoolbook Bold Italic", {"C059-BdIta.otf", "texgyreschola-bolditalic.otf", NULL}},
+    {"Avantgarde Book", {"URWGothic-Book.otf", "texgyreadventor-regular.otf", NULL}},
+    {"Avantgarde Book Oblique", {"URWGothic-BookOblique.otf", "texgyreadventor-italic.otf", NULL}},
+    {"Avantgarde Demi", {"URWGothic-Demi.otf", "texgyreadventor-bold.otf", NULL}},
+    {"Avantgarde Demi Oblique", {"URWGothic-DemiOblique.otf", "texgyreadventor-bolditalic.otf", NULL}},
+    {"Palatino Roman", {"P052-Roman.otf", "texgyrepagella-regular.otf", NULL}},
+    {"Palatino Italic", {"P052-Italic.otf", "texgyrepagella-italic.otf", NULL}},
+    {"Palatino Bold", {"P052-Bold.otf", "texgyrepagella-bold.otf", NULL}},
+    {"Palatino Bold Italic", {"P052-BoldItalic.otf", "texgyrepagella-bolditalic.otf", NULL}},
+    {"Zapf Chancery Medium Italica", {"Z003-MediumItalic.otf", "texgyrechorus-mediumitalic.otf", NULL}},
+    {"Zapf Dingbats", {"D050000L.otf", NULL, NULL}},
+};
+
+static int num_font_aliases = sizeof(font_aliases) / sizeof(font_aliases[0]);
 
 static double sizex = 0;
 
@@ -3262,6 +3304,31 @@ void gr_settextfontprec(int font, int precision)
   if (flag_graphics) gr_writestream("<settextfontprec font=\"%d\" precision=\"%d\"/>\n", font, precision);
 }
 
+static int loadfont(char *name)
+{
+  int i, j, font;
+
+  for (i = 0; i < num_font_aliases; i++)
+    {
+      if (strcmp(name, font_aliases[i].name) == 0)
+        {
+          for (j = 0; j < 3; j++)
+            {
+              if (font_aliases[i].candidate[j] != NULL)
+                {
+                  font = gks_ft_load_user_font(font_aliases[i].candidate[j], 1);
+                  if (font > 0)
+                    {
+                      return font;
+                      break;
+                    }
+                }
+            }
+        }
+    }
+  return -1;
+}
+
 /*!
  * Load a font file from a given filename.
  *
@@ -3286,8 +3353,19 @@ void gr_loadfont(char *filename, int *font)
 {
   check_autoinit;
 
-  *font = gks_ft_load_user_font(filename);
-  if (flag_graphics) gr_writestream("<loadfont filename=\"%s\"/>\n", filename);
+  if (strchr(filename, '.') == NULL)
+    {
+      *font = loadfont(filename);
+      if (*font == -1) fprintf(stderr, "could not find font %s\n", filename);
+    }
+  else
+    {
+      *font = gks_ft_load_user_font(filename, 0);
+    }
+  if (*font > 0)
+    {
+      if (flag_graphics) gr_writestream("<loadfont filename=\"%s\"/>\n", filename);
+    }
 }
 
 /*!
