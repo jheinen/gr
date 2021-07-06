@@ -29,7 +29,7 @@ struct message* get_response_message(struct message* message, DATALENGTH size, v
 
 /*Adds message user wants to send, to queue_to_network*/
 void message_send(struct message* message){
-  //TODO send_data(message->scon->socket, message->data,
+  //TODO send_data_optimiert(message->scon->socket, message->data,
   //message->datalength, message->number, 0);
   /*struct queue_q *queue_to_network = message->scon->queue_to_network;
   int pipe_to_network = message->scon->pipe_to_network;
@@ -84,12 +84,12 @@ void send_message_list(struct single_connection* act_con){
     struct message_kind* message_and_kind = get_by_index(act_con->messages_to_be_send, message_index);
     struct message* act_message = message_and_kind->message;
     /*send some data from message*/
-    if (message_and_kind->kind < 8){ /*remove message from list, one send_data call is enough to send whole message*/
+    if (message_and_kind->kind < 8){ /*remove message from list, one send_data_optimiert call is enough to send whole message*/
       //message_and_kind = remove_by_index(&(act_con->messages_to_be_send), message_index);
       to_delete_index[message_index] = message_index;
     }
     int ret_val;
-    if ((ret_val = send_data(act_con->socket, act_message, message_and_kind->kind)) < 0){
+    if ((ret_val = send_data_optimiert(act_con->socket, act_message, message_and_kind->kind)) < 0){
       printf("Versenden der Daten hat nicht funktioniert, kind:%d \n", message_and_kind->kind);
       perror("Error occurred while trying to send some data\n");
       if(message_and_kind->kind == 8){
@@ -165,7 +165,7 @@ DATALENGTH receive_connection(struct context_object* context, struct single_conn
   DATALENGTH recvd;
   struct message* rcv_message = new_message();
   rcv_message->scon = act_con;
-  recvd = receive_data(act_con, recv_status, &rcv_message);
+  recvd = receive_data_optimiert(act_con, recv_status, &rcv_message);
     //if (*recv_status == 8 && rcv_message->datalength == rcv_message->how_much_sent){
     //    printf("Adresse der rcv_message: %p\n", rcv_message);
     //}
@@ -320,18 +320,18 @@ void try_reconnection(struct single_connection* act_con, int* nfds, struct pollf
         struct message* message = new_message();
         message->scon = act_con;
         /*tell connnection partner that connnection already existed*/
-        //send_data(act_con->socket, message, 5);
+        //send_data_optimiert(act_con->socket, message, 5);
         //push_message_to_sending_list(act_con->messages_to_be_send, message, 5);
-        send_data(act_con->socket, message, 5);
+        send_data_optimiert(act_con->socket, message, 5);
         /*if server did not find the connection, resend clients con_id*/
-        //send_data(newsocket, message, 3);
+        //send_data_optimiert(newsocket, message, 3);
         if(act_con->type == 0){
           //push_message_to_sending_list(act_con->messages_to_be_send, message, 3);
-          send_data(act_con->socket, message, 3);
+          send_data_optimiert(act_con->socket, message, 3);
         }
         else if(act_con->type ==  1){
           //push_message_to_sending_list(act_con->messages_to_be_send, message, 4);
-          send_data(act_con->socket, message, 4);
+          send_data_optimiert(act_con->socket, message, 4);
         }
         free(message);
         /*now remove the old socket and replace it with the new one*/
@@ -583,7 +583,7 @@ struct single_connection* new_connection_struct(){
         /*send heartbeat*/
         if (act_con->status == 0 || act_con->status == 1){
           struct message* empty_message = NULL; /*no new struct needed, to send Heartbeat*/
-          //send_data(act_con->socket, (struct message*)&empty_message, 1);
+          //send_data_optimiert(act_con->socket, (struct message*)&empty_message, 1);
           push_message_to_sending_list(act_con->messages_to_be_send, empty_message, 1);
         }
         else{
@@ -610,7 +610,7 @@ struct single_connection* new_connection_struct(){
           }
           else{ /*send heartbeat*/
             void* empty_message = NULL;
-            //send_data(act_con->socket, empty_message, 1);
+            //send_data_optimiert(act_con->socket, empty_message, 1);
             printf("Pushe Heartbeat\n");
             push_message_to_sending_list(act_con->messages_to_be_send, empty_message, 1);
           }
@@ -657,12 +657,12 @@ struct single_connection* new_connection_struct(){
             printf("Winsock initialisiert\n");
 #else
         int sock;
+#endif
         int clientSocket = socket(type, protocol, 0);
         if (clientSocket < 0){
           perror("error creating Serverside socket\n");
         }
         fcntl(clientSocket, F_SETFL, O_NONBLOCK);
-#endif
         /*configure serverAddress*/
         serverAddr.sin_family = type;
         serverAddr.sin_port = htons(server_port);
@@ -901,7 +901,7 @@ struct single_connection* new_connection_struct(){
             /*iterate over every message in queue to be sended and add it to list*/
             while (queue_length(from_client_queue) != 0){
               /*get data*/
-              struct size_number_data* to_send_data;
+              struct size_number_data* to_send_data_optimiert;
               pthread_mutex_lock (&act_con->connection_mutex);
               struct message* to_send_message = queue_dequeue(from_client_queue);
               pthread_mutex_unlock (&act_con->connection_mutex);
@@ -1037,7 +1037,7 @@ struct single_connection* new_connection_struct(){
                 struct message* message = new_message();
                 message->scon = scon;
                 push_message_to_sending_list(scon->messages_to_be_send, message, 4);
-                //send_data(scon->socket, message,4);
+                //send_data_optimiert(scon->socket, message,4);
                 free(message);
                 if (act_server->handle_message_func != NULL){
                   scon->handle_message_func = act_server->handle_message_func;
@@ -1118,7 +1118,7 @@ struct single_connection* new_connection_struct(){
                       /*inform connection partner that he can close his socket*/
                       struct message* message = new_message();
                       message->scon = con;
-                      send_data(act_con->socket, message, 7);
+                      send_data_optimiert(act_con->socket, message, 7);
                       free(message);
                       #ifdef _WIN32
                           closesocket(stbd_element->socket);
