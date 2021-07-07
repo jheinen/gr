@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+MAKE="${MAKE:-make}"
 
 if [ $# = 0 ]; then
   opts="xft=no"
@@ -42,9 +43,9 @@ extras=`pwd`/3rdparty/build
 extras_lib=${extras}/lib
 export PATH=${PATH}:${extras}/bin
 
-make -C 3rdparty
-make -C 3rdparty extras
-make EXTRA_CFLAGS=-I${extras}/include \
+${MAKE} -C 3rdparty
+${MAKE} -C 3rdparty extras
+${MAKE} EXTRA_CFLAGS=-I${extras}/include \
      EXTRA_CXXFLAGS=-I${extras}/include \
      EXTRA_LDFLAGS=-L${extras_lib} \
      ${opts} install
