@@ -1,5 +1,7 @@
+#ifndef __FreeBSD__
 #ifdef __unix__
 #define _POSIX_C_SOURCE 200809L
+#endif
 #endif
 
 #include <stdio.h>
