@@ -48,7 +48,7 @@ targets: prerequisites libGR3${GR_SHARED_LIBRARY_SUFFIX}
 prerequisites:
 	$(MAKE) -C ../gr
 
-ifeq ($(UNAME), Linux)
+ifeq ($(UNAME), $(filter $(UNAME),Linux FreeBSD))  # if $(UNAME) in (Linux, FreeBSD)
 targets: libGR3platform.so
 install: install_platform
 install_platform:
