@@ -624,6 +624,8 @@ freebsd-self-contained:
   script:
   - sudo mkdir /usr/local/gr
   - sudo chown administrator:administrator /usr/local/gr
+  - export CPATH="/usr/local/include"
+  - export LIBRARY_PATH="/usr/local/lib"
   - gmake self GRDIR=/usr/local/gr MAKE=gmake
   - mkdir artifacts
   - cp lib/gks/demo artifacts/gksdemo
