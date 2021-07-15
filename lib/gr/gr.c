@@ -10398,8 +10398,6 @@ void gr_drawimage(double xmin, double xmax, double ymin, double ymax, int width,
       print_int_array("data", n, data);
       gr_writestream("model=\"%d\"/>\n", model);
     }
-
-  if (model == MODEL_HSV) free(img);
 }
 
 /*!
