@@ -5191,11 +5191,10 @@ error_t plot_draw_axes(grm_args_t *args, unsigned int pass)
           gr_wctondc(&x_right, &null);
           available_width = x_right - x_left;
           return_error_if(!args_first_value(*current_series, "y", "D", &y, &y_length), ERROR_PLOT_MISSING_DATA);
-          return_error_if(xticklabels_length != y_length, ERROR_PLOT_COMPONENT_LENGTH_MISMATCH);
           args_values(args, "window", "D", &window);
           gr_setcharheight(charheight);
           gr_settextalign(GKS_K_TEXT_HALIGN_CENTER, GKS_K_TEXT_VALIGN_TOP);
-          for (i = 1; i <= y_length; i++)
+          for (i = 1; i <= xticklabels_length; i++)
             {
               x1 = i;
               gr_wctondc(&x1, &x2);

@@ -27,6 +27,7 @@ $(PREFIX)/src/zeromq-$(VERSION).tar.gz:
 
 $(PREFIX)/src/zeromq-$(VERSION)/configure: $(PREFIX)/src/zeromq-$(VERSION).tar.gz
 	cd $(PREFIX)/src/ && tar -xf zeromq-$(VERSION).tar.gz
+	cd $(PREFIX)/src/zeromq-$(VERSION) && patch -p1 < $(CURDIR)/tests_includes.patch
 	touch $@
 
 $(PREFIX)/src/zeromq-$(VERSION)/Makefile: $(PREFIX)/src/zeromq-$(VERSION)/configure

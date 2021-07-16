@@ -217,6 +217,19 @@ static void gksterm_draw(int window, void *displaylist, size_t displaylist_len)
     }
 }
 
+static void gksterm_get_state(gks_ws_state_t *state, int window)
+{
+  size_t request_len = 1 + sizeof(int);
+  char request[1 + sizeof(int)];
+  request[0] = GKSTERM_FUNCTION_INQ_WS_STATE;
+  *(int *)(request + 1) = window;
+
+  gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char *reply, size_t reply_len) {
+    assert(reply_len == sizeof(gks_ws_state_t));
+    memcpy((void *)state, reply, reply_len);
+  });
+}
+
 @interface gks_quartz_thread : NSObject
 + (void)update:(id)param;
 @end
@@ -336,6 +349,7 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
 
   ws_state_list *wss = (ws_state_list *)*ptr;
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  gks_ws_state_t state;
 
   switch (fctid)
     {
@@ -397,6 +411,8 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
       r2[0] = 0.001 * size.height;
       ia[0] = (int)NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]);
       ia[1] = (int)NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]);
+
+      wss->aspect_ratio = 1.0;
       break;
 
     case CLOSE_WS:
@@ -482,6 +498,43 @@ void gks_quartzplugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, dou
       [mutex lock];
       wss->inactivity_counter = 0;
       wss->empty = NO;
+      [mutex unlock];
+      break;
+
+    case SET_WS_WINDOW:
+      wss->aspect_ratio = (r1[1] - r1[0]) / (r2[1] - r2[0]);
+      break;
+
+    case INQ_WS_STATE:
+      [mutex lock];
+      if (wss->win != -1)
+        {
+          gksterm_get_state(&state, wss->win);
+          if (state.width > state.height * wss->aspect_ratio)
+            {
+              ia[0] = (int)(state.height * wss->aspect_ratio + 0.5);
+              ia[1] = state.height;
+            }
+          else
+            {
+              ia[0] = state.width;
+              ia[1] = (int)(state.width / wss->aspect_ratio + 0.5);
+            }
+          r1[0] = state.device_pixel_ratio;
+        }
+      else
+        {
+          ia[0] = 0;
+          ia[1] = 0;
+          if ([NSScreen mainScreen] != nil)
+            {
+              r1[0] = [[NSScreen mainScreen] backingScaleFactor];
+            }
+          else
+            {
+              r1[0] = 1.0;
+            }
+        }
       [mutex unlock];
       break;
     }

@@ -65,7 +65,7 @@ const char *gr3_error_file_ = "";
   {                                                                                                                   \
     GR3_InitStruct_INITIALIZER, 0, 0, 0, NULL, 0, NULL, not_initialized_, NULL, NULL, 0, 0, {{0}}, 0, 0, 0, NAN, NAN, \
         NAN, NAN, {0, 0, 0, 0}, 0, 0, 0, 0, 0, {0, 0, 0, 1}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 0, 0, 0, -1, 0,   \
-        {0}, {0}, {0}, {0}, 0, 0                                                                                      \
+        {0}, {0}, {0}, {0}, 0, 0, 0                                                                                   \
   }
 #else
 #define GR3_ContextStruct_INITIALIZER                                                                                 \
@@ -1863,6 +1863,10 @@ static int gr3_getpixmap_(char *pixmap, int width, int height, int use_alpha, in
       GLfloat fovy = context_struct_.vertical_field_of_view;
       GLfloat tan_halffovy = tan(fovy * M_PI / 360.0);
       GLfloat aspect = (GLfloat)width / height;
+      if (context_struct_.projection_type == GR3_PROJECTION_PARALLEL && context_struct_.aspect_override > 0)
+        {
+          aspect = context_struct_.aspect_override;
+        }
 
       right = zNear * tan_halffovy * aspect;
       left = -right;

@@ -270,6 +270,7 @@ typedef struct _GR3_ContextStruct_t_
   queue *queues[MAX_NUM_THREADS];
   int last_width;
   int last_height;
+  float aspect_override;
 } GR3_ContextStruct_t_;
 
 extern GR3_ContextStruct_t_ context_struct_;

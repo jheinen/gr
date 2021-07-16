@@ -111,6 +111,7 @@ extern "C" {
 #define SET_BORDER_WIDTH 206
 #define SET_BORDER_COLOR_INDEX 207
 #define SELECT_CLIP_XFORM 208
+#define INQ_WS_STATE 209
 
 #define BEGIN_SELECTION 250
 #define END_SELECTION 251
@@ -162,6 +163,7 @@ typedef struct
   double bwidth;
   int bcoli;
   int clip_tnr;
+  double aspect_ratio;
   char *(*callback)(const char *);
 } gks_state_list_t;
 
@@ -179,6 +181,7 @@ typedef struct
   int wtype;
   int conid;
   void *ptr;
+  double vp[4];
 } ws_list_t;
 
 typedef struct
@@ -208,6 +211,13 @@ typedef struct
   int length;
   int coord[124][2];
 } stroke_data_t;
+
+typedef struct
+{
+  int width;
+  int height;
+  double device_pixel_ratio;
+} gks_ws_state_t;
 
 int gks_open_font(void);
 void gks_lookup_font(int fd, int version, int font, int chr, stroke_data_t *buffer);
@@ -385,7 +395,7 @@ DLLEXPORT void gks_ft_inq_text3d_extent(double x, double y, double z, char *text
                                         void (*wc3towc)(double *, double *, double *), double *bx, double *by);
 DLLEXPORT void gks_ft_set_bearing_x_direction(int);
 DLLEXPORT void gks_ft_inq_bearing_x_direction(int *);
-DLLEXPORT int gks_ft_load_user_font(char *font);
+DLLEXPORT int gks_ft_load_user_font(char *font, int ignore_file_not_found);
 
 DLLEXPORT void gks_set_encoding(int encoding);
 DLLEXPORT void gks_inq_encoding(int *encoding);

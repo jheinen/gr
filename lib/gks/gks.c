@@ -506,6 +506,7 @@ void gks_init_gks(void)
       s->bwidth = 1;
       s->bcoli = 0;
       s->clip_tnr = 0;
+      s->aspect_ratio = 1;
 
       s->callback = NULL;
     }
@@ -690,27 +691,37 @@ void gks_open_ws(int wkid, char *path, int wtype)
 
                       if (i_arr[0] != 0 || i_arr[1] != 0)
                         {
+                          ws_descr_t *p = (ws_descr_t *)element->ptr;
+
                           if (wtype == 5) s->wiss = 1;
 
 #ifndef __EMSCRIPTEN__
                           if ((wtype >= 210 && wtype <= 213) || wtype == 218 || wtype == 41 || wtype == 381 ||
                               wtype == 400 || wtype == 411 || wtype == 420)
                             {
-                              ws_descr_t *p = (ws_descr_t *)element->ptr;
-
                               p->sizex = f_arr_1[0];
                               p->sizey = f_arr_2[0];
                               p->unitsx = i_arr[0];
                               p->unitsy = i_arr[1];
                             }
 #else
-                          ws_descr_t *p = (ws_descr_t *)element->ptr;
-
                           p->sizex = f_arr_1[0];
                           p->sizey = f_arr_2[0];
                           p->unitsx = i_arr[0];
                           p->unitsy = i_arr[1];
 #endif
+                          ws->vp[0] = 0;
+                          ws->vp[2] = 0;
+                          if ((wtype >= 140 && wtype <= 146) || wtype == 150)
+                            {
+                              ws->vp[1] = 2400.0 / p->unitsx * p->sizex;
+                              ws->vp[3] = 2400.0 / p->unitsy * p->sizey;
+                            }
+                          else
+                            {
+                              ws->vp[1] = 500.0 / p->unitsx * p->sizex;
+                              ws->vp[3] = 500.0 / p->unitsy * p->sizey;
+                            }
                         }
                       else
                         {
@@ -879,7 +890,6 @@ void gks_configure_ws(int wkid)
 {
   gks_list_t *element;
   ws_list_t *ws;
-
 
   if (state == GKS_K_WSOP || state == GKS_K_WSAC)
     {
@@ -1959,6 +1969,7 @@ void gks_set_ws_window(int wkid, double xmin, double xmax, double ymin, double y
 
                       /* call the device driver link routine */
                       gks_ddlk(SET_WS_WINDOW, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+                      s->aspect_ratio = (xmax - xmin) / (ymax - ymin);
                     }
                   else
                     /* workstation window is not within the NDC unit square */
@@ -1984,11 +1995,14 @@ void gks_set_ws_window(int wkid, double xmin, double xmax, double ymin, double y
 
 void gks_set_ws_viewport(int wkid, double xmin, double xmax, double ymin, double ymax)
 {
+  gks_list_t *element;
+  ws_list_t *ws;
+
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
         {
-          if (gks_list_find(open_ws, wkid) != NULL)
+          if ((element = gks_list_find(open_ws, wkid)) != NULL)
             {
               if (xmin < xmax && ymin < ymax)
                 {
@@ -1999,6 +2013,12 @@ void gks_set_ws_viewport(int wkid, double xmin, double xmax, double ymin, double
                   f_arr_2[1] = ymax;
                   /* call the device driver link routine */
                   gks_ddlk(SET_WS_VIEWPORT, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+
+                  ws = (ws_list_t *)element->ptr;
+                  ws->vp[0] = xmin;
+                  ws->vp[1] = xmax;
+                  ws->vp[2] = xmin;
+                  ws->vp[3] = ymax;
                 }
               else
                 /* rectangle definition is invalid */
@@ -2944,6 +2964,69 @@ void gks_inq_max_ds_size(int wtype, int *errind, int *dcunit, double *rx, double
       *ry = ws->sizey;
       *lx = ws->unitsx;
       *ly = ws->unitsy;
+    }
+  else
+    *errind = GKS_K_ERROR;
+}
+
+void gks_inq_vp_size(int wkid, int *errind, int *width, int *height, double *device_pixel_ratio)
+{
+  gks_list_t *element;
+  ws_list_t *ws;
+  ws_descr_t *descr;
+  double *vp;
+
+  if ((element = gks_list_find(open_ws, wkid)) != NULL)
+    {
+      ws = (ws_list_t *)element->ptr;
+
+      switch (ws->wtype)
+        {
+#ifndef EMSCRIPTEN
+        case 381:
+          gks_qt_plugin(INQ_WS_STATE, 2, 1, 2, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, &ws->ptr);
+          break;
+
+        case 400:
+          gks_quartz_plugin(INQ_WS_STATE, 2, 1, 2, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, &ws->ptr);
+          break;
+
+        case 411:
+          gks_drv_socket(INQ_WS_STATE, 2, 1, 2, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, &ws->ptr);
+          break;
+#endif
+        default:
+          element = gks_list_find(av_ws_types, ws->wtype);
+          descr = (ws_descr_t *)element->ptr;
+
+          i_arr[0] = (int)((ws->vp[1] - ws->vp[0]) / descr->sizex * descr->unitsx + 0.5);
+          i_arr[1] = (int)((ws->vp[3] - ws->vp[2]) / descr->sizey * descr->unitsy + 0.5);
+          if (ws->wtype == 101 || ws->wtype == 102 || ws->wtype == 382) /* PDF or SVG */
+            f_arr_1[0] = 4.0;
+          else
+            f_arr_1[0] = 1.0;
+        }
+
+      *errind = GKS_K_NO_ERROR;
+      vp = s->viewport[s->cntnr];
+      if (i_arr[0] == 0 && i_arr[1] == 0)
+        {
+          element = gks_list_find(av_ws_types, ws->wtype);
+          descr = (ws_descr_t *)element->ptr;
+          i_arr[0] = (int)((ws->vp[1] - ws->vp[0]) / descr->sizex * descr->unitsx + 0.5);
+          i_arr[1] = (int)((ws->vp[3] - ws->vp[2]) / descr->sizey * descr->unitsy + 0.5);
+        }
+      if (s->aspect_ratio > 1)
+        {
+          *width = i_arr[0] * (vp[1] - vp[0]);
+          *height = i_arr[1] * (vp[3] - vp[2]) * s->aspect_ratio;
+        }
+      else
+        {
+          *width = i_arr[0] * (vp[1] - vp[0]) / s->aspect_ratio;
+          *height = i_arr[1] * (vp[3] - vp[2]);
+        }
+      *device_pixel_ratio = f_arr_1[0];
     }
   else
     *errind = GKS_K_ERROR;

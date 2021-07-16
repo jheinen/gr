@@ -840,8 +840,11 @@ GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int opt
           ymin = ymax;
           ymax = tmp;
         }
-      /* TODO: inquire the required resolution */
-      int base_resolution = 1000;
+      int width, height;
+      double device_pixel_ratio;
+      gr_inqvpsize(&width, &height, &device_pixel_ratio);
+      width *= device_pixel_ratio;
+      height *= device_pixel_ratio;
       double vpxmin, vpxmax, vpymin, vpymax;
       gr_inqviewport(&vpxmin, &vpxmax, &vpymin, &vpymax);
       double aspect = fabs((vpxmax - vpxmin) / (vpymax - vpymin));
@@ -851,21 +854,21 @@ GR3API void gr3_surface(int nx, int ny, float *px, float *py, float *pz, int opt
         {
           /* projection type does not consider the viewport aspect ratio */
           aspect = 1;
+          context_struct_.aspect_override = 1;
         }
       if (aspect > 1)
         {
-          gr3_drawimage((float)xmin, (float)xmax, (float)ymin, (float)ymax, (int)(base_resolution * aspect),
-                        base_resolution, GR3_DRAWABLE_GKS);
+          gr3_drawimage((float)xmin, (float)xmax, (float)ymin, (float)ymax, width, height, GR3_DRAWABLE_GKS);
         }
       else
         {
           double fovy = context_struct_.vertical_field_of_view;
           context_struct_.vertical_field_of_view =
               (float)(atan(tan(context_struct_.vertical_field_of_view / 360 * M_PI) / aspect) / M_PI * 360);
-          gr3_drawimage((float)xmin, (float)xmax, (float)ymin, (float)ymax, base_resolution,
-                        (int)(base_resolution / aspect), GR3_DRAWABLE_GKS);
+          gr3_drawimage((float)xmin, (float)xmax, (float)ymin, (float)ymax, width, height, GR3_DRAWABLE_GKS);
           context_struct_.vertical_field_of_view = (float)fovy;
         }
+      context_struct_.aspect_override = 0;
       if (gr3_geterror(0, NULL, NULL)) return;
     }
   else
@@ -996,8 +999,13 @@ GR3API void gr3_drawtrianglesurface(int n, const float *positions)
       window.y_max = tmp;
     }
 
-  /* TODO: inquire the required resolution */
-  gr3_drawimage((float)window.x_min, (float)window.x_max, (float)window.y_min, (float)window.y_max, 500, 500,
+  int width, height;
+  double device_pixel_ratio;
+  gr_inqvpsize(&width, &height, &device_pixel_ratio);
+  width *= device_pixel_ratio;
+  height *= device_pixel_ratio;
+
+  gr3_drawimage((float)window.x_min, (float)window.x_max, (float)window.y_min, (float)window.y_max, width, height,
                 GR3_DRAWABLE_GKS);
   if (gr3_geterror(0, NULL, NULL)) return;
 }
@@ -1163,8 +1171,8 @@ GR3API void gr_volume(int nx, int ny, int nz, double *data, int algorithm, doubl
     }
   else
     {
-      int border, max_threads;
-      gr_inqvolumeflags(&border, &max_threads, &height, &width);
+      int border, max_threads, approximative_calculation;
+      gr_inqvolumeflags(&border, &max_threads, &height, &width, &approximative_calculation);
       gr_inqprojectiontype(&projection_type);
       if (projection_type == GR_PROJECTION_DEFAULT)
         {
