@@ -1251,25 +1251,35 @@ deploy-to-aur:
                 && echo "aur.archlinux.org $AUR_HOST_KEY" >> ~/.ssh/known_hosts)
   - if [[ -n "${CI_COMMIT_TAG}" ]]; then
       if echo "$CI_COMMIT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-        git clone "ssh://aur@aur.archlinux.org/gr-framework.git";
-        cd "gr-framework";
-        sed -i -e "/^pkgver=/c\pkgver=\"${CI_COMMIT_TAG#v}\"" -e "/^pkgrel=/c\pkgrel=\"1\"" PKGBUILD;
-        (
-          source PKGBUILD;
-          curl -o source -L "${source[0]}";
-          SHA256SUM="$(sha256sum source | awk '{ print $1 }')";
-          sed -i "/^sha256sums=/c\sha256sums=(\"${SHA256SUM}\")" PKGBUILD;
-        );
-        makepkg --printsrcinfo > .SRCINFO;
-        git commit -a -m "Update to version ${CI_COMMIT_TAG#v}";
-        git push;
+        for repo in "gr-framework" "gr-framework-js"; do
+          git clone "ssh://aur@aur.archlinux.org/${repo}.git";
+          cd "${repo}";
+          sed -i -e "/^pkgver=/c\pkgver=\"${CI_COMMIT_TAG#v}\"" -e "/^pkgrel=/c\pkgrel=\"1\"" PKGBUILD;
+          (
+            source PKGBUILD;
+            curl -o source -L "${source[0]}";
+            SHA256SUM="$(sha256sum source | awk '{ print $1 }')";
+            if [[ "${repo}" == "gr-framework" ]]; then
+              sed -i "/^sha256sums=/c\sha256sums=(\"${SHA256SUM}\")" PKGBUILD;
+            else
+              sed -i "/^sha256sums=/c\sha256sums=(\"${SHA256SUM}\" \\\\" PKGBUILD;
+            fi;
+          );
+          makepkg --printsrcinfo > .SRCINFO;
+          git commit -a -m "Update to version ${CI_COMMIT_TAG#v}";
+          git push;
+          cd ..;
+        done;
       fi;
     else
       PKGVERS="$(git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g')";
-      git clone "ssh://aur@aur.archlinux.org/gr-framework-git.git";
-      cd "gr-framework-git";
-      sed -i -e "/^pkgver=/c\pkgver=\"${PKGVERS}\"" -e "/^pkgrel=/c\pkgrel=\"1\"" PKGBUILD;
-      makepkg --printsrcinfo > .SRCINFO;
-      git commit -a -m "Update to version ${PKGVERS}";
-      git push;
+      for repo in "gr-framework-git" "gr-framework-js-git"; do
+        git clone "ssh://aur@aur.archlinux.org/${repo}.git";
+        cd "${repo}";
+        sed -i -e "/^pkgver=/c\pkgver=\"${PKGVERS}\"" -e "/^pkgrel=/c\pkgrel=\"1\"" PKGBUILD;
+        makepkg --printsrcinfo > .SRCINFO;
+        git commit -a -m "Update to version ${PKGVERS}";
+        git push;
+        cd ..;
+      done;
     fi
