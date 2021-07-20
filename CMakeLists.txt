@@ -439,6 +439,7 @@ endif()
 set(GRM_SOURCES
     lib/grm/args.c
     lib/grm/base64.c
+    lib/grm/bson.c
     lib/grm/dump.c
     lib/grm/dynamic_args_array.c
     lib/grm/error.c
